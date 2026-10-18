@@ -43,6 +43,13 @@ final class Settings {
     /// Метка темпа на полосках.
     var showPace: Bool { didSet { save(showPace, "showPace") } }
     var hotKey: HotKeyChoice { didSet { save(hotKey.rawValue, "hotKey") } }
+    /// Код языка интерфейса; nil — как в системе. Хранится пустой строкой.
+    var language: String? { didSet { save(language ?? "", "language") } }
+
+    /// Язык нужен до создания настроек: главное меню строится раньше.
+    static var storedLanguage: String? {
+        UserDefaults.standard.string(forKey: "language").flatMap { $0.isEmpty ? nil : $0 }
+    }
 
     var notify: Bool { didSet { save(notify, "notify") } }
     var notifyThreshold: Double { didSet { save(notifyThreshold, "notifyThreshold") } }
@@ -111,6 +118,7 @@ final class Settings {
         economy = d.object(forKey: "economy") as? Bool ?? true
         showPace = d.object(forKey: "showPace") as? Bool ?? true
         hotKey = d.string(forKey: "hotKey").flatMap(HotKeyChoice.init) ?? .ctrlOptL
+        language = Self.storedLanguage
         notify = d.object(forKey: "notify") as? Bool ?? true
         let threshold = d.double(forKey: "notifyThreshold")
         notifyThreshold = Self.thresholds.contains(threshold) ? threshold : 0.9

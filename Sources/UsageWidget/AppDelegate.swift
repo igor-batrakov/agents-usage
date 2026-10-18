@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifier = Notifier()
     private let hotKey = HotKey()
     private var appliedHotKey: HotKeyChoice?
+    /// Применённый язык; внешний nil — ещё не применяли (первый вызов: язык уже выбран в main).
+    private var appliedLanguage: String??
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -97,6 +99,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let panel {
             panel.close()
             self.panel = nil
+        }
+
+        // Сменили язык: главное меню и заголовок окна — заново, SwiftUI-виды пересоберутся сами
+        // (`.id(settings.language)`), а тексты из данных (заголовки окон, ошибки) придут с опросом.
+        if appliedLanguage != .some(settings.language) {
+            let first = appliedLanguage == nil
+            appliedLanguage = .some(settings.language)
+            if !first {
+                Localization.shared.use(settings.language)
+                NSApp.mainMenu = UsageWidgetApp.editMenu()
+                settingsWindow.relocalize()
+                Task { await store.refresh() }
+            }
         }
 
         if appliedHotKey != settings.hotKey {

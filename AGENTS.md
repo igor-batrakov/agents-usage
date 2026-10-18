@@ -24,6 +24,10 @@ Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а т�
 - `Sources/UsageWidget` — AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, окно настроек) + SwiftUI-контент.
   `Settings` — все настройки и список аккаунтов (JSON в UserDefaults, ключ `accounts`). `Notifier` — доставка
   уведомлений, `HotKey` — глобальное сочетание (Carbon), `SystemState` — блокировка, сон дисплея, батарея.
+- Переводы — `Resources/<код>.lproj/Localizable.strings`, ключ — английский текст. `Localization` (UsageCore)
+  грузит выбранный язык сам, не через `Bundle`: язык переключается в настройках без перезапуска. Список языков —
+  по найденным `*.lproj`, `CFBundleLocalizations` заполняет `build.sh`. `tools/strings.py` собирает ключи `L("…")`
+  из кода и пересобирает `en.lproj` (образец для нового языка); `LocalizationTests` сверяет ключи и `%@`/`%d`.
 - План развития — [docs/plan-v2.md](docs/plan-v2.md).
 - Фикстуры `Tests/UsageCoreTests/Fixtures` — реальные ответы API, обезличенные (без токенов, id аккаунтов).
 
@@ -67,3 +71,7 @@ Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а т�
     ↻, «Проверить» и открытие поповера работают всегда.
 13. **Сервис только с балансом** (нет окон лимита) полоски в строке меню не получает — сумма в подсказке.
     Деньги — в единицах валюты (`Balance.amount`), центы переводятся при разборе.
+14. **Каждая строка интерфейса — через `L("English")`**, ключ одним литералом (его ищет `tools/strings.py`).
+    В SwiftUI — `Text(L("…"))`, не `Text("…")`: литерал SwiftUI переводит сам, по языку системы, мимо выбранного.
+    Тексты из данных (заголовки окон, ошибки) переводятся при опросе — смена языка запускает опрос. Глобальные
+    константы с `L()` — нельзя (запомнят язык первого обращения), только вычисляемые.

@@ -11,7 +11,7 @@ private let days30: TimeInterval? = 30 * 86400
         let r = try Parsers.copilot(fixture("copilot_user"))
         // Премиум на бесплатном плане — объём 0, не показываем.
         #expect(r.windows.map(\.id) == ["copilot-chat", "copilot-completions"])
-        #expect(r.windows.map(\.title) == ["Чат", "Автодополнения"])
+        #expect(r.windows.map(\.title) == ["Chat", "Completions"])
         #expect(r.windows[0].used == 0)
         #expect(abs(r.windows[1].used - 0.006) < 1e-9)
         let reset = try #require(ISO8601DateFormatter().date(from: "2026-11-01T00:00:00Z"))
@@ -57,7 +57,7 @@ private let days30: TimeInterval? = 30 * 86400
         let json = #"{"individualUsage":{"plan":{"totalPercentUsed":0.36},"onDemand":{"enabled":true,"used":1234,"limit":null}}}"#
         let r = try Parsers.cursor(Data(json.utf8))
         #expect(abs(r.windows[0].used - 0.0036) < 1e-9)
-        #expect(r.balances == [Balance(id: "cursor-on-demand", title: "Сверх плана", amount: 12.34, currency: "USD")])
+        #expect(r.balances == [Balance(id: "cursor-on-demand", title: "On-demand", amount: 12.34, currency: "USD")])
     }
 
     @Test func jwtSubjectGivesUserID() {
@@ -77,7 +77,7 @@ private let days30: TimeInterval? = 30 * 86400
         """#
         let r = try Parsers.kimi(Data(json.utf8))
         #expect(r.windows.map(\.id) == ["kimi-5h", "kimi-week"])
-        #expect(r.windows.map(\.title) == ["5 часов", "Неделя"])
+        #expect(r.windows.map(\.title) == ["5 hours", "Week"])
         #expect(r.windows[0].used == 139.0 / 200)
         #expect(r.windows[0].isShort)
         #expect(r.windows[0].resetsAt == ISO8601DateFormatter().date(from: "2026-01-06T13:33:02Z"))
@@ -110,7 +110,7 @@ private let days30: TimeInterval? = 30 * 86400
 
     @Test func keyBudgetAndBalance() throws {
         let r = try Parsers.openRouter(key: Data(key.utf8), credits: Data(credits.utf8))
-        #expect(r.windows.map(\.title) == ["Ключ · месяц"])
+        #expect(r.windows.map(\.title) == ["Key · month"])
         #expect(r.windows[0].used == 0.25)
         #expect(r.windows[0].resetsAt == nil)
         #expect(r.balances.count == 1)
@@ -126,7 +126,7 @@ private let days30: TimeInterval? = 30 * 86400
     @Test func noLimitAndNoCreditsShowsKeySpend() throws {
         let r = try Parsers.openRouter(key: Data(#"{"data":{"limit":null,"usage":7.5}}"#.utf8), credits: nil)
         #expect(r.windows.isEmpty)
-        #expect(r.balances == [Balance(id: "openrouter-key-usage", title: "Потрачено ключом", amount: 7.5, currency: "USD")])
+        #expect(r.balances == [Balance(id: "openrouter-key-usage", title: "Spent by key", amount: 7.5, currency: "USD")])
         #expect(Account(kind: .openrouter).balanceOnly(Snapshot(report: r)))
         #expect(Account(kind: .moonshot).balanceOnly(Snapshot()))
         #expect(!Account(kind: .openrouter).balanceOnly(Snapshot()))
@@ -138,7 +138,7 @@ private let days30: TimeInterval? = 30 * 86400
         let json = #"{"code":0,"data":{"available_balance":49.58,"voucher_balance":50,"cash_balance":12.34},"scode":"0x0","status":true}"#
         let r = try Parsers.moonshot(Data(json.utf8), currency: "CNY")
         #expect(r.windows.isEmpty)
-        #expect(r.balances == [Balance(id: "moonshot-balance", title: "Баланс", amount: 49.58, currency: "CNY")])
+        #expect(r.balances == [Balance(id: "moonshot-balance", title: "Balance", amount: 49.58, currency: "CNY")])
     }
 
     @Test func apiErrorCode() {

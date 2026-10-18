@@ -80,10 +80,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         switch event.kind {
         case .threshold:
             content.title = "\(event.accountName): \(event.windowTitle) — \(Format.percent(event.used))"
-            content.body = event.resetsAt.map { "Сброс \(Format.resetIn($0, now: Date()))" } ?? "Лимит почти исчерпан"
+            content.body = event.resetsAt.map { L("Resets %@", Format.resetIn($0, now: Date())) } ?? L("The limit is almost used up")
         case .reset:
-            content.title = "\(event.accountName): \(event.windowTitle) — лимит сброшен"
-            content.body = "Можно продолжать"
+            content.title = L("%@: %@ limit reset", event.accountName, event.windowTitle)
+            content.body = L("You can keep going")
         }
         content.sound = .default
         center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))

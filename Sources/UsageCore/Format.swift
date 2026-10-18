@@ -1,24 +1,31 @@
 import Foundation
 
 public enum Format {
-    /// «через 3 д 4 ч», «через 1 ч 12 м», «через 5 м», «сейчас».
+    /// «in 3d 4h», «in 1h 12m», «in 5m»; прошедший — «reset». По-русски — «через 3 д 4 ч».
     public static func resetIn(_ date: Date, now: Date) -> String {
         let seconds = date.timeIntervalSince(now)
-        guard seconds > 0 else { return "сброшен" }
+        guard seconds > 0 else { return L("reset") }
         // Округляем вверх: «через 1 м» до самого сброса, без «через 0 м».
         let total = Int((seconds / 60).rounded(.up))
         let d = total / 1440, h = (total % 1440) / 60, m = total % 60
-        if d > 0 { return h > 0 ? "через \(d) д \(h) ч" : "через \(d) д" }
-        if h > 0 { return m > 0 ? "через \(h) ч \(m) м" : "через \(h) ч" }
-        return "через \(m) м"
+        let parts = d > 0 ? [L("%dd", d)] + (h > 0 ? [L("%dh", h)] : [])
+            : h > 0 ? [L("%dh", h)] + (m > 0 ? [L("%dm", m)] : [])
+            : [L("%dm", m)]
+        return L("in %@", parts.joined(separator: " "))
     }
 
-    /// «только что», «5 мин назад», «2 ч назад».
+    /// «just now», «5 min ago», «2 h ago».
     public static func ago(_ date: Date, now: Date) -> String {
         let mins = Int(now.timeIntervalSince(date) / 60)
-        if mins < 1 { return "только что" }
-        if mins < 60 { return "\(mins) мин назад" }
-        return "\(mins / 60) ч назад"
+        if mins < 1 { return L("just now") }
+        if mins < 60 { return L("%d min ago", mins) }
+        return L("%d h ago", mins / 60)
+    }
+
+    /// Дата и время на выбранном в приложении языке, а не на языке системы.
+    public static func date(_ date: Date, date dateStyle: Date.FormatStyle.DateStyle = .abbreviated,
+                            time: Date.FormatStyle.TimeStyle = .shortened) -> String {
+        date.formatted(Date.FormatStyle(date: dateStyle, time: time, locale: Locale(identifier: Localization.shared.code)))
     }
 
     public static func percent(_ used: Double) -> String {

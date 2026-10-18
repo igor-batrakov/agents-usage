@@ -11,6 +11,14 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/UsageWidget"
 cp "Resources/Info.plist" "$APP/Contents/Info.plist"
 cp "Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# Переводы и список языков — по каталогам Resources/*.lproj: новый язык не требует правки Info.plist.
+i=0
+/usr/libexec/PlistBuddy -c "Add :CFBundleLocalizations array" "$APP/Contents/Info.plist"
+for lproj in Resources/*.lproj; do
+    cp -R "$lproj" "$APP/Contents/Resources/"
+    /usr/libexec/PlistBuddy -c "Add :CFBundleLocalizations:$i string $(basename "$lproj" .lproj)" "$APP/Contents/Info.plist"
+    i=$((i + 1))
+done
 codesign --force --sign - --identifier ru.batrakov.UsageWidget "$APP"
 echo "Готово: $APP ($(du -sh "$APP" | cut -f1))"
 

@@ -3,6 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key><string>ru.batrakov.UsageWidget</string>
+    <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleName</key><string>Agents Usage</string>
     <key>CFBundleDisplayName</key><string>Agents Usage</string>
     <key>CFBundleExecutable</key><string>UsageWidget</string>

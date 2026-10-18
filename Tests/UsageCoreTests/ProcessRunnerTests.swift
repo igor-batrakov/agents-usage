@@ -44,7 +44,7 @@ import Testing
     }
 
     @Test func timeoutThrows() async {
-        await #expect(throws: UsageError.message("таймаут 0 с")) {
+        await #expect(throws: UsageError.message("timed out after 0 s")) {
             try await ProcessRunner.run("/bin/sleep", ["5"], timeout: 0.3)
         }
     }
@@ -71,7 +71,7 @@ import Testing
         // sleep не читает stdin, 1 МБ не влезает в pipe — запись блокируется; таймаут всё равно срабатывает.
         signal(SIGPIPE, SIG_IGN)
         let start = Date()
-        await #expect(throws: UsageError.message("таймаут 0 с")) {
+        await #expect(throws: UsageError.message("timed out after 0 s")) {
             try await ProcessRunner.run("/bin/sleep", ["30"], input: Data(count: 1 << 20), timeout: 0.5)
         }
         #expect(Date().timeIntervalSince(start) < 3)
@@ -92,7 +92,7 @@ import Testing
     }
 
     @Test func missingExecutableThrows() async {
-        await #expect(throws: UsageError.message("не найден /nonexistent/tool")) {
+        await #expect(throws: UsageError.message("/nonexistent/tool not found")) {
             try await ProcessRunner.run("/nonexistent/tool", [], timeout: 1)
         }
     }

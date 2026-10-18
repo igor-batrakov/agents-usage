@@ -101,11 +101,11 @@ enum StatusIcon {
         let lines = store.enabledAccounts.map { a in
             let s = store.snapshot(a.id)
             if a.balanceOnly(s), let b = s.report?.balances.first {
-                return "\(a.name): \(Format.money(b.amount, b.currency))" + (s.error != nil ? " (устарело)" : "")
+                return "\(a.name): \(Format.money(b.amount, b.currency))" + (s.error != nil ? " (" + L("stale") + ")" : "")
             }
-            guard let used = a.barUsed(s, at: now) else { return "\(a.name): нет данных" }
-            return "\(a.name): \(Format.percent(used))" + (s.error != nil ? " (устарело)" : "")
+            guard let used = a.barUsed(s, at: now) else { return "\(a.name): " + L("no data") }
+            return "\(a.name): \(Format.percent(used))" + (s.error != nil ? " (" + L("stale") + ")" : "")
         }
-        return lines.isEmpty ? "Нет включённых сервисов" : lines.joined(separator: "\n")
+        return lines.isEmpty ? L("No services enabled") : lines.joined(separator: "\n")
     }
 }

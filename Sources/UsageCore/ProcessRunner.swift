@@ -18,7 +18,7 @@ public enum ProcessRunner {
         until: (@Sendable (Data) -> Bool)? = nil
     ) async throws -> Data {
         guard FileManager.default.isExecutableFile(atPath: path) else {
-            throw UsageError.message("не найден \(path)")
+            throw UsageError.message(L("%@ not found", path))
         }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
@@ -69,13 +69,13 @@ public enum ProcessRunner {
             } catch {
                 // terminationHandler не будет вызван — снимаем обработчик здесь, иначе он держит pipe.
                 stdout.fileHandleForReading.readabilityHandler = nil
-                state.finish(.failure(UsageError.message("не запустить \(path): \(error.localizedDescription)")))
+                state.finish(.failure(UsageError.message(L("can't start %@: %@", path, error.localizedDescription))))
                 return
             }
             // Таймаут взводится до записи: если процесс не читает stdin, запись блокируется,
             // и только гашение процесса по таймауту её разблокирует (EPIPE).
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
-                if state.finish(.failure(UsageError.message("таймаут \(Int(timeout)) с"))) {
+                if state.finish(.failure(UsageError.message(L("timed out after %d s", Int(timeout))))) {
                     stop(process)
                 }
             }

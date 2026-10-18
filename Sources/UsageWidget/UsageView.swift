@@ -27,7 +27,7 @@ struct UsageView: View {
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 VStack(alignment: .leading, spacing: compact ? 10 : 14) {
                     if accounts.isEmpty {
-                        Text("Нет включённых сервисов — добавьте их в настройках")
+                        Text(L("No services enabled. Add them in Settings"))
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     ForEach(accounts) { account in
@@ -64,7 +64,7 @@ private struct AccountSection: View {
             if snapshot.report != nil {
                 let windows = account.visibleWindows(snapshot)
                 if windows.isEmpty, snapshot.report?.windows.isEmpty == false {
-                    Text("все окна скрыты").font(.caption).foregroundStyle(.secondary)
+                    Text(L("all windows are hidden")).font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(groups(windows), id: \.name) { group in
                     if let name = group.name {
@@ -91,7 +91,7 @@ private struct AccountSection: View {
                 }
                 if let resets = snapshot.report?.freeResets { freeResets(resets) }
             } else if snapshot.error == nil {
-                Text("загрузка…").font(.caption).foregroundStyle(.secondary)
+                Text(L("loading…")).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -128,7 +128,7 @@ private struct AccountSection: View {
         if let url = account.resolvedUsageURL {
             Button { NSWorkspace.shared.open(url) } label: { text }
                 .buttonStyle(.plain)
-                .help("Открыть страницу лимитов: \(url.host() ?? url.absoluteString)")
+                .help(L("Open the usage page: %@", url.host() ?? url.absoluteString))
                 // pointerStyle, а не NSCursor.push/pop: поповер закрывается по клику, и pop
                 // не случился бы — курсор-рука залип бы.
                 .pointerStyle(.link)
@@ -142,11 +142,11 @@ private struct AccountSection: View {
     @ViewBuilder private func freeResets(_ resets: FreeResets) -> some View {
         let expiry = resets.nextExpiry.flatMap { $0 > now ? $0 : nil }
         let label = HStack(spacing: 4) {
-            Label("Бесплатные сбросы: \(resets.count)", systemImage: "arrow.counterclockwise.circle")
+            Label(L("Free resets: %d", resets.count), systemImage: "arrow.counterclockwise.circle")
             Spacer(minLength: 4)
             if let expiry {
-                Text("сгорит \(Format.resetIn(expiry, now: now))")
-                    .help("Ближайший сгорит \(expiry.formatted(date: .abbreviated, time: .shortened))")
+                Text(L("expires %@", Format.resetIn(expiry, now: now)))
+                    .help(L("The next one expires %@", Format.date(expiry)))
             }
         }
         .lineLimit(1)
@@ -155,7 +155,7 @@ private struct AccountSection: View {
         if let url = account.resolvedUsageURL {
             Button { NSWorkspace.shared.open(url) } label: { label }
                 .buttonStyle(.plain)
-                .help("Активировать сброс — на странице лимитов")
+                .help(L("Use a reset on the usage page"))
                 .pointerStyle(.link)
         } else {
             label
@@ -194,7 +194,7 @@ private struct LimitRow: View {
                     Text(Format.resetIn(reset, now: now))
                         .font(.system(size: compact ? 10.5 : 11))
                         .foregroundStyle(.secondary)
-                        .help(reset.formatted(date: .abbreviated, time: .shortened))
+                        .help(Format.date(reset))
                 }
                 Spacer(minLength: 4)
                 Text(Format.percent(used))
@@ -203,7 +203,7 @@ private struct LimitRow: View {
             }
             Bar(fraction: used, color: Theme.bar(used, provider), pace: pace)
                 .frame(height: compact ? 4 : 5)
-                .help(pace.map { "Прошло \(Format.percent($0)) окна, израсходовано \(Format.percent(used))" } ?? "")
+                .help(pace.map { L("%@ of the window has passed, %@ used", Format.percent($0), Format.percent(used)) } ?? "")
         }
         .opacity(stale ? 0.5 : 1)
     }

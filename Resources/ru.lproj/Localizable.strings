@@ -1,0 +1,207 @@
+/* Sources/UsageCore/Format.swift */
+"reset" = "сброшен";
+"%dd" = "%d д";
+"%dh" = "%d ч";
+"%dm" = "%d м";
+"in %@" = "через %@";
+"just now" = "только что";
+"%d min ago" = "%d мин назад";
+"%d h ago" = "%d ч назад";
+
+/* Sources/UsageCore/KeyStore.swift */
+"the key contains invalid characters" = "в ключе недопустимые символы";
+"couldn't save the key to Keychain" = "не удалось сохранить ключ в Связку ключей";
+"couldn't delete the key from Keychain" = "не удалось удалить ключ из Связки ключей";
+
+/* Sources/UsageCore/Models.swift */
+"%@: exit code %d" = "%@: код %d";
+
+/* Sources/UsageCore/Parsers.swift */
+"5 hours" = "5 часов";
+"Week" = "Неделя";
+"model" = "модель";
+"no limit windows in the response" = "в ответе нет окон лимита";
+"app-server error" = "ошибка app-server";
+"no result in the response" = "в ответе нет result";
+"%d days" = "%d дн.";
+"%d hours" = "%d ч";
+"%d min" = "%d мин";
+"Limit" = "Лимит";
+"agy returned no quotas (status %@)" = "agy не вернул квоты (status %@)";
+"Claude and GPT" = "Claude и GPT";
+"Premium requests" = "Премиум-запросы";
+"Chat" = "Чат";
+"Completions" = "Автодополнения";
+"no Copilot quotas in the response" = "в ответе нет квот Copilot";
+"Included in plan" = "Включено в план";
+"API models" = "API-модели";
+"On-demand" = "Сверх плана";
+"no Cursor data in the response" = "в ответе нет данных Cursor";
+"Month" = "Месяц";
+"no data in the response" = "в ответе нет data";
+"Key · day" = "Ключ · день";
+"Key · week" = "Ключ · неделя";
+"Key · month" = "Ключ · месяц";
+"Key · limit" = "Ключ · лимит";
+"no balance in the /credits response" = "в ответе /credits нет баланса";
+"Balance" = "Баланс";
+"Spent by key" = "Потрачено ключом";
+"no OpenRouter data in the response" = "в ответе нет данных OpenRouter";
+"API error: %d" = "ошибка API: %d";
+"no balance in the response" = "в ответе нет баланса";
+"response is not JSON" = "ответ не JSON";
+
+/* Sources/UsageCore/ProcessRunner.swift */
+"%@ not found" = "не найден %@";
+"can't start %@: %@" = "не запустить %@: %@";
+"timed out after %d s" = "таймаут %d с";
+
+/* Sources/UsageCore/Sources.swift */
+"not signed in to Claude Code" = "нет входа в Claude Code";
+"not signed in to Claude Code for this directory" = "нет входа в Claude Code для этого каталога";
+"token expired, run claude" = "токен истёк — запусти claude";
+"API: too many requests (429)" = "API: слишком часто (429)";
+"GitHub CLI (gh) not found. Copilot signs in through it" = "нет GitHub CLI (gh) — через него берётся вход";
+"not signed in to gh. Run gh auth login" = "нет входа в gh — запусти gh auth login";
+"gh rejected the sign-in. Run gh auth login" = "gh отклонил вход — запусти gh auth login";
+"this account has no Copilot" = "у аккаунта нет Copilot";
+"%@ not installed" = "%@ не установлен";
+"app-server didn't respond" = "app-server не ответил";
+"not signed in to Cursor. Sign in in the app" = "нет входа в Cursor — войди в приложении";
+"Cursor sign-in expired. Open Cursor" = "вход в Cursor истёк — открой Cursor";
+"no API key. Add one in Settings" = "нет API-ключа — задай его в настройках";
+"key rejected. Check it in Settings" = "ключ отклонён — проверь его в настройках";
+"no API addresses" = "нет адресов API";
+
+/* Sources/UsageWidget/App.swift */
+"Edit" = "Правка";
+"Undo" = "Отменить";
+"Redo" = "Повторить";
+"Cut" = "Вырезать";
+"Copy" = "Скопировать";
+"Paste" = "Вставить";
+"Select All" = "Выбрать всё";
+
+/* Sources/UsageWidget/FloatingPanel.swift */
+"Hide the panel" = "Скрыть панель";
+"Refresh" = "Обновить";
+
+/* Sources/UsageWidget/HotKey.swift */
+"None" = "Нет";
+
+/* Sources/UsageWidget/Notifier.swift */
+"Resets %@" = "Сброс %@";
+"The limit is almost used up" = "Лимит почти исчерпан";
+"%@: %@ limit reset" = "%@: %@ — лимит сброшен";
+"You can keep going" = "Можно продолжать";
+
+/* Sources/UsageWidget/PopoverView.swift */
+"refreshing…" = "обновляю…";
+"updated %@" = "обновлено %@";
+"paused" = "пауза";
+"Refresh (⌘R)" = "Обновить (⌘R)";
+"Pause auto-refresh" = "Приостановить автообновление";
+"Resume auto-refresh" = "Возобновить автообновление";
+"Hide the desktop panel" = "Скрыть панель на столе";
+"Show the desktop panel" = "Показать панель на столе";
+"Settings (⌘,)" = "Настройки (⌘,)";
+"Quit (⌘Q)" = "Выйти (⌘Q)";
+
+/* Sources/UsageWidget/SettingsWindow.swift */
+"Agents Usage Settings" = "Настройки — Agents Usage";
+"General" = "Общие";
+"Services" = "Сервисы";
+"Panel" = "Панель";
+"Data refresh" = "Обновление";
+"Auto-refresh" = "Автообновление";
+"Interval" = "Интервал";
+"With auto-refresh off, data updates only with ↻ in the popover (⌘R)." = "Выключенное автообновление — только кнопка ↻ в поповере (⌘R).";
+"Energy saver" = "Экономный опрос";
+"Skip polling while the screen is locked or the display sleeps; poll 3× less often on battery." = "Не опрашивать, пока экран заблокирован или дисплей спит; от батареи — в 3 раза реже.";
+"Notifications" = "Уведомления";
+"Warn about limits" = "Предупреждать о лимите";
+"Threshold" = "Порог";
+"Notify when a limit resets" = "Сообщать, когда лимит сбросился";
+"Notifications are turned off in System Settings → Notifications → Agents Usage." = "Уведомления запрещены в Системных настройках → Уведомления → Agents Usage.";
+"At most once per window. Resets are reported only for windows that reached the threshold." = "Не чаще раза за окно. О сбросе — только по окнам, дошедшим до порога.";
+"Appearance" = "Вид";
+"Menu bar" = "Строка меню";
+"Bars" = "Полоски";
+"Percentages" = "Проценты";
+"Worst only" = "Только худший";
+"Pace marker on bars" = "Метка темпа на полосках";
+"The tick shows how much of the window has passed. Fill past it means the limit is being used faster than it would last until the reset." = "Чёрточка — сколько времени окна уже прошло. Заливка правее неё — расход быстрее, чем нужно, чтобы лимита хватило до сброса.";
+"System" = "Система";
+"Language" = "Язык";
+"System default" = "Как в системе";
+"Launch at login" = "Запускать при входе";
+"Open popover" = "Открыть поповер";
+"API key" = "API-ключ";
+"not found" = "не найден";
+"Add a service" = "Добавить сервис";
+"Remove the selected one" = "Удалить выбранный";
+"drag to reorder" = "порядок — перетаскиванием";
+"Select a service on the left" = "Выберите сервис слева";
+"Name" = "Имя";
+"Show" = "Показывать";
+"On panel" = "На панели";
+"default" = "по умолчанию";
+"Configuration directory of a second account, e.g. ~/.claude-work. Empty means the main one." = "Каталог конфигурации второго аккаунта, например ~/.claude-work. Пусто — основной.";
+"Windows" = "Окна";
+"No limit windows, only a balance." = "Окон лимита нет — только баланс.";
+"In menu bar" = "В строке меню";
+"Auto (short window)" = "Авто — короткое окно";
+"No data yet. Click Check." = "Данных пока нет — нажмите «Проверить».";
+"The service is off." = "Сервис выключен.";
+"Usage page" = "Страница лимитов";
+"URL" = "Адрес";
+"this service has no web page" = "у сервиса нет веб-страницы";
+"Open" = "Открыть";
+"Check" = "Проверить";
+"working: %d windows, %@" = "работает: окон %d, %@";
+"Key" = "Ключ";
+"Paste a key to replace the saved one" = "вставь ключ — заменит сохранённый";
+"Save" = "Сохранить";
+"key saved to Keychain" = "ключ сохранён в Связке ключей";
+"this key is already saved" = "этот ключ уже сохранён";
+"Delete" = "Удалить";
+"key deleted" = "ключ удалён";
+"no key was saved" = "ключа нет";
+"Stored in the macOS Keychain, never in settings or logs." = "Хранится в Связке ключей macOS — не в настройках и не в логах.";
+"Get a key" = "Где взять ключ";
+"Desktop panel" = "Панель на рабочем столе";
+"Mode" = "Режим";
+"Off" = "Выключена";
+"Above windows" = "Поверх окон";
+"On desktop" = "На столе";
+"On desktop keeps the panel above the wallpaper, under your windows." = "«На столе» — панель видна поверх обоев, окна её закрывают.";
+"Position" = "Положение";
+"Anchor" = "Привязка";
+"Free (drag to move)" = "Свободно (перетаскиванием)";
+"Top left corner" = "Левый верхний угол";
+"Top right corner" = "Правый верхний угол";
+"Bottom left corner" = "Левый нижний угол";
+"Bottom right corner" = "Правый нижний угол";
+"Margin from edge" = "Отступ от края";
+"%d pt" = "%d pt";
+"Dragging the panel switches the anchor to Free." = "Перетаскивание панели переключает привязку на «Свободно».";
+"Opacity" = "Непрозрачность";
+"Click-through" = "Сквозь клики";
+"The panel ignores the mouse, so clicks reach the windows and desktop below. You can't drag it, close it, or open its links then. Use these settings and the popover instead." = "Панель не перехватывает мышь: клики уходят окнам и столу под ней. Перетащить, закрыть крестиком и открыть ссылку на панели тогда нельзя — управление отсюда и из поповера.";
+"Services on panel" = "Сервисы на панели";
+
+/* Sources/UsageWidget/StatusIcon.swift */
+"stale" = "устарело";
+"no data" = "нет данных";
+"No services enabled" = "Нет включённых сервисов";
+
+/* Sources/UsageWidget/UsageView.swift */
+"No services enabled. Add them in Settings" = "Нет включённых сервисов — добавьте их в настройках";
+"all windows are hidden" = "все окна скрыты";
+"loading…" = "загрузка…";
+"Open the usage page: %@" = "Открыть страницу лимитов: %@";
+"Free resets: %d" = "Бесплатные сбросы: %d";
+"expires %@" = "сгорит %@";
+"The next one expires %@" = "Ближайший сгорит %@";
+"Use a reset on the usage page" = "Активировать сброс — на странице лимитов";
+"%@ of the window has passed, %@ used" = "Прошло %@ окна, израсходовано %@";

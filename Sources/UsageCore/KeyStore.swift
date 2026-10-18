@@ -29,12 +29,12 @@ public enum KeyStore {
     public static func save(_ key: String, for id: UUID) async throws -> Bool {
         let key = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { return try await delete(id) }
-        guard isValid(key) else { throw UsageError.message("в ключе недопустимые символы") }
+        guard isValid(key) else { throw UsageError.message(L("the key contains invalid characters")) }
         if try await lookup(id) == key { return false }
         let command = "add-generic-password -U -s \"\(service)\" -a \"\(id.uuidString)\" -l \"\(service)\" -w \"\(key)\"\n"
         _ = try? await ProcessRunner.run("/usr/bin/security", ["-i"], input: Data(command.utf8), closeInput: true,
                                          timeout: 5)
-        guard try await lookup(id) == key else { throw UsageError.message("не удалось сохранить ключ в Связку ключей") }
+        guard try await lookup(id) == key else { throw UsageError.message(L("couldn't save the key to Keychain")) }
         return true
     }
 
@@ -47,7 +47,7 @@ public enum KeyStore {
             _ = try await ProcessRunner.run(
                 "/usr/bin/security", ["delete-generic-password", "-s", service, "-a", id.uuidString], timeout: 5)
         } catch UsageError.exit(_, let status) where status == notFound {}
-        guard try await lookup(id) == nil else { throw UsageError.message("не удалось удалить ключ из Связки ключей") }
+        guard try await lookup(id) == nil else { throw UsageError.message(L("couldn't delete the key from Keychain")) }
         return true
     }
 
