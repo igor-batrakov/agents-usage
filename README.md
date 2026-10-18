@@ -10,10 +10,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/igor-batrakov/agents-usage/releases/latest"><img src="https://img.shields.io/github/v/release/igor-batrakov/agents-usage?label=release" alt="Latest release"></a>
+  <a href="https://github.com/igor-batrakov/agents-usage/releases/latest"><img src="https://img.shields.io/github/v/release/igor-batrakov/agents-usage?label=release&color=blue" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple" alt="macOS 15 or later">
   <a href="https://github.com/igor-batrakov/agents-usage/actions/workflows/ci.yml"><img src="https://github.com/igor-batrakov/agents-usage/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/igor-batrakov/agents-usage" alt="MIT license"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
 </p>
 
 <p align="center">
