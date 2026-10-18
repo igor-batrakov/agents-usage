@@ -1,0 +1,27 @@
+{
+ "id": 2,
+ "result": {
+  "rateLimits": {
+   "limitId": "codex",
+   "limitName": null,
+   "primary": {
+    "usedPercent": 44,
+    "windowDurationMins": 300,
+    "resetsAt": 1792333827
+   },
+   "secondary": {
+    "usedPercent": 22,
+    "windowDurationMins": 10080,
+    "resetsAt": 1792875605
+   },
+   "credits": {
+    "hasCredits": false,
+    "unlimited": false,
+    "balance": "0"
+   },
+   "planType": "plus",
+   "rateLimitReachedType": null
+  },
+  "accountId": "00000000-0000-0000-0000-000000000000"
+ }
+}
