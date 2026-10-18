@@ -11,6 +11,7 @@ public enum ProcessRunner {
         _ path: String,
         _ arguments: [String],
         input: Data? = nil,
+        environment extra: [String: String] = [:],
         timeout: TimeInterval,
         until: (@Sendable (Data) -> Bool)? = nil
     ) async throws -> Data {
@@ -20,7 +21,7 @@ public enum ProcessRunner {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
-        process.environment = environment
+        process.environment = environment.merging(extra) { _, new in new }
         let stdout = Pipe(), stdin = Pipe()
         process.standardOutput = stdout
         process.standardInput = stdin

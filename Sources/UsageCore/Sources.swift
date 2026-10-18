@@ -1,8 +1,14 @@
+import CryptoKit
 import Foundation
 
 public protocol UsageSource: Sendable {
-    var provider: Provider { get }
     func fetch() async throws -> UsageReport
+}
+
+/// `~/x` → абсолютный путь; пустая строка — nil (каталог по умолчанию).
+func expandedDir(_ path: String?) -> String? {
+    guard let path = path?.trimmingCharacters(in: .whitespaces), !path.isEmpty else { return nil }
+    return (path as NSString).expandingTildeInPath
 }
 
 // MARK: Claude Code
@@ -12,14 +18,40 @@ public protocol UsageSource: Sendable {
 /// Токен сам не обновляем: refresh-токен одноразовый, обновление за спиной
 /// у CLI разлогинило бы его. Истёк — просим запустить claude.
 public struct ClaudeSource: UsageSource {
-    public let provider = Provider.claude
-    public init() {}
+    let configDir: String?
+    public init(configDir: String? = nil) { self.configDir = expandedDir(configDir) }
+
+    /// Имя элемента Keychain — как его строит Claude Code (2.1.x): при заданном
+    /// CLAUDE_CONFIG_DIR к имени добавляются первые 8 hex-символов sha256 от пути в NFC.
+    static func keychainService(configDir: String?) -> String {
+        guard let configDir else { return "Claude Code-credentials" }
+        let digest = SHA256.hash(data: Data(configDir.precomposedStringWithCanonicalMapping.utf8))
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return "Claude Code-credentials-\(hex.prefix(8))"
+    }
+
+    /// Варианты имени: путь как введён и без завершающего «/». Нормализует ли путь сам
+    /// Claude Code, по минифицированному бинарю не установить — пробуем оба.
+    static func keychainServices(configDir: String?) -> [String] {
+        guard let configDir else { return [keychainService(configDir: nil)] }
+        let names = [configDir, (configDir as NSString).standardizingPath].map { keychainService(configDir: $0) }
+        return names.reduce(into: []) { if !$0.contains($1) { $0.append($1) } }
+    }
 
     public func fetch() async throws -> UsageReport {
-        let raw = try await ProcessRunner.run(
-            "/usr/bin/security",
-            ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
-            timeout: 5)
+        var found: Data?
+        for service in Self.keychainServices(configDir: configDir) {
+            // Нет элемента — security выходит с кодом 44; это не ошибка, пробуем следующий вариант.
+            if let data = try? await ProcessRunner.run(
+                "/usr/bin/security", ["find-generic-password", "-s", service, "-w"], timeout: 5) {
+                found = data
+                break
+            }
+        }
+        guard let raw = found else {
+            throw UsageError.message(configDir == nil ? "нет входа в Claude Code"
+                                                      : "нет входа в Claude Code для этого каталога")
+        }
         guard let creds = (try? JSONSerialization.jsonObject(with: raw) as? [String: Any])?["claudeAiOauth"] as? [String: Any],
               let token = creds["accessToken"] as? String
         else { throw UsageError.message("нет входа в Claude Code") }
@@ -55,8 +87,8 @@ public struct ClaudeSource: UsageSource {
 /// `codex app-server` по stdio: сам Codex держит авторизацию и обновляет токен.
 /// Три сообщения можно отправить разом — сервер обрабатывает их по порядку.
 public struct CodexSource: UsageSource {
-    public let provider = Provider.codex
-    public init() {}
+    let codexHome: String?
+    public init(codexHome: String? = nil) { self.codexHome = expandedDir(codexHome) }
 
     static let candidates = ["/opt/homebrew/bin/codex", "/usr/local/bin/codex", "~/.local/bin/codex"]
 
@@ -73,7 +105,8 @@ public struct CodexSource: UsageSource {
             input.append(try JSONSerialization.data(withJSONObject: m))
             input.append(0x0A)
         }
-        let output = try await ProcessRunner.run(codex, ["app-server"], input: input, timeout: 10,
+        let env = codexHome.map { ["CODEX_HOME": $0] } ?? [:]
+        let output = try await ProcessRunner.run(codex, ["app-server"], input: input, environment: env, timeout: 10,
                                                  until: { Self.response(id: 2, in: $0) != nil })
         guard let line = Self.response(id: 2, in: output) else { throw UsageError.message("app-server не ответил") }
         return try Parsers.codex(line)
@@ -94,7 +127,6 @@ public struct CodexSource: UsageSource {
 
 /// Read-only слэш-команда в print-режиме: модель не запускается, токен agy обновляет сам.
 public struct AgySource: UsageSource {
-    public let provider = Provider.agy
     public init() {}
 
     static let candidates = ["~/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]

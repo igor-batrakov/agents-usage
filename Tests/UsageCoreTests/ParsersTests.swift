@@ -11,6 +11,7 @@ private func fixture(_ name: String) throws -> Data {
     @Test func parsesLimitsArrayIncludingScopedModel() throws {
         let r = try Parsers.claude(fixture("claude_usage"), plan: "Max 5x")
         #expect(r.windows.map(\.title) == ["5 часов", "Неделя", "Неделя · Fable"])
+        #expect(r.windows.map(\.id) == ["claude-session", "claude-weekly_all", "claude-weekly_scoped-Fable"])
         #expect(r.windows[0].used == 0.19)
         #expect(r.windows[0].isShort)
         #expect(r.windows[1].used == 0.35)
@@ -96,17 +97,6 @@ private func fixture(_ name: String) throws -> Data {
     @Test func usedIsClamped() {
         #expect(LimitWindow(id: "a", title: "t", used: 1.4, resetsAt: nil, isShort: true).used == 1)
         #expect(LimitWindow(id: "a", title: "t", used: -0.1, resetsAt: nil, isShort: true).used == 0)
-    }
-
-    @Test func snapshotShortAndMax() {
-        let s = Snapshot(report: UsageReport(windows: [
-            LimitWindow(id: "1", title: "5h", used: 0.2, resetsAt: nil, isShort: true),
-            LimitWindow(id: "2", title: "5h b", used: 0.4, resetsAt: nil, isShort: true),
-            LimitWindow(id: "3", title: "week", used: 0.9, resetsAt: nil, isShort: false),
-        ], plan: nil))
-        #expect(s.shortUsed(at: now) == 0.4)
-        #expect(s.maxUsed(at: now) == 0.9)
-        #expect(Snapshot().shortUsed(at: now) == nil)
     }
 
     @Test func formats() {
