@@ -39,7 +39,7 @@ final class Settings {
     /// Отступ от краёв экрана при привязке к углу, pt.
     var panelMargin: Double { didSet { save(panelMargin, "panelMargin") } }
     var panelOpacity: Double { didSet { save(panelOpacity, "panelOpacity") } }
-    /// Панель не перехватывает мышь (только в режиме «на столе»).
+    /// Панель не перехватывает мышь: клики уходят окнам и столу под ней.
     var panelClickThrough: Bool { didSet { save(panelClickThrough, "panelClickThrough") } }
 
     /// Оба флага панели одним значением — для сегмента в настройках.

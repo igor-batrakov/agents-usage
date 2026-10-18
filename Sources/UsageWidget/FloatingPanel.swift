@@ -68,7 +68,7 @@ final class FloatingPanel: NSPanel {
             ? NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
             : .floating
         alphaValue = opacity
-        ignoresMouseEvents = clickThrough && onDesktop
+        ignoresMouseEvents = clickThrough
         if placement != self.placement {
             self.placement = placement
             reposition()
