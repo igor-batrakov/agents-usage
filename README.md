@@ -1,4 +1,4 @@
-# Лимиты ИИ
+# Agents Usage
 
 Виджет в строке меню macOS: лимиты подписок Claude Code, Codex и Antigravity (agy) в одном стиле.
 
@@ -29,7 +29,7 @@
 ## Установка
 
 ```sh
-./build.sh install    # собрать и положить в ~/Applications/Лимиты ИИ.app
+./build.sh install    # собрать и положить в ~/Applications/Agents Usage.app
 ```
 
 Нужны только Command Line Tools (`xcode-select --install`), Xcode не требуется. macOS 15+.

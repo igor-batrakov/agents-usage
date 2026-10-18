@@ -7,7 +7,10 @@ Claude Code, Codex и Antigravity (agy): процент использовани
 
 - `./test.sh` — тесты (Swift Testing). Пути к Testing.framework и плагину макросов из Command Line Tools
   подставляет скрипт: CLT, в отличие от Xcode, сам их не находит.
-- `./build.sh` — `build/Лимиты ИИ.app`, ad-hoc подпись. `./build.sh install` — копия в `~/Applications` и запуск.
+- `./build.sh` — `build/Agents Usage.app`, ad-hoc подпись. `./build.sh install` — копия в `~/Applications` и запуск.
+- Иконка — `Resources/AppIcon.icns`, рисует её `tools/make-icon.swift`; пересобрать — `tools/make-icon.sh`.
+  Bundle ID `ru.batrakov.UsageWidget` и имя бинаря `UsageWidget` не менять: к ним привязаны настройки,
+  аккаунты и разрешение на уведомления.
 - **Без SwiftUI-макросов.** В SDK macOS 27 `@State`/`@Entry` — макросы, а плагина `SwiftUIMacros` в CLT нет:
   сборка падает. Состояние UI держим в `@Observable`-моделях (Observation-макросы в CLT есть).
 

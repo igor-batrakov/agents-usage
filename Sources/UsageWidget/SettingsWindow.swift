@@ -20,7 +20,7 @@ final class SettingsWindowController {
         if window == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 480),
                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: true)
-            w.title = "Настройки — Лимиты ИИ"
+            w.title = "Настройки — Agents Usage"
             w.isReleasedWhenClosed = false
             w.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, store: store,
                                                                                          notifier: notifier))
@@ -83,7 +83,7 @@ private struct GeneralTab: View {
                 Toggle("Сообщать, когда лимит сбросился", isOn: $settings.notifyReset)
                     .disabled(!settings.notify)
                 Text(notifier.denied
-                     ? "Уведомления запрещены в Системных настройках → Уведомления → Лимиты ИИ."
+                     ? "Уведомления запрещены в Системных настройках → Уведомления → Agents Usage."
                      : "Не чаще раза за окно. О сбросе — только по окнам, дошедшим до порога.")
                     .font(.caption)
                     .foregroundStyle(notifier.denied ? Color(nsColor: Theme.amber) : .secondary)
