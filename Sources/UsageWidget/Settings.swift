@@ -16,7 +16,7 @@ final class Settings {
     enum PanelMode: Hashable { case off, floating, desktop }
 
     @ObservationIgnored var onChange: (() -> Void)?
-    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var revertingLaunchAtLogin = false
 
     /// Выбранный аккаунт во вкладке «Сервисы». Не сохраняется. Живёт здесь, а не в @State:
@@ -25,6 +25,8 @@ final class Settings {
         // Черновик ключа — выбранного аккаунта: при смене выбора его нельзя донести до другого.
         didSet { if selectedAccountID != oldValue { keyDraft = ""; keyMessage = nil } }
     }
+    /// Открытая вкладка окна настроек (0 — «Общие»). Не сохраняется, живёт здесь по той же причине.
+    var selectedTab = 0
     /// Вводимый API-ключ и итог его сохранения. Не сохраняются: сам ключ — только в Связке ключей.
     var keyDraft = ""
     var keyMessage: String?
@@ -43,6 +45,13 @@ final class Settings {
     /// Метка темпа на полосках.
     var showPace: Bool { didSet { save(showPace, "showPace") } }
     var hotKey: HotKeyChoice { didSet { save(hotKey.rawValue, "hotKey") } }
+    /// Код языка интерфейса; nil — как в системе. Хранится пустой строкой.
+    var language: String? { didSet { save(language ?? "", "language") } }
+
+    /// Язык нужен до создания настроек: главное меню строится раньше.
+    static var storedLanguage: String? {
+        UserDefaults.standard.string(forKey: "language").flatMap { $0.isEmpty ? nil : $0 }
+    }
 
     var notify: Bool { didSet { save(notify, "notify") } }
     var notifyThreshold: Double { didSet { save(notifyThreshold, "notifyThreshold") } }
@@ -93,8 +102,10 @@ final class Settings {
         }
     }
 
-    init() {
-        let d = UserDefaults.standard
+    /// `defaults` — свой домен у демо-режима (Demo), иначе стандартный.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let d = defaults
         if let data = d.data(forKey: "accounts"), let list = try? JSONDecoder().decode([Account].self, from: data) {
             accounts = list
         } else {
@@ -111,6 +122,7 @@ final class Settings {
         economy = d.object(forKey: "economy") as? Bool ?? true
         showPace = d.object(forKey: "showPace") as? Bool ?? true
         hotKey = d.string(forKey: "hotKey").flatMap(HotKeyChoice.init) ?? .ctrlOptL
+        language = Self.storedLanguage
         notify = d.object(forKey: "notify") as? Bool ?? true
         let threshold = d.double(forKey: "notifyThreshold")
         notifyThreshold = Self.thresholds.contains(threshold) ? threshold : 0.9

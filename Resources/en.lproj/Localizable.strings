@@ -1,0 +1,207 @@
+/* Sources/UsageCore/Format.swift */
+"reset" = "reset";
+"%dd" = "%dd";
+"%dh" = "%dh";
+"%dm" = "%dm";
+"in %@" = "in %@";
+"just now" = "just now";
+"%d min ago" = "%d min ago";
+"%d h ago" = "%d h ago";
+
+/* Sources/UsageCore/KeyStore.swift */
+"the key contains invalid characters" = "the key contains invalid characters";
+"couldn't save the key to Keychain" = "couldn't save the key to Keychain";
+"couldn't delete the key from Keychain" = "couldn't delete the key from Keychain";
+
+/* Sources/UsageCore/Models.swift */
+"%@: exit code %d" = "%@: exit code %d";
+
+/* Sources/UsageCore/Parsers.swift */
+"5 hours" = "5 hours";
+"Week" = "Week";
+"model" = "model";
+"no limit windows in the response" = "no limit windows in the response";
+"app-server error" = "app-server error";
+"no result in the response" = "no result in the response";
+"%d days" = "%d days";
+"%d hours" = "%d hours";
+"%d min" = "%d min";
+"Limit" = "Limit";
+"agy returned no quotas (status %@)" = "agy returned no quotas (status %@)";
+"Claude and GPT" = "Claude and GPT";
+"Premium requests" = "Premium requests";
+"Chat" = "Chat";
+"Completions" = "Completions";
+"no Copilot quotas in the response" = "no Copilot quotas in the response";
+"Included in plan" = "Included in plan";
+"API models" = "API models";
+"On-demand" = "On-demand";
+"no Cursor data in the response" = "no Cursor data in the response";
+"Month" = "Month";
+"no data in the response" = "no data in the response";
+"Key · day" = "Key · day";
+"Key · week" = "Key · week";
+"Key · month" = "Key · month";
+"Key · limit" = "Key · limit";
+"no balance in the /credits response" = "no balance in the /credits response";
+"Balance" = "Balance";
+"Spent by key" = "Spent by key";
+"no OpenRouter data in the response" = "no OpenRouter data in the response";
+"API error: %d" = "API error: %d";
+"no balance in the response" = "no balance in the response";
+"response is not JSON" = "response is not JSON";
+
+/* Sources/UsageCore/ProcessRunner.swift */
+"%@ not found" = "%@ not found";
+"can't start %@: %@" = "can't start %@: %@";
+"timed out after %d s" = "timed out after %d s";
+
+/* Sources/UsageCore/Sources.swift */
+"not signed in to Claude Code" = "not signed in to Claude Code";
+"not signed in to Claude Code for this directory" = "not signed in to Claude Code for this directory";
+"token expired, run claude" = "token expired, run claude";
+"API: too many requests (429)" = "API: too many requests (429)";
+"GitHub CLI (gh) not found. Copilot signs in through it" = "GitHub CLI (gh) not found. Copilot signs in through it";
+"not signed in to gh. Run gh auth login" = "not signed in to gh. Run gh auth login";
+"gh rejected the sign-in. Run gh auth login" = "gh rejected the sign-in. Run gh auth login";
+"this account has no Copilot" = "this account has no Copilot";
+"%@ not installed" = "%@ not installed";
+"app-server didn't respond" = "app-server didn't respond";
+"not signed in to Cursor. Sign in in the app" = "not signed in to Cursor. Sign in in the app";
+"Cursor sign-in expired. Open Cursor" = "Cursor sign-in expired. Open Cursor";
+"no API key. Add one in Settings" = "no API key. Add one in Settings";
+"key rejected. Check it in Settings" = "key rejected. Check it in Settings";
+"no API addresses" = "no API addresses";
+
+/* Sources/UsageWidget/App.swift */
+"Edit" = "Edit";
+"Undo" = "Undo";
+"Redo" = "Redo";
+"Cut" = "Cut";
+"Copy" = "Copy";
+"Paste" = "Paste";
+"Select All" = "Select All";
+
+/* Sources/UsageWidget/FloatingPanel.swift */
+"Hide the panel" = "Hide the panel";
+"Refresh" = "Refresh";
+
+/* Sources/UsageWidget/HotKey.swift */
+"None" = "None";
+
+/* Sources/UsageWidget/Notifier.swift */
+"Resets %@" = "Resets %@";
+"The limit is almost used up" = "The limit is almost used up";
+"%@: %@ limit reset" = "%@: %@ limit reset";
+"You can keep going" = "You can keep going";
+
+/* Sources/UsageWidget/PopoverView.swift */
+"refreshing…" = "refreshing…";
+"updated %@" = "updated %@";
+"paused" = "paused";
+"Refresh (⌘R)" = "Refresh (⌘R)";
+"Pause auto-refresh" = "Pause auto-refresh";
+"Resume auto-refresh" = "Resume auto-refresh";
+"Hide the desktop panel" = "Hide the desktop panel";
+"Show the desktop panel" = "Show the desktop panel";
+"Settings (⌘,)" = "Settings (⌘,)";
+"Quit (⌘Q)" = "Quit (⌘Q)";
+
+/* Sources/UsageWidget/SettingsWindow.swift */
+"Agents Usage Settings" = "Agents Usage Settings";
+"General" = "General";
+"Services" = "Services";
+"Panel" = "Panel";
+"Data refresh" = "Data refresh";
+"Auto-refresh" = "Auto-refresh";
+"Interval" = "Interval";
+"With auto-refresh off, data updates only with ↻ in the popover (⌘R)." = "With auto-refresh off, data updates only with ↻ in the popover (⌘R).";
+"Energy saver" = "Energy saver";
+"Skip polling while the screen is locked or the display sleeps; poll 3× less often on battery." = "Skip polling while the screen is locked or the display sleeps; poll 3× less often on battery.";
+"Notifications" = "Notifications";
+"Warn about limits" = "Warn about limits";
+"Threshold" = "Threshold";
+"Notify when a limit resets" = "Notify when a limit resets";
+"Notifications are turned off in System Settings → Notifications → Agents Usage." = "Notifications are turned off in System Settings → Notifications → Agents Usage.";
+"At most once per window. Resets are reported only for windows that reached the threshold." = "At most once per window. Resets are reported only for windows that reached the threshold.";
+"Appearance" = "Appearance";
+"Menu bar" = "Menu bar";
+"Bars" = "Bars";
+"Percentages" = "Percentages";
+"Worst only" = "Worst only";
+"Pace marker on bars" = "Pace marker on bars";
+"The tick shows how much of the window has passed. Fill past it means the limit is being used faster than it would last until the reset." = "The tick shows how much of the window has passed. Fill past it means the limit is being used faster than it would last until the reset.";
+"System" = "System";
+"Language" = "Language";
+"System default" = "System default";
+"Launch at login" = "Launch at login";
+"Open popover" = "Open popover";
+"API key" = "API key";
+"not found" = "not found";
+"Add a service" = "Add a service";
+"Remove the selected one" = "Remove the selected one";
+"drag to reorder" = "drag to reorder";
+"Select a service on the left" = "Select a service on the left";
+"Name" = "Name";
+"Show" = "Show";
+"On panel" = "On panel";
+"default" = "default";
+"Configuration directory of a second account, e.g. ~/.claude-work. Empty means the main one." = "Configuration directory of a second account, e.g. ~/.claude-work. Empty means the main one.";
+"Windows" = "Windows";
+"No limit windows, only a balance." = "No limit windows, only a balance.";
+"In menu bar" = "In menu bar";
+"Auto (short window)" = "Auto (short window)";
+"No data yet. Click Check." = "No data yet. Click Check.";
+"The service is off." = "The service is off.";
+"Usage page" = "Usage page";
+"URL" = "URL";
+"this service has no web page" = "this service has no web page";
+"Open" = "Open";
+"Check" = "Check";
+"working: %d windows, %@" = "working: %d windows, %@";
+"Key" = "Key";
+"Paste a key to replace the saved one" = "Paste a key to replace the saved one";
+"Save" = "Save";
+"key saved to Keychain" = "key saved to Keychain";
+"this key is already saved" = "this key is already saved";
+"Delete" = "Delete";
+"key deleted" = "key deleted";
+"no key was saved" = "no key was saved";
+"Stored in the macOS Keychain, never in settings or logs." = "Stored in the macOS Keychain, never in settings or logs.";
+"Get a key" = "Get a key";
+"Desktop panel" = "Desktop panel";
+"Mode" = "Mode";
+"Off" = "Off";
+"Above windows" = "Above windows";
+"On desktop" = "On desktop";
+"On desktop keeps the panel above the wallpaper, under your windows." = "On desktop keeps the panel above the wallpaper, under your windows.";
+"Position" = "Position";
+"Anchor" = "Anchor";
+"Free (drag to move)" = "Free (drag to move)";
+"Top left corner" = "Top left corner";
+"Top right corner" = "Top right corner";
+"Bottom left corner" = "Bottom left corner";
+"Bottom right corner" = "Bottom right corner";
+"Margin from edge" = "Margin from edge";
+"%d pt" = "%d pt";
+"Dragging the panel switches the anchor to Free." = "Dragging the panel switches the anchor to Free.";
+"Opacity" = "Opacity";
+"Click-through" = "Click-through";
+"The panel ignores the mouse, so clicks reach the windows and desktop below. You can't drag it, close it, or open its links then. Use these settings and the popover instead." = "The panel ignores the mouse, so clicks reach the windows and desktop below. You can't drag it, close it, or open its links then. Use these settings and the popover instead.";
+"Services on panel" = "Services on panel";
+
+/* Sources/UsageWidget/StatusIcon.swift */
+"stale" = "stale";
+"no data" = "no data";
+"No services enabled" = "No services enabled";
+
+/* Sources/UsageWidget/UsageView.swift */
+"No services enabled. Add them in Settings" = "No services enabled. Add them in Settings";
+"all windows are hidden" = "all windows are hidden";
+"loading…" = "loading…";
+"Open the usage page: %@" = "Open the usage page: %@";
+"Free resets: %d" = "Free resets: %d";
+"expires %@" = "expires %@";
+"The next one expires %@" = "The next one expires %@";
+"Use a reset on the usage page" = "Use a reset on the usage page";
+"%@ of the window has passed, %@ used" = "%@ of the window has passed, %@ used";

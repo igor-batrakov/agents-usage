@@ -14,7 +14,7 @@ private let wk: TimeInterval? = 7 * 86400
 @Suite struct ClaudeParserTests {
     @Test func parsesLimitsArrayIncludingScopedModel() throws {
         let r = try Parsers.claude(fixture("claude_usage"), plan: "Max 5x")
-        #expect(r.windows.map(\.title) == ["5 часов", "Неделя", "Неделя · Fable"])
+        #expect(r.windows.map(\.title) == ["5 hours", "Week", "Week · Fable"])
         #expect(r.windows.map(\.id) == ["claude-session", "claude-weekly_all", "claude-weekly_scoped-Fable"])
         #expect(r.windows[0].used == 0.19)
         #expect(r.windows[0].isShort)
@@ -47,7 +47,7 @@ private let wk: TimeInterval? = 7 * 86400
 @Suite struct CodexParserTests {
     @Test func parsesPrimaryAndSecondary() throws {
         let r = try Parsers.codex(fixture("codex_ratelimits"))
-        #expect(r.windows.map(\.title) == ["5 часов", "Неделя"])
+        #expect(r.windows.map(\.title) == ["5 hours", "Week"])
         #expect(r.windows[0].used == 0.44)
         #expect(r.windows[0].isShort)
         #expect(r.windows[1].used == 0.22)
@@ -76,7 +76,7 @@ private let wk: TimeInterval? = 7 * 86400
            "spark":{"limitId":"spark","limitName":"Spark","secondary":{"usedPercent":50,"windowDurationMins":10080,"resetsAt":2}}}}}
         """#
         let r = try Parsers.codex(Data(json.utf8))
-        #expect(r.windows.map(\.title) == ["5 часов", "Неделя · Spark"])
+        #expect(r.windows.map(\.title) == ["5 hours", "Week · Spark"])
     }
 
     @Test func rpcErrorIsSurfaced() {
@@ -89,8 +89,8 @@ private let wk: TimeInterval? = 7 * 86400
     @Test func parsesGroupsAndConvertsRemainingToUsed() throws {
         let r = try Parsers.agy(fixture("agy_usage"))
         #expect(r.windows.count == 5)
-        #expect(r.windows.map(\.group) == ["Gemini", "Gemini", "Claude и GPT", "Claude и GPT", "Argon"])
-        #expect(r.windows.map(\.title) == ["5 часов", "Неделя", "5 часов", "Неделя", "Неделя"])
+        #expect(r.windows.map(\.group) == ["Gemini", "Gemini", "Claude and GPT", "Claude and GPT", "Argon"])
+        #expect(r.windows.map(\.title) == ["5 hours", "Week", "5 hours", "Week", "Week"])
         let argon = r.windows[4]
         #expect(abs(argon.used - 0.8994) < 0.001)
         #expect(argon.resetsAt == ISO8601DateFormatter().date(from: "2026-10-24T00:16:04Z"))
@@ -130,12 +130,12 @@ private let wk: TimeInterval? = 7 * 86400
     }
 
     @Test func formats() {
-        #expect(Format.resetIn(now.addingTimeInterval(3 * 86400 + 4 * 3600), now: now) == "через 3 д 4 ч")
-        #expect(Format.resetIn(now.addingTimeInterval(72 * 60), now: now) == "через 1 ч 12 м")
-        #expect(Format.resetIn(now.addingTimeInterval(4 * 60 + 1), now: now) == "через 5 м")
-        #expect(Format.resetIn(now.addingTimeInterval(10), now: now) == "через 1 м")
-        #expect(Format.resetIn(now.addingTimeInterval(-5), now: now) == "сброшен")
+        #expect(Format.resetIn(now.addingTimeInterval(3 * 86400 + 4 * 3600), now: now) == "in 3d 4h")
+        #expect(Format.resetIn(now.addingTimeInterval(72 * 60), now: now) == "in 1h 12m")
+        #expect(Format.resetIn(now.addingTimeInterval(4 * 60 + 1), now: now) == "in 5m")
+        #expect(Format.resetIn(now.addingTimeInterval(10), now: now) == "in 1m")
+        #expect(Format.resetIn(now.addingTimeInterval(-5), now: now) == "reset")
         #expect(Format.percent(0.0074) == "1%")
-        #expect(Format.ago(now.addingTimeInterval(-300), now: now) == "5 мин назад")
+        #expect(Format.ago(now.addingTimeInterval(-300), now: now) == "5 min ago")
     }
 }

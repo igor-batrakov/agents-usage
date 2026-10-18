@@ -41,6 +41,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// Проверить данные после опроса или смены настроек.
     func check(_ store: UsageStore, _ settings: Settings) {
+        // Демо-данные не уведомляют и не трогают сохранённое состояние настоящих аккаунтов.
+        guard !Demo.isOn else { return }
         // Выключенные уведомления не копят состояние: после включения сразу придёт
         // предупреждение об окнах, которые уже за порогом.
         guard settings.notify else {
@@ -80,10 +82,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         switch event.kind {
         case .threshold:
             content.title = "\(event.accountName): \(event.windowTitle) — \(Format.percent(event.used))"
-            content.body = event.resetsAt.map { "Сброс \(Format.resetIn($0, now: Date()))" } ?? "Лимит почти исчерпан"
+            content.body = event.resetsAt.map { L("Resets %@", Format.resetIn($0, now: Date())) } ?? L("The limit is almost used up")
         case .reset:
-            content.title = "\(event.accountName): \(event.windowTitle) — лимит сброшен"
-            content.body = "Можно продолжать"
+            content.title = L("%@: %@ limit reset", event.accountName, event.windowTitle)
+            content.body = L("You can keep going")
         }
         content.sound = .default
         center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))

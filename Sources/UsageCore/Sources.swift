@@ -49,21 +49,21 @@ public struct ClaudeSource: UsageSource {
             }
         }
         guard let raw = found else {
-            throw UsageError.message(configDir == nil ? "нет входа в Claude Code"
-                                                      : "нет входа в Claude Code для этого каталога")
+            throw UsageError.message(configDir == nil ? L("not signed in to Claude Code")
+                                                      : L("not signed in to Claude Code for this directory"))
         }
         guard let creds = (try? JSONSerialization.jsonObject(with: raw) as? [String: Any])?["claudeAiOauth"] as? [String: Any],
               let token = creds["accessToken"] as? String
-        else { throw UsageError.message("нет входа в Claude Code") }
+        else { throw UsageError.message(L("not signed in to Claude Code")) }
 
         if let expiresMs = Parsers.number(creds["expiresAt"]), Date(timeIntervalSince1970: expiresMs / 1000) < Date() {
-            throw UsageError.message("токен истёк — запусти claude")
+            throw UsageError.message(L("token expired, run claude"))
         }
 
         let data = try await HTTP.get("https://api.anthropic.com/api/oauth/usage", headers: [
             "Authorization": "Bearer \(token)",
             "anthropic-beta": "oauth-2025-04-20",
-        ], errors: [401: "токен истёк — запусти claude"], timeout: 5)
+        ], errors: [401: L("token expired, run claude")], timeout: 5)
         let plan = Parsers.claudePlan(subscription: creds["subscriptionType"] as? String,
                                       tier: creds["rateLimitTier"] as? String)
         return try Parsers.claude(data, plan: plan)
@@ -92,7 +92,7 @@ enum HTTP {
     static func check(_ data: Data, _ status: Int, _ errors: [Int: String]) throws -> Data {
         if status == 200 { return data }
         if let text = errors[status] { throw UsageError.message(text) }
-        throw UsageError.message(status == 429 ? "API: слишком часто (429)" : "API: HTTP \(status)")
+        throw UsageError.message(status == 429 ? L("API: too many requests (429)") : "API: HTTP \(status)")
     }
 }
 
@@ -107,12 +107,12 @@ public struct CopilotSource: UsageSource {
 
     public func fetch() async throws -> UsageReport {
         guard let gh = ProcessRunner.locate(Self.candidates) else {
-            throw UsageError.message("нет GitHub CLI (gh) — через него берётся вход")
+            throw UsageError.message(L("GitHub CLI (gh) not found. Copilot signs in through it"))
         }
         guard let raw = try? await ProcessRunner.run(gh, ["auth", "token"], timeout: 5),
               case let token = String(decoding: raw, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines),
               !token.isEmpty
-        else { throw UsageError.message("нет входа в gh — запусти gh auth login") }
+        else { throw UsageError.message(L("not signed in to gh. Run gh auth login")) }
         let data = try await HTTP.get("https://api.github.com/copilot_internal/user", headers: [
             "Authorization": "token \(token)",
             "Accept": "application/json",
@@ -120,7 +120,7 @@ public struct CopilotSource: UsageSource {
             "Editor-Plugin-Version": "copilot-chat/0.26.7",
             "User-Agent": "GitHubCopilotChat/0.26.7",
             "X-Github-Api-Version": "2025-04-01",
-        ], errors: [401: "gh отклонил вход — запусти gh auth login", 404: "у аккаунта нет Copilot"])
+        ], errors: [401: L("gh rejected the sign-in. Run gh auth login"), 404: L("this account has no Copilot")])
         return try Parsers.copilot(data)
     }
 }
@@ -136,7 +136,7 @@ public struct CodexSource: UsageSource {
     static let candidates = ["/opt/homebrew/bin/codex", "/usr/local/bin/codex", "~/.local/bin/codex"]
 
     public func fetch() async throws -> UsageReport {
-        guard let codex = ProcessRunner.locate(Self.candidates) else { throw UsageError.message("codex не установлен") }
+        guard let codex = ProcessRunner.locate(Self.candidates) else { throw UsageError.message(L("%@ not installed", "codex")) }
         let messages: [[String: Any]] = [
             ["jsonrpc": "2.0", "id": 1, "method": "initialize",
              "params": ["clientInfo": ["name": "usage-widget", "title": "Usage Widget", "version": "1.0"]]],
@@ -151,7 +151,7 @@ public struct CodexSource: UsageSource {
         let env = codexHome.map { ["CODEX_HOME": $0] } ?? [:]
         let output = try await ProcessRunner.run(codex, ["app-server"], input: input, environment: env, timeout: 10,
                                                  until: { Self.response(id: 2, in: $0) != nil })
-        guard let line = Self.response(id: 2, in: output) else { throw UsageError.message("app-server не ответил") }
+        guard let line = Self.response(id: 2, in: output) else { throw UsageError.message(L("app-server didn't respond")) }
         return try Parsers.codex(line)
     }
 
@@ -177,16 +177,16 @@ public struct CursorSource: UsageSource {
 
     public func fetch() async throws -> UsageReport {
         let path = (Self.database as NSString).expandingTildeInPath
-        guard FileManager.default.fileExists(atPath: path) else { throw UsageError.message("Cursor не установлен") }
+        guard FileManager.default.fileExists(atPath: path) else { throw UsageError.message(L("%@ not installed", "Cursor")) }
         let raw = try await ProcessRunner.run("/usr/bin/sqlite3", [
             "-readonly", path, "select value from ItemTable where key = 'cursorAuth/accessToken'",
         ], timeout: 5)
         let jwt = String(decoding: raw, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let user = Self.userID(jwt: jwt) else { throw UsageError.message("нет входа в Cursor — войди в приложении") }
+        guard let user = Self.userID(jwt: jwt) else { throw UsageError.message(L("not signed in to Cursor. Sign in in the app")) }
         let data = try await HTTP.get("https://cursor.com/api/usage-summary", headers: [
             "Cookie": "WorkosCursorSessionToken=\(user)%3A%3A\(jwt)",
             "Accept": "application/json",
-        ], errors: [401: "вход в Cursor истёк — открой Cursor"])
+        ], errors: [401: L("Cursor sign-in expired. Open Cursor")])
         return try Parsers.cursor(data)
     }
 
@@ -208,11 +208,12 @@ public struct CursorSource: UsageSource {
 
 /// Ключ аккаунта из Связки ключей; нет — подсказка, где его задать.
 func apiKey(_ id: UUID) async throws -> String {
-    guard let key = try await KeyStore.lookup(id) else { throw UsageError.message("нет API-ключа — задай его в настройках") }
+    guard let key = try await KeyStore.lookup(id) else { throw UsageError.message(L("no API key. Add one in Settings")) }
     return key
 }
 
-let keyRejected = [401: "ключ отклонён — проверь его в настройках"]
+/// Вычисляемое, а не `let`: глобальная константа запомнила бы язык первого обращения.
+var keyRejected: [Int: String] { [401: L("key rejected. Check it in Settings")] }
 
 /// Ключ живёт в одном регионе вендора — международном или китайском. Пробуем по очереди:
 /// 401 не на последнем — значит, ключ другого региона. Возвращает ответ и индекс сработавшего адреса.
@@ -223,7 +224,7 @@ func getInRegions(_ urls: [String], key: String) async throws -> (Data, Int) {
         if status == 401, i < urls.count - 1 { continue }
         return (try HTTP.check(data, status, keyRejected), i)
     }
-    throw UsageError.message("нет адресов API")
+    throw UsageError.message(L("no API addresses"))
 }
 
 /// Подписка Kimi Code: ключ из консоли Kimi. CLI не трогаем — его refresh-токен одноразовый.
@@ -278,7 +279,7 @@ public struct AgySource: UsageSource {
     static let candidates = ["~/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
 
     public func fetch() async throws -> UsageReport {
-        guard let agy = ProcessRunner.locate(Self.candidates) else { throw UsageError.message("agy не установлен") }
+        guard let agy = ProcessRunner.locate(Self.candidates) else { throw UsageError.message(L("%@ not installed", "agy")) }
         let output = try await ProcessRunner.run(agy, ["-p", "/usage", "--output-format", "json"], timeout: 20)
         return try Parsers.agy(output)
     }

@@ -1,0 +1,24 @@
+name: New service
+description: Ask for support of another AI coding subscription or API balance
+labels: [new service]
+body:
+  - type: input
+    id: service
+    attributes:
+      label: Service
+      placeholder: Windsurf, Gemini Code Assist, …
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where the limits are visible
+      description: A CLI command, a web page or an API endpoint that shows usage. Links to docs help a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: sample
+    attributes:
+      label: Sample response
+      description: Optional. A real response with every token, id and email removed.
+      render: json

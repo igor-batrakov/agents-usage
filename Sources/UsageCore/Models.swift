@@ -241,7 +241,7 @@ public enum UsageError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .message(let text): text
-        case .exit(let tool, let status): "\(tool): код \(status)"
+        case .exit(let tool, let status): L("%@: exit code %d", tool, status)
         }
     }
 }

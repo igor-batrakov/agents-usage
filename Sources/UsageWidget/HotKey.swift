@@ -1,4 +1,5 @@
 import Carbon.HIToolbox
+import UsageCore
 import os
 
 /// Сочетание для поповера — выбор из нескольких готовых (запись произвольного сочетания не нужна).
@@ -7,7 +8,7 @@ enum HotKeyChoice: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .off: "Нет"
+        case .off: L("None")
         case .ctrlOptL: "⌃⌥L"
         case .ctrlOptU: "⌃⌥U"
         }

@@ -1,4 +1,6 @@
-# Usage Widget — правила проекта
+# Agents Usage — правила проекта
+
+Для участников по-английски — [CONTRIBUTING.md](CONTRIBUTING.md); здесь — правила для ревьюеров и агентов.
 
 Нативное macOS-приложение для строки меню (Swift, SwiftPM, без Xcode). Показывает лимиты подписок
 Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а также балансы OpenRouter и Moonshot:
@@ -9,6 +11,13 @@ Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а т�
 - `./test.sh` — тесты (Swift Testing). Пути к Testing.framework и плагину макросов из Command Line Tools
   подставляет скрипт: CLT, в отличие от Xcode, сам их не находит.
 - `./build.sh` — `build/Agents Usage.app`, ad-hoc подпись. `./build.sh install` — копия в `~/Applications` и запуск.
+  `UNIVERSAL=1` — arm64 + x86_64, `VERSION=` — версия в Info.plist.
+- Релиз — `tools/release.sh v1.2.0`: универсальная сборка, `dist/Agents-Usage.zip` и `.dmg` (имена без версии —
+  их качает `install.sh` по `releases/latest/download/`), `SHA256SUMS`, GitHub-релиз с заметками
+  `docs/release-notes/<тег>.md`. Подписи Developer ID нет: `install.sh` качает через curl (без карантина).
+- Демо для скриншотов README — `open "Agents Usage.app" --args --demo [-language ru] [--demo-settings]`
+  (`Demo.swift`): свой домен UserDefaults, вымышленные данные; настоящие настройки, ключи и состояние
+  уведомлений не трогает.
 - Иконка — `Resources/AppIcon.icns`, рисует её `tools/make-icon.swift`; пересобрать — `tools/make-icon.sh`.
   Bundle ID `ru.batrakov.UsageWidget` и имя бинаря `UsageWidget` не менять: к ним привязаны настройки,
   аккаунты и разрешение на уведомления.
@@ -24,6 +33,10 @@ Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а т�
 - `Sources/UsageWidget` — AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, окно настроек) + SwiftUI-контент.
   `Settings` — все настройки и список аккаунтов (JSON в UserDefaults, ключ `accounts`). `Notifier` — доставка
   уведомлений, `HotKey` — глобальное сочетание (Carbon), `SystemState` — блокировка, сон дисплея, батарея.
+- Переводы — `Resources/<код>.lproj/Localizable.strings`, ключ — английский текст. `Localization` (UsageCore)
+  грузит выбранный язык сам, не через `Bundle`: язык переключается в настройках без перезапуска. Список языков —
+  по найденным `*.lproj`, `CFBundleLocalizations` заполняет `build.sh`. `tools/strings.py` собирает ключи `L("…")`
+  из кода и пересобирает `en.lproj` (образец для нового языка); `LocalizationTests` сверяет ключи и `%@`/`%d`.
 - План развития — [docs/plan-v2.md](docs/plan-v2.md).
 - Фикстуры `Tests/UsageCoreTests/Fixtures` — реальные ответы API, обезличенные (без токенов, id аккаунтов).
 
@@ -67,3 +80,7 @@ Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а т�
     ↻, «Проверить» и открытие поповера работают всегда.
 13. **Сервис только с балансом** (нет окон лимита) полоски в строке меню не получает — сумма в подсказке.
     Деньги — в единицах валюты (`Balance.amount`), центы переводятся при разборе.
+14. **Каждая строка интерфейса — через `L("English")`**, ключ одним литералом (его ищет `tools/strings.py`).
+    В SwiftUI — `Text(L("…"))`, не `Text("…")`: литерал SwiftUI переводит сам, по языку системы, мимо выбранного.
+    Тексты из данных (заголовки окон, ошибки) переводятся при опросе — смена языка запускает опрос. Глобальные
+    константы с `L()` — нельзя (запомнят язык первого обращения), только вычисляемые.

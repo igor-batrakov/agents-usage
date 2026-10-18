@@ -173,7 +173,7 @@ private struct PanelContent: View {
                             .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
-                    .help("Скрыть панель")
+                    .help(L("Hide the panel"))
                     .padding(6)
                 }
             }
@@ -182,8 +182,9 @@ private struct PanelContent: View {
             // Кнопки внутри (ссылка, крестик) получают клики раньше жеста.
             .gesture(WindowDragGesture())
             .contextMenu {
-                Button("Обновить") { Task { await store.refresh() } }
-                Button("Скрыть панель", action: onHide)
+                Button(L("Refresh")) { Task { await store.refresh() } }
+                Button(L("Hide the panel"), action: onHide)
             }
+            .id(settings.language ?? "")  // новый язык — пересобрать: строки L() вычисляются при построении
     }
 }
