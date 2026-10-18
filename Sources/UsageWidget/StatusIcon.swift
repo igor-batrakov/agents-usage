@@ -16,8 +16,9 @@ enum StatusIcon {
         var maxUsed: Double?
     }
 
+    /// Сервисы только с балансом полоски не получают — их сумма в подсказке.
     static func bars(_ store: UsageStore, now: Date = Date()) -> [Bar] {
-        store.enabledAccounts.map { a in
+        store.enabledAccounts.filter { !$0.balanceOnly(store.snapshot($0.id)) }.map { a in
             let s = store.snapshot(a.id)
             let max = a.maxUsed(s, at: now)
             return Bar(fill: a.barUsed(s, at: now), warning: max.flatMap(Theme.warning), stale: s.error != nil, maxUsed: max)
@@ -99,6 +100,9 @@ enum StatusIcon {
     static func tooltip(_ store: UsageStore, now: Date = Date()) -> String {
         let lines = store.enabledAccounts.map { a in
             let s = store.snapshot(a.id)
+            if a.balanceOnly(s), let b = s.report?.balances.first {
+                return "\(a.name): \(Format.money(b.amount, b.currency))" + (s.error != nil ? " (устарело)" : "")
+            }
             guard let used = a.barUsed(s, at: now) else { return "\(a.name): нет данных" }
             return "\(a.name): \(Format.percent(used))" + (s.error != nil ? " (устарело)" : "")
         }

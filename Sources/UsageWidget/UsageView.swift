@@ -63,7 +63,7 @@ private struct AccountSection: View {
             header
             if snapshot.report != nil {
                 let windows = account.visibleWindows(snapshot)
-                if windows.isEmpty {
+                if windows.isEmpty, snapshot.report?.windows.isEmpty == false {
                     Text("все окна скрыты").font(.caption).foregroundStyle(.secondary)
                 }
                 ForEach(groups(windows), id: \.name) { group in
@@ -78,6 +78,16 @@ private struct AccountSection: View {
                         LimitRow(window: window, provider: provider, now: now,
                                  stale: snapshot.error != nil, compact: compact, showPace: showPace)
                     }
+                }
+                ForEach(snapshot.report?.balances ?? []) { balance in
+                    HStack(spacing: 6) {
+                        Text(balance.title).font(.system(size: compact ? 11.5 : 12))
+                        Spacer(minLength: 4)
+                        Text(Format.money(balance.amount, balance.currency))
+                            .font(.system(size: compact ? 11.5 : 12, weight: .medium))
+                            .monospacedDigit()
+                    }
+                    .opacity(snapshot.error != nil ? 0.5 : 1)
                 }
                 if let resets = snapshot.report?.freeResets { freeResets(resets) }
             } else if snapshot.error == nil {

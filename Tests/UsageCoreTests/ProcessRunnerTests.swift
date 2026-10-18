@@ -20,6 +20,20 @@ import Testing
         #expect(out.count == 200_000)
     }
 
+    @Test func nonZeroExitCarriesStatus() async {
+        await #expect(throws: UsageError.exit(tool: "sh", status: 44)) {
+            try await ProcessRunner.run("/bin/sh", ["-c", "exit 44"], timeout: 5)
+        }
+    }
+
+    @Test func closeInputGivesEOF() async throws {
+        // Без закрытия stdin cat ждал бы ввода до таймаута.
+        let start = Date()
+        let out = try await ProcessRunner.run("/bin/cat", [], input: Data("key\n".utf8), closeInput: true, timeout: 5)
+        #expect(String(decoding: out, as: UTF8.self) == "key\n")
+        #expect(Date().timeIntervalSince(start) < 2)
+    }
+
     @Test func untilStopsLongRunningProcess() async throws {
         // cat с открытым stdin не завершится сам — выходим по условию.
         let start = Date()

@@ -169,7 +169,175 @@ public enum Parsers {
         }
     }
 
+    // MARK: Copilot — GET api.github.com/copilot_internal/user
+
+    /// Месячные квоты. Безлимитные и с нулевым объёмом (премиум на бесплатном плане) — пропуск.
+    public static func copilot(_ data: Data) throws -> UsageReport {
+        let root = try object(data)
+        let reset = isoDate(root["quota_reset_date_utc"])
+        let snapshots = root["quota_snapshots"] as? [String: Any] ?? [:]
+        var windows: [LimitWindow] = []
+        for (key, title) in [("premium_interactions", "Премиум-запросы"), ("chat", "Чат"), ("completions", "Автодополнения")] {
+            guard let quota = snapshots[key] as? [String: Any], quota["unlimited"] as? Bool != true,
+                  let entitlement = number(quota["entitlement"]), entitlement > 0,
+                  let remaining = number(quota["percent_remaining"]) else { continue }
+            windows.append(LimitWindow(id: "copilot-\(key)", title: title, used: 1 - remaining / 100,
+                                       resetsAt: reset, isShort: false, duration: monthBefore(reset)))
+        }
+        guard !windows.isEmpty else { throw UsageError.message("в ответе нет квот Copilot") }
+        let sku = root["access_type_sku"] as? String ?? ""
+        let plan = sku.contains("free") ? "Free" : (root["copilot_plan"] as? String).map(capitalized)
+        return UsageReport(windows: windows, plan: plan)
+    }
+
+    // MARK: Cursor — GET cursor.com/api/usage-summary
+
+    /// Проценты в ответе — уже проценты (0.36 — это 0,36%), деньги — в центах.
+    public static func cursor(_ data: Data) throws -> UsageReport {
+        let root = try object(data)
+        let start = isoDate(root["billingCycleStart"]), end = isoDate(root["billingCycleEnd"])
+        let duration = start.flatMap { s in end.map { $0.timeIntervalSince(s) } }
+        let usage = root["individualUsage"] as? [String: Any] ?? [:]
+        let plan = usage["plan"] as? [String: Any] ?? [:]
+        var windows: [LimitWindow] = []
+        func add(_ id: String, _ title: String, _ used: Double?) {
+            guard let used else { return }
+            windows.append(LimitWindow(id: "cursor-\(id)", title: title, used: used, resetsAt: end,
+                                       isShort: false, duration: duration))
+        }
+        let ratio = number(plan["used"]).flatMap { u in number(plan["limit"]).flatMap { $0 > 0 ? u / $0 : nil } }
+        add("plan", "Включено в план", number(plan["totalPercentUsed"]).map { $0 / 100 } ?? ratio)
+        add("auto", "Auto", number(plan["autoPercentUsed"]).map { $0 / 100 })
+        add("api", "API-модели", number(plan["apiPercentUsed"]).map { $0 / 100 })
+
+        var balances: [Balance] = []
+        if let onDemand = usage["onDemand"] as? [String: Any], onDemand["enabled"] as? Bool == true,
+           let used = number(onDemand["used"]) {
+            if let limit = number(onDemand["limit"]), limit > 0 {
+                add("on-demand", "Сверх плана", used / limit)
+            } else {
+                balances.append(Balance(id: "cursor-on-demand", title: "Сверх плана", amount: used / 100, currency: "USD"))
+            }
+        }
+        guard !windows.isEmpty || !balances.isEmpty else { throw UsageError.message("в ответе нет данных Cursor") }
+        let membership = (root["membershipType"] as? String).map(capitalized)
+        return UsageReport(windows: windows, plan: membership, balances: balances)
+    }
+
+    // MARK: Kimi Code — GET api.kimi.com/coding/v1/usages
+
+    /// Новый формат — доли `usages.limit_*.used_ratio`; старый — счётчики-строки `usage` (неделя)
+    /// и `limits[0]` (короткое окно). id окон одинаковы в обоих: по ним хранятся скрытые окна.
+    public static func kimi(_ data: Data) throws -> UsageReport {
+        let root = try object(data)
+        var windows: [LimitWindow] = []
+        if let pools = root["usages"] as? [String: Any] {
+            for (key, id, title, duration) in [("limit_5h", "5h", "5 часов", fiveHours), ("limit_7d", "week", "Неделя", week),
+                                               ("limit_month_total", "month", "Месяц", nil as TimeInterval?)] {
+                guard let pool = pools[key] as? [String: Any], let ratio = number(pool["used_ratio"]) else { continue }
+                let reset = isoDate(pool["reset_time"])
+                windows.append(LimitWindow(id: "kimi-\(id)", title: title, used: ratio, resetsAt: reset,
+                                           isShort: id == "5h", duration: duration ?? monthBefore(reset)))
+            }
+        } else {
+            if let limit = (root["limits"] as? [[String: Any]])?.first,
+               let detail = limit["detail"] as? [String: Any], let used = countRatio(detail) {
+                let w = limit["window"] as? [String: Any] ?? [:]
+                let unit: Double = switch w["timeUnit"] as? String {
+                case "TIME_UNIT_HOUR": 60
+                case "TIME_UNIT_DAY": 1440
+                default: 1
+                }
+                let minutes = number(w["duration"]).map { Int($0 * unit) }
+                windows.append(LimitWindow(id: minutes == 300 ? "kimi-5h" : "kimi-limit-\(minutes ?? 0)",
+                                           title: windowTitle(minutes: minutes), used: used,
+                                           resetsAt: resetDate(detail), isShort: (minutes ?? 0) <= 300,
+                                           duration: minutes.map { TimeInterval($0 * 60) }))
+            }
+            if let weekly = root["usage"] as? [String: Any], let used = countRatio(weekly) {
+                windows.append(LimitWindow(id: "kimi-week", title: "Неделя", used: used, resetsAt: resetDate(weekly),
+                                           isShort: false, duration: week))
+            }
+        }
+        guard !windows.isEmpty else { throw UsageError.message("в ответе нет окон лимита") }
+        let level = ((root["user"] as? [String: Any])?["membership"] as? [String: Any])?["level"] as? String
+        let plan = level.flatMap { ["LEVEL_FREE": "Adagio", "LEVEL_TRIAL": "Andante", "LEVEL_BASIC": "Moderato",
+                                    "LEVEL_INTERMEDIATE": "Allegretto", "LEVEL_ADVANCED": "Allegro"][$0] }
+        return UsageReport(windows: windows, plan: plan)
+    }
+
+    /// `used/limit`, без `used` — `(limit − remaining)/limit`; лимит ≤ 0 — окна нет.
+    static func countRatio(_ d: [String: Any]) -> Double? {
+        guard let limit = number(d["limit"]), limit > 0 else { return nil }
+        if let used = number(d["used"]) { return used / limit }
+        return number(d["remaining"]).map { (limit - $0) / limit }
+    }
+
+    static func resetDate(_ d: [String: Any]) -> Date? {
+        ["resetTime", "resetAt", "reset_time", "reset_at"].lazy.compactMap { isoDate(d[$0]) }.first
+    }
+
+    // MARK: OpenRouter — GET openrouter.ai/api/v1/key и /credits
+
+    /// `key` — бюджет ключа (доллары): окно, если лимит задан, иначе траты ключа. Даты сброса
+    /// API не даёт — только период. `credits` — баланс счёта; nil — запрос не удался.
+    public static func openRouter(key: Data, credits: Data?) throws -> UsageReport {
+        guard let k = try object(key)["data"] as? [String: Any] else { throw UsageError.message("в ответе нет data") }
+        var windows: [LimitWindow] = []
+        var balances: [Balance] = []
+        if let limit = number(k["limit"]), limit > 0 {
+            let reset = k["limit_reset"] as? String
+            let used = number(k["limit_remaining"]).map { limit - min(max($0, 0), limit) }
+                ?? reset.flatMap { number(k["usage_\($0)"]) } ?? number(k["usage"]) ?? 0
+            let title = switch reset {
+            case "daily": "Ключ · день"
+            case "weekly": "Ключ · неделя"
+            case "monthly": "Ключ · месяц"
+            default: "Ключ · лимит"
+            }
+            windows.append(LimitWindow(id: "openrouter-key", title: title, used: used / limit, resetsAt: nil, isShort: false))
+        }
+        if let credits {
+            // Ответ есть, но не разобрать — ошибка, а не «баланса нет»: иначе показанный баланс пропал бы молча.
+            guard let c = try object(credits)["data"] as? [String: Any],
+                  let total = number(c["total_credits"]), let spent = number(c["total_usage"])
+            else { throw UsageError.message("в ответе /credits нет баланса") }
+            balances.append(Balance(id: "openrouter-credits", title: "Баланс", amount: max(0, total - spent), currency: "USD"))
+        }
+        if windows.isEmpty, balances.isEmpty, let usage = number(k["usage"]) {
+            balances.append(Balance(id: "openrouter-key-usage", title: "Потрачено ключом", amount: usage, currency: "USD"))
+        }
+        guard !windows.isEmpty || !balances.isEmpty else { throw UsageError.message("в ответе нет данных OpenRouter") }
+        return UsageReport(windows: windows, plan: nil, balances: balances)
+    }
+
+    // MARK: Moonshot — GET api.moonshot.ai/v1/users/me/balance
+
+    /// Только баланс; валюта — по домену: .ai — доллары, .cn — юани.
+    public static func moonshot(_ data: Data, currency: String) throws -> UsageReport {
+        let root = try object(data)
+        if let code = number(root["code"]), code != 0 {
+            throw UsageError.message(root["scode"] as? String ?? "ошибка API: \(Int(code))")
+        }
+        guard let d = root["data"] as? [String: Any], let available = number(d["available_balance"]) else {
+            throw UsageError.message("в ответе нет баланса")
+        }
+        return UsageReport(windows: [], plan: nil, balances: [
+            Balance(id: "moonshot-balance", title: "Баланс", amount: available, currency: currency),
+        ])
+    }
+
     // MARK: helpers
+
+    static func capitalized(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
+
+    /// Длина месячного окна, кончающегося в `end` (календарный месяц, UTC): для метки темпа.
+    static func monthBefore(_ end: Date?) -> TimeInterval? {
+        guard let end else { return nil }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        return calendar.date(byAdding: .month, value: -1, to: end).map { end.timeIntervalSince($0) }
+    }
 
     static let fiveHours: TimeInterval = 5 * 3600
     static let week: TimeInterval = 7 * 86400

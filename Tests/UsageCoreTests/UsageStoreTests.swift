@@ -147,6 +147,23 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         #expect(store.snapshots[a.id] == nil)
     }
 
+    @Test func keyChangeDuringFetchDiscardsOldKeyResult() async {
+        var a = Account(kind: .openrouter)
+        let old = UsageReport(windows: [LimitWindow(id: "old", title: "o", used: 0.9, resetsAt: nil, isShort: true)], plan: nil)
+        let source = ScriptedSource([.success(old), .success(report)], delay: .milliseconds(200))
+        let store = makeStore([a.id: source])
+        store.setAccounts([a])
+        async let first: Void = store.refresh()
+        try? await Task.sleep(for: .milliseconds(50))
+        a.keyRevision = 1
+        // Новый ключ — опросить сразу, и этот опрос не пропускается из-за идущего со старым.
+        #expect(store.setAccounts([a]) == [a.id])
+        async let second: Void = store.refresh(only: [a.id])
+        _ = await (first, second)
+        #expect(source.calls == 2)
+        #expect(store.snapshot(a.id).report == report)
+    }
+
     @Test func resultOfRemovedAccountIsDiscarded() async {
         let a = Account(kind: .claude)
         let store = makeStore([a.id: ScriptedSource([.success(report)], delay: .milliseconds(200))])

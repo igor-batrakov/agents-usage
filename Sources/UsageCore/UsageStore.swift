@@ -47,11 +47,11 @@ public final class UsageStore {
     public func setAccounts(_ new: [Account]) -> Set<UUID> {
         let wasEnabled = Set(enabledAccounts.map(\.id))
         let newByID = Dictionary(uniqueKeysWithValues: new.map { ($0.id, $0) })
-        // Сменился каталог конфигурации — это другой аккаунт по сути, старые данные не его.
+        // Сменился каталог конфигурации или API-ключ — это другой аккаунт по сути, старые данные не его.
         var changedSource: Set<UUID> = []
         for old in accounts {
             let now = newByID[old.id]
-            let dirChanged = now.map { $0.configDir != old.configDir } ?? false
+            let dirChanged = now.map { !$0.sameSource(as: old) } ?? false
             if dirChanged { changedSource.insert(old.id) }
             if now == nil || (old.enabled && now?.enabled == false) || dirChanged {
                 generation[old.id, default: 0] += 1

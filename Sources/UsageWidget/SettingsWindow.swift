@@ -130,7 +130,8 @@ private struct ServicesTab: View {
                 HStack(spacing: 4) {
                     Menu {
                         ForEach(Provider.allCases, id: \.self) { kind in
-                            Button(kind.title + (Catalog.isInstalled(kind) ? "" : " — не найден")) { settings.add(kind) }
+                            Button(kind.title + (kind.usesAPIKey ? " — по API-ключу"
+                                                 : Catalog.isInstalled(kind) ? "" : " — не найден")) { settings.add(kind) }
                                 .disabled(!Catalog.canAdd(kind, to: settings.accounts))
                         }
                     } label: { Image(systemName: "plus") }
@@ -213,8 +214,11 @@ private struct AccountDetail: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
+            if account.kind.usesAPIKey { keySection }
             Section("Окна") {
-                if let windows = snapshot.report?.windows, !windows.isEmpty {
+                if account.balanceOnly(snapshot) {
+                    Text("Окон лимита нет — только баланс.").foregroundStyle(.secondary)
+                } else if let windows = snapshot.report?.windows, !windows.isEmpty {
                     ForEach(windows) { w in
                         Toggle(w.group.map { "\($0) · \(w.title)" } ?? w.title, isOn: Binding(
                             get: { !(settings.account(account.id)?.hiddenWindows.contains(w.id) ?? false) },
@@ -259,6 +263,58 @@ private struct AccountDetail: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Смена ключа в Связке ключей. Удалась — у аккаунта растёт `keyRevision`: стор отбросит опрос
+    /// со старым ключом и его снимок и опросит заново (как при смене каталога). Делается для того
+    /// аккаунта, чей ключ меняли, даже если за время записи выбрали другой; итог — только своему.
+    /// Тот же ключ ещё раз (или удаление отсутствующего) ревизию не меняет: иначе стор и уведомления
+    /// сочли бы аккаунт новым, и предупреждение о пороге пришло бы повторно.
+    /// Черновик очищается, только если в поле всё ещё отправленный ключ: правку, сделанную во время
+    /// записи, не стираем (`submitted` nil — удаление, черновик не трогаем).
+    private func keyChange(_ id: UUID, submitted: String?, done: String, same: String,
+                           _ change: @escaping () async throws -> Bool) {
+        settings.withKey(id) {
+            do {
+                let changed = try await change()
+                if changed { settings.update(id) { $0.keyRevision = ($0.keyRevision ?? 0) + 1 } }
+                guard settings.selectedAccountID == id else { return }
+                if let submitted, settings.keyDraft == submitted { settings.keyDraft = "" }
+                settings.keyMessage = changed ? done : same
+            } catch {
+                if settings.selectedAccountID == id { settings.keyMessage = error.localizedDescription }
+            }
+        }
+    }
+
+    /// Ключ вводится и сразу уходит в Связку ключей; в поле его потом не видно — только итог.
+    private var keySection: some View {
+        let id = account.id
+        return Section("API-ключ") {
+            HStack {
+                SecureField("Ключ", text: Binding(get: { settings.keyDraft }, set: { settings.keyDraft = $0 }),
+                            prompt: Text("вставь ключ — заменит сохранённый"))
+                Button("Сохранить") {
+                    let draft = settings.keyDraft
+                    keyChange(id, submitted: draft, done: "ключ сохранён в Связке ключей", same: "этот ключ уже сохранён") {
+                        try await KeyStore.save(draft, for: id)
+                    }
+                }
+                .disabled(settings.keyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button("Удалить") {
+                    keyChange(id, submitted: nil, done: "ключ удалён", same: "ключа нет") { try await KeyStore.delete(id) }
+                }
+            }
+            HStack(spacing: 4) {
+                Text(settings.keyMessage ?? "Хранится в Связке ключей macOS — не в настройках и не в логах.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Spacer()
+                if let url = account.kind.apiKeysURL {
+                    Button("Где взять ключ") { NSWorkspace.shared.open(url) }
+                        .buttonStyle(.link).font(.caption)
+                }
+            }
+        }
     }
 }
 

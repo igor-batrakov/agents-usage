@@ -71,6 +71,14 @@ import Testing
         #expect(run(snapshot(0.95, resetsAt: now.addingTimeInterval(7200)), &state, accounts: [moved]) == [.threshold])
     }
 
+    @Test func keyRevisionChangeDropsState() {
+        var state: Alerts.State = [key: now.addingTimeInterval(3600)]
+        var rekeyed = account
+        rekeyed.keyRevision = 1
+        #expect(run(snapshot(0.95, resetsAt: now.addingTimeInterval(3600)), &state, accounts: [rekeyed]) == [.threshold])
+        #expect(state.keys.sorted() == ["\(account.id)/#1/w"])
+    }
+
     @Test func roundedPercentReachesThreshold() {
         var state = Alerts.State()
         // В подписи «90%» — значит порог достигнут.

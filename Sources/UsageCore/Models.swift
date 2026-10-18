@@ -2,13 +2,18 @@ import Foundation
 
 /// Тип источника — запись каталога. Код опроса у каждого свой (`Catalog.source`).
 public enum Provider: String, CaseIterable, Codable, Sendable {
-    case claude, codex, agy
+    case claude, codex, agy, copilot, cursor, kimi, openrouter, moonshot
 
     public var title: String {
         switch self {
         case .claude: "Claude Code"
         case .codex: "Codex"
         case .agy: "Antigravity"
+        case .copilot: "GitHub Copilot"
+        case .cursor: "Cursor"
+        case .kimi: "Kimi Code"
+        case .openrouter: "OpenRouter"
+        case .moonshot: "Moonshot"
         }
     }
 
@@ -18,6 +23,11 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         case .claude: URL(string: "https://claude.ai/settings/usage")
         case .codex: URL(string: "https://chatgpt.com/codex/settings/usage")
         case .agy: nil
+        case .copilot: URL(string: "https://github.com/settings/copilot/features")
+        case .cursor: URL(string: "https://cursor.com/dashboard/spending")
+        case .kimi: URL(string: "https://www.kimi.com/code/console")
+        case .openrouter: URL(string: "https://openrouter.ai/activity")
+        case .moonshot: URL(string: "https://platform.moonshot.ai/console/account")
         }
     }
 
@@ -27,11 +37,30 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         switch self {
         case .claude: "CLAUDE_CONFIG_DIR"
         case .codex: "CODEX_HOME"
-        case .agy: nil
+        default: nil
         }
     }
 
-    public var allowsMultipleAccounts: Bool { configDirVariable != nil }
+    /// Вход по API-ключу из консоли вендора (хранится в Связке ключей, `KeyStore`), а не через CLI.
+    public var usesAPIKey: Bool {
+        switch self {
+        case .kimi, .openrouter, .moonshot: true
+        default: false
+        }
+    }
+
+    /// Где выпустить ключ.
+    public var apiKeysURL: URL? {
+        switch self {
+        case .kimi: URL(string: "https://www.kimi.com/code/console")
+        case .openrouter: URL(string: "https://openrouter.ai/settings/keys")
+        case .moonshot: URL(string: "https://platform.moonshot.ai/console/api-keys")
+        default: nil
+        }
+    }
+
+    /// Несколько аккаунтов — у сервисов с каталогом конфигурации или ключом (ключ на аккаунт).
+    public var allowsMultipleAccounts: Bool { configDirVariable != nil || usesAPIKey }
 }
 
 /// Аккаунт — экземпляр сервиса из каталога со своими настройками. Порядок — порядок в списке.
@@ -49,6 +78,10 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
     /// Своя ссылка на страницу лимитов; nil — `kind.defaultUsageURL`.
     public var usageURL: String?
     public var onPanel: Bool
+    /// Растёт при каждой смене API-ключа (сам ключ — в `KeyStore`). Для стора и уведомлений это смена
+    /// источника, как смена каталога: опрос со старым ключом отбрасывается. Optional — старые
+    /// сохранённые аккаунты без этого поля читаются как есть.
+    public var keyRevision: Int?
 
     public init(id: UUID = UUID(), kind: Provider, name: String? = nil, enabled: Bool = true,
                 configDir: String? = nil, hiddenWindows: Set<String> = [], barWindowID: String? = nil,
@@ -64,6 +97,16 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
         self.onPanel = onPanel
     }
 
+    /// Откуда берутся данные аккаунта, кроме его типа: сменилось — это по сути другой аккаунт.
+    public func sameSource(as other: Account) -> Bool {
+        configDir == other.configDir && keyRevision == other.keyRevision
+    }
+
+    /// То же для ключей состояния уведомлений: без ключа API — прежний вид (каталог).
+    public var sourceTag: String {
+        (configDir ?? "") + (keyRevision.map { "#\($0)" } ?? "")
+    }
+
     public var resolvedUsageURL: URL? {
         if let usageURL, !usageURL.isEmpty, let url = URL(string: usageURL) { return url }
         return kind.defaultUsageURL
@@ -71,6 +114,15 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
 
     public func visibleWindows(_ snapshot: Snapshot) -> [LimitWindow] {
         (snapshot.report?.windows ?? []).filter { !hiddenWindows.contains($0.id) }
+    }
+
+    /// У сервиса только баланс, окон лимита нет: полоска в строке меню у него была бы всегда пустой.
+    /// Moonshot — по типу (окон у него не бывает: до первого ответа и при ошибке тоже), остальные —
+    /// по ответу (OpenRouter без бюджета ключа).
+    public func balanceOnly(_ snapshot: Snapshot) -> Bool {
+        if kind == .moonshot { return true }
+        guard let report = snapshot.report else { return false }
+        return report.windows.isEmpty && !report.balances.isEmpty
     }
 
     /// Доля для полоски в строке меню: выбранное окно, иначе максимум по коротким, иначе по всем.
@@ -138,15 +190,34 @@ public struct FreeResets: Sendable, Equatable {
     }
 }
 
+/// Денежная метрика без доли (баланс счёта): показывается строкой рядом с окнами лимита.
+public struct Balance: Sendable, Equatable, Identifiable {
+    public let id: String
+    public let title: String
+    /// В единицах валюты (доллары, юани), не в центах.
+    public let amount: Double
+    /// Код ISO 4217: USD, CNY.
+    public let currency: String
+
+    public init(id: String, title: String, amount: Double, currency: String) {
+        self.id = id
+        self.title = title
+        self.amount = amount
+        self.currency = currency
+    }
+}
+
 public struct UsageReport: Sendable, Equatable {
     public let windows: [LimitWindow]
     public let plan: String?
     public let freeResets: FreeResets?
+    public let balances: [Balance]
 
-    public init(windows: [LimitWindow], plan: String?, freeResets: FreeResets? = nil) {
+    public init(windows: [LimitWindow], plan: String?, freeResets: FreeResets? = nil, balances: [Balance] = []) {
         self.windows = windows
         self.plan = plan
         self.freeResets = freeResets
+        self.balances = balances
     }
 }
 
@@ -164,10 +235,13 @@ public struct Snapshot: Sendable, Equatable {
 
 public enum UsageError: LocalizedError, Equatable {
     case message(String)
+    /// Процесс вышел с ненулевым кодом: по коду вызывающий различает исходы (у `security` 44 — «элемента нет»).
+    case exit(tool: String, status: Int32)
 
     public var errorDescription: String? {
         switch self {
         case .message(let text): text
+        case .exit(let tool, let status): "\(tool): код \(status)"
         }
     }
 }

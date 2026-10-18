@@ -7,10 +7,16 @@ public enum Catalog {
         case .claude: ClaudeSource(configDir: account.configDir)
         case .codex: CodexSource(codexHome: account.configDir)
         case .agy: AgySource()
+        case .copilot: CopilotSource()
+        case .cursor: CursorSource()
+        case .kimi: KimiSource(accountID: account.id)
+        case .openrouter: OpenRouterSource(accountID: account.id)
+        case .moonshot: MoonshotSource(accountID: account.id)
         }
     }
 
     /// Признак, что сервис стоит на машине: его CLI или каталог конфигурации.
+    /// Сервисам по API-ключу ставить нечего — false: сами при первом запуске не добавляются.
     public static func isInstalled(_ kind: Provider) -> Bool {
         switch kind {
         case .claude:
@@ -18,6 +24,9 @@ public enum Catalog {
                 || FileManager.default.fileExists(atPath: ("~/.claude" as NSString).expandingTildeInPath)
         case .codex: ProcessRunner.locate(CodexSource.candidates) != nil
         case .agy: ProcessRunner.locate(AgySource.candidates) != nil
+        case .copilot: ProcessRunner.locate(CopilotSource.candidates) != nil
+        case .cursor: FileManager.default.fileExists(atPath: (CursorSource.database as NSString).expandingTildeInPath)
+        case .kimi, .openrouter, .moonshot: false
         }
     }
 

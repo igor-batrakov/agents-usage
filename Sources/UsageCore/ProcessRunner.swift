@@ -4,6 +4,7 @@ public enum ProcessRunner {
     /// Запускает процесс и возвращает накопленный stdout.
     /// - `input` пишется в stdin; stdin остаётся открытым, пока процесс жив
     ///   (app-server Codex завершается по EOF раньше, чем успевает ответить).
+    ///   `closeInput` — закрыть stdin после записи: процессу, который читает до EOF (`security -i`).
     /// - `until` — досрочный выход: как только накопленный вывод ему удовлетворяет,
     ///   процесс гасится и вывод возвращается.
     /// - По таймауту процесс гасится, бросается ошибка.
@@ -11,6 +12,7 @@ public enum ProcessRunner {
         _ path: String,
         _ arguments: [String],
         input: Data? = nil,
+        closeInput: Bool = false,
         environment extra: [String: String] = [:],
         timeout: TimeInterval,
         until: (@Sendable (Data) -> Bool)? = nil
@@ -41,7 +43,7 @@ public enum ProcessRunner {
                     state.finish(.success(state.output))
                 } else {
                     let name = (path as NSString).lastPathComponent
-                    state.finish(.failure(UsageError.message("\(name): код \(status)")))
+                    state.finish(.failure(UsageError.exit(tool: name, status: status)))
                 }
             }
             stdout.fileHandleForReading.readabilityHandler = { handle in
@@ -77,15 +79,19 @@ public enum ProcessRunner {
                     stop(process)
                 }
             }
+            if input == nil, closeInput {
+                try? stdin.fileHandleForWriting.close()
+            }
             if let input {
                 // Отдельная очередь — блокирующая запись не держит поток пула Swift Concurrency.
                 // Бросающий вариант: процесс мог уже выйти и закрыть pipe. Небросающий write
                 // в этом случае кидает ObjC-исключение и роняет всё приложение.
                 // Ошибку записи не отдаём наружу: она значит лишь, что процесс вышел или закрыл
                 // stdin, а настоящий итог (код выхода или таймаут) сообщат обработчики выше.
-                // stdin не закрываем вручную: pipe закроется вместе с объектами запуска.
+                // Без `closeInput` stdin не закрываем вручную: pipe закроется вместе с объектами запуска.
                 DispatchQueue.global().async {
                     try? stdin.fileHandleForWriting.write(contentsOf: input)
+                    if closeInput { try? stdin.fileHandleForWriting.close() }
                 }
             }
         }
