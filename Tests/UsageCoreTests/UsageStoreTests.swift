@@ -53,6 +53,20 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         #expect(store.snapshot(a.id).fetchedAt == firstFetch)
     }
 
+    @Test func timerGateSkipsPlannedPoll() async {
+        let a = Account(kind: .claude)
+        let source = ScriptedSource([.success(report)])
+        let store = makeStore([a.id: source])
+        store.setAccounts([a])
+        var allowed = false
+        store.timerGate = { allowed }
+        await store.timerTick()
+        #expect(source.calls == 0)
+        allowed = true
+        await store.timerTick()
+        #expect(source.calls == 1)
+    }
+
     @Test func successClearsError() async {
         let a = Account(kind: .codex)
         let store = makeStore([a.id: ScriptedSource([.failure(UsageError.message("x")), .success(report)])])
@@ -212,9 +226,14 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         #expect(store.nextReset(after: now) == nil)
         await store.refresh()
         #expect(store.nextReset(after: now) == now.addingTimeInterval(600))
+        // Сброс «past» был до опроса — свежие данные его уже покрыли.
+        #expect(!store.hasPassedReset(at: now))
+        #expect(store.hasPassedReset(at: now.addingTimeInterval(700)))
         a.hiddenWindows = ["near"]
         store.setAccounts([a])
         #expect(store.nextReset(after: now) == now.addingTimeInterval(7200))
+        #expect(!store.hasPassedReset(at: now.addingTimeInterval(700)))
+        #expect(store.hasPassedReset(at: now.addingTimeInterval(8000)))
     }
 
     @Test func onChangeFiresPerSourceAndAtEnd() async {

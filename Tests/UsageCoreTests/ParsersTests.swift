@@ -7,6 +7,10 @@ private func fixture(_ name: String) throws -> Data {
     return try Data(contentsOf: url)
 }
 
+/// Длины окон: 5 часов и неделя.
+private let h5: TimeInterval? = 5 * 3600
+private let wk: TimeInterval? = 7 * 86400
+
 @Suite struct ClaudeParserTests {
     @Test func parsesLimitsArrayIncludingScopedModel() throws {
         let r = try Parsers.claude(fixture("claude_usage"), plan: "Max 5x")
@@ -17,6 +21,7 @@ private func fixture(_ name: String) throws -> Data {
         #expect(r.windows[1].used == 0.35)
         #expect(!r.windows[1].isShort)
         #expect(r.windows[0].resetsAt == ISO8601DateFormatter().date(from: "2026-10-18T14:19:59Z"))
+        #expect(r.windows.map(\.duration) == [h5, wk, wk])
         #expect(r.plan == "Max 5x")
     }
 
@@ -47,7 +52,21 @@ private func fixture(_ name: String) throws -> Data {
         #expect(r.windows[0].isShort)
         #expect(r.windows[1].used == 0.22)
         #expect(r.windows[1].resetsAt == Date(timeIntervalSince1970: 1792875605))
+        #expect(r.windows.map(\.duration) == [h5, wk])
         #expect(r.plan == "Plus")
+    }
+
+    @Test func freeResetsCountAndNearestExpiry() throws {
+        let r = try Parsers.codex(fixture("codex_ratelimits"))
+        #expect(r.freeResets == FreeResets(count: 3, nextExpiry: Date(timeIntervalSince1970: 1792703236)))
+    }
+
+    @Test func noAvailableFreeResetsIsNil() throws {
+        let json = #"""
+        {"result":{"rateLimits":{"limitId":"codex","primary":{"usedPercent":1,"windowDurationMins":300,"resetsAt":1}},
+         "rateLimitResetCredits":{"credits":[{"status":"used","expiresAt":5}]}}}
+        """#
+        #expect(try Parsers.codex(Data(json.utf8)).freeResets == nil)
     }
 
     @Test func extraLimitGetsPrefix() throws {
@@ -77,6 +96,7 @@ private func fixture(_ name: String) throws -> Data {
         #expect(argon.resetsAt == ISO8601DateFormatter().date(from: "2026-10-24T00:16:04Z"))
         #expect(r.windows[0].isShort && !r.windows[1].isShort)
         #expect(abs(r.windows[0].used - 0.0159) < 0.001)
+        #expect(r.windows.map(\.duration) == [h5, wk, h5, wk, wk])
     }
 
     @Test func missingCommandDataIsError() {
@@ -92,6 +112,16 @@ private func fixture(_ name: String) throws -> Data {
         #expect(w.used(at: now) == 0)
         let future = LimitWindow(id: "b", title: "t", used: 0.8, resetsAt: now.addingTimeInterval(60), isShort: true)
         #expect(future.used(at: now) == 0.8)
+    }
+
+    @Test func paceIsElapsedShareOfWindow() {
+        let w = LimitWindow(id: "a", title: "t", used: 0.5, resetsAt: now.addingTimeInterval(3600), isShort: true,
+                            duration: 4 * 3600)
+        #expect(w.pace(at: now) == 0.75)
+        // Сброс прошёл, длина неизвестна — метки нет.
+        #expect(w.pace(at: now.addingTimeInterval(3601)) == nil)
+        #expect(LimitWindow(id: "b", title: "t", used: 0.5, resetsAt: now.addingTimeInterval(60), isShort: true)
+            .pace(at: now) == nil)
     }
 
     @Test func usedIsClamped() {

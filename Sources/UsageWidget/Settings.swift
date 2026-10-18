@@ -9,6 +9,7 @@ import os
 @MainActor @Observable
 final class Settings {
     static let intervals: [TimeInterval] = [60, 300, 900, 1800]
+    static let thresholds: [Double] = [0.7, 0.8, 0.9, 0.95, 1]
 
     enum IconStyle: String, CaseIterable { case bars, percents, worst }
     enum PanelAnchor: String, CaseIterable { case free, topLeft, topRight, bottomLeft, bottomRight }
@@ -31,6 +32,16 @@ final class Settings {
     var autoRefresh: Bool { didSet { save(autoRefresh, "autoRefresh") } }
     var interval: TimeInterval { didSet { save(interval, "interval") } }
     var iconStyle: IconStyle { didSet { save(iconStyle.rawValue, "iconStyle") } }
+    /// Экономный опрос: не по таймеру при заблокированном экране и спящем дисплее, от батареи — реже.
+    var economy: Bool { didSet { save(economy, "economy") } }
+    /// Метка темпа на полосках.
+    var showPace: Bool { didSet { save(showPace, "showPace") } }
+    var hotKey: HotKeyChoice { didSet { save(hotKey.rawValue, "hotKey") } }
+
+    var notify: Bool { didSet { save(notify, "notify") } }
+    var notifyThreshold: Double { didSet { save(notifyThreshold, "notifyThreshold") } }
+    /// Уведомлять о сбросе окна, которое дошло до порога.
+    var notifyReset: Bool { didSet { save(notifyReset, "notifyReset") } }
 
     var panelEnabled: Bool { didSet { save(panelEnabled, "panelEnabled") } }
     /// true — панель на уровне рабочего стола (видна поверх обоев), false — поверх окон.
@@ -91,6 +102,13 @@ final class Settings {
         let stored = d.double(forKey: "interval")
         interval = Self.intervals.contains(stored) ? stored : 300
         iconStyle = d.string(forKey: "iconStyle").flatMap(IconStyle.init) ?? .bars
+        economy = d.object(forKey: "economy") as? Bool ?? true
+        showPace = d.object(forKey: "showPace") as? Bool ?? true
+        hotKey = d.string(forKey: "hotKey").flatMap(HotKeyChoice.init) ?? .ctrlOptL
+        notify = d.object(forKey: "notify") as? Bool ?? true
+        let threshold = d.double(forKey: "notifyThreshold")
+        notifyThreshold = Self.thresholds.contains(threshold) ? threshold : 0.9
+        notifyReset = d.object(forKey: "notifyReset") as? Bool ?? true
         panelEnabled = d.bool(forKey: "panelEnabled")
         panelOnDesktop = d.bool(forKey: "panelOnDesktop")
         // v1 запоминал свободную позицию панели — сохраняем её; иначе по умолчанию правый верхний угол.

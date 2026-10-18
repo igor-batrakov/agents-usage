@@ -97,30 +97,56 @@ public struct LimitWindow: Sendable, Equatable, Identifiable {
     public let resetsAt: Date?
     /// Короткое (5-часовое) окно: по нему рисуется полоска в строке меню.
     public let isShort: Bool
+    /// Длина окна, с; nil — неизвестна (тогда нет метки темпа).
+    public let duration: TimeInterval?
 
-    public init(id: String, title: String, group: String? = nil, used: Double, resetsAt: Date?, isShort: Bool) {
+    public init(id: String, title: String, group: String? = nil, used: Double, resetsAt: Date?, isShort: Bool,
+                duration: TimeInterval? = nil) {
         self.id = id
         self.title = title
         self.group = group
         self.used = min(max(used, 0), 1)
         self.resetsAt = resetsAt
         self.isShort = isShort
+        self.duration = duration
     }
+
+    public var fullTitle: String { group.map { "\($0) · \(title)" } ?? title }
 
     /// Если время сброса уже прошло, окно считается пустым до следующего опроса.
     public func used(at now: Date) -> Double {
         if let resetsAt, resetsAt <= now { return 0 }
         return used
     }
+
+    /// Темп: какая доля окна по времени уже прошла, 0…1. Расход выше темпа — лимит кончится до сброса.
+    /// nil — длина или время сброса неизвестны, либо сброс уже прошёл.
+    public func pace(at now: Date) -> Double? {
+        guard let duration, duration > 0, let resetsAt, resetsAt > now else { return nil }
+        return min(max(1 - resetsAt.timeIntervalSince(now) / duration, 0), 1)
+    }
+}
+
+/// Бесплатные сбросы лимита (у Codex — «Full reset»): сколько доступно и когда сгорит ближайший.
+public struct FreeResets: Sendable, Equatable {
+    public let count: Int
+    public let nextExpiry: Date?
+
+    public init(count: Int, nextExpiry: Date?) {
+        self.count = count
+        self.nextExpiry = nextExpiry
+    }
 }
 
 public struct UsageReport: Sendable, Equatable {
     public let windows: [LimitWindow]
     public let plan: String?
+    public let freeResets: FreeResets?
 
-    public init(windows: [LimitWindow], plan: String?) {
+    public init(windows: [LimitWindow], plan: String?, freeResets: FreeResets? = nil) {
         self.windows = windows
         self.plan = plan
+        self.freeResets = freeResets
     }
 }
 

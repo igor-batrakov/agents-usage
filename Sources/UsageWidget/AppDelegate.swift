@@ -9,7 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var panel: FloatingPanel?
-    private lazy var settingsWindow = SettingsWindowController(settings: settings, store: store)
+    private lazy var settingsWindow = SettingsWindowController(settings: settings, store: store, notifier: notifier)
+    private let notifier = Notifier()
+    private let hotKey = HotKey()
+    private var appliedHotKey: HotKeyChoice?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -24,7 +27,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController = host
         popover.behavior = .transient
 
-        store.onChange = { [weak self] in self?.updateIcon() }
+        store.onChange = { [weak self] in
+            guard let self else { return }
+            updateIcon()
+            notifier.check(store, settings)
+        }
+        store.timerGate = { [weak self] in
+            guard let self, settings.economy else { return true }
+            return PollPolicy.timerShouldPoll(lastRefresh: store.lastRefresh, now: Date(), interval: settings.interval,
+                                              screenIdle: SystemState.screenIdle, onBattery: SystemState.onBattery)
+        }
+        notifier.onOpen = { [weak self] in self?.showPopover() }
+        notifier.onAuthorized = { [weak self] in
+            guard let self else { return }
+            notifier.check(store, settings)
+        }
         settings.onChange = { [weak self] in self?.applySettings() }
         store.setAccounts(settings.accounts)
         applySettings()
@@ -34,13 +51,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in
-                try? await Task.sleep(for: .seconds(5))
-                // Проверка после паузы: автообновление могли выключить, пока ждали сеть.
-                guard self?.settings.autoRefresh == true else { return }
-                await self?.store.refresh()
+            MainActor.assumeIsolated { self?.catchUp(after: .seconds(5), olderThan: 60) }
+        }
+        // Экран разблокировали или дисплей проснулся: пока он был тёмным, экономный режим
+        // пропускал опросы — догоняем, если данные устарели.
+        let screenBack: @Sendable (Notification) -> Void = { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.catchUp(after: .seconds(2), olderThan: self.settings.interval)
             }
         }
+        DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main, using: screenBack)
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: screenBack)
         // Первый опрос — всегда, даже с выключенным автообновлением: иначе после запуска пусто.
         Task { await store.refresh() }
     }
@@ -61,7 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         if settings.panelEnabled {
             if panel == nil {
-                let p = FloatingPanel(store: store) { [weak self] in self?.settings.panelEnabled = false }
+                let p = FloatingPanel(store: store, settings: settings) { [weak self] in self?.settings.panelEnabled = false }
                 p.onUserMove = { [weak self] in self?.settings.panelAnchor = .free }
                 panel = p
             }
@@ -74,6 +98,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             panel.close()
             self.panel = nil
         }
+
+        if appliedHotKey != settings.hotKey {
+            appliedHotKey = settings.hotKey
+            hotKey.set(settings.hotKey) { [weak self] in self?.togglePopover() }
+        }
+        if settings.notify { notifier.authorize() }
+        notifier.check(store, settings)
         updateIcon()
     }
 
@@ -89,6 +120,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let ids = pendingPoll
             pendingPoll = []
             Task { await self.store.refresh(only: ids) }
+        }
+    }
+
+    private var catchUpTask: Task<Void, Never>?
+
+    /// Догоняющий опрос после сна и разблокировки: прошёл сброс окна — сразу (разовый опрос
+    /// к нему при тёмном экране пропущен), иначе — если данные старше `age`. Пробуждение шлёт
+    /// сразу несколько уведомлений — опрашиваем один раз, по последнему. Отменяется только
+    /// ожидание: начатый опрос идёт отдельной задачей и не прерывается.
+    private func catchUp(after delay: Duration, olderThan age: TimeInterval) {
+        catchUpTask?.cancel()
+        catchUpTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            // Автообновление могли выключить, пока ждали. Дисплей просыпается и на экране блокировки,
+            // а экран могли снова заблокировать — опрос догонит следующая разблокировка.
+            // Аккаунты, опрос которых уже идёт, стор пропустит сам.
+            guard !Task.isCancelled, let self, settings.autoRefresh,
+                  !(settings.economy && SystemState.screenIdle) else { return }
+            Task {
+                if self.store.hasPassedReset(at: Date()) {
+                    await self.store.refresh()
+                } else {
+                    await self.store.refreshIfStale(olderThan: age)
+                }
+            }
         }
     }
 
@@ -109,7 +165,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         resetTimer = nil
         guard settings.autoRefresh, let reset = store.nextReset(after: Date()) else { return }
         let t = Timer(fire: reset.addingTimeInterval(5), interval: 0, repeats: false) { [weak self] _ in
-            Task { @MainActor in await self?.store.refresh() }
+            Task { @MainActor in
+                // Тёмный экран — опрос догонит разблокировка; батарея разовому опросу не помеха.
+                guard let self, !(self.settings.economy && SystemState.screenIdle) else { return }
+                await self.store.refresh()
+            }
         }
         t.tolerance = 30
         RunLoop.main.add(t, forMode: .common)
@@ -119,9 +179,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func togglePopover() {
         if popover.isShown {
             popover.performClose(nil)
-            return
+        } else {
+            showPopover()
         }
-        guard let button = statusItem.button else { return }
+    }
+
+    private func showPopover() {
+        guard !popover.isShown, let button = statusItem.button else { return }
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()

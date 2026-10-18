@@ -17,6 +17,7 @@ struct UsageView: View {
     let height: ContentHeight
     let maxHeight: CGFloat
     var compact = false
+    var showPace = true
     /// Какие аккаунты показывать (у панели — свой набор).
     var include: (Account) -> Bool = { _ in true }
 
@@ -31,7 +32,7 @@ struct UsageView: View {
                     }
                     ForEach(accounts) { account in
                         AccountSection(account: account, snapshot: store.snapshot(account.id),
-                                       now: context.date, compact: compact)
+                                       now: context.date, compact: compact, showPace: showPace)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -53,6 +54,7 @@ private struct AccountSection: View {
     let snapshot: Snapshot
     let now: Date
     let compact: Bool
+    let showPace: Bool
 
     private var provider: Provider { account.kind }
 
@@ -74,9 +76,10 @@ private struct AccountSection: View {
                     }
                     ForEach(group.windows) { window in
                         LimitRow(window: window, provider: provider, now: now,
-                                 stale: snapshot.error != nil, compact: compact)
+                                 stale: snapshot.error != nil, compact: compact, showPace: showPace)
                     }
                 }
+                if let resets = snapshot.report?.freeResets { freeResets(resets) }
             } else if snapshot.error == nil {
                 Text("загрузка…").font(.caption).foregroundStyle(.secondary)
             }
@@ -124,6 +127,31 @@ private struct AccountSection: View {
         }
     }
 
+    /// «Бесплатные сбросы: 3 … сгорит через 2 д» — ссылкой на страницу лимитов, где сброс
+    /// активируется. Сами сбросы приложение не тратит.
+    @ViewBuilder private func freeResets(_ resets: FreeResets) -> some View {
+        let expiry = resets.nextExpiry.flatMap { $0 > now ? $0 : nil }
+        let label = HStack(spacing: 4) {
+            Label("Бесплатные сбросы: \(resets.count)", systemImage: "arrow.counterclockwise.circle")
+            Spacer(minLength: 4)
+            if let expiry {
+                Text("сгорит \(Format.resetIn(expiry, now: now))")
+                    .help("Ближайший сгорит \(expiry.formatted(date: .abbreviated, time: .shortened))")
+            }
+        }
+        .lineLimit(1)
+        .font(.system(size: compact ? 10.5 : 11))
+        .foregroundStyle(.secondary)
+        if let url = account.resolvedUsageURL {
+            Button { NSWorkspace.shared.open(url) } label: { label }
+                .buttonStyle(.plain)
+                .help("Активировать сброс — на странице лимитов")
+                .pointerStyle(.link)
+        } else {
+            label
+        }
+    }
+
     /// Окна подряд с одинаковой группой — одна секция (у agy: Gemini, Claude и GPT, Argon).
     private func groups(_ windows: [LimitWindow]) -> [(name: String?, windows: [LimitWindow])] {
         var result: [(name: String?, windows: [LimitWindow])] = []
@@ -144,9 +172,11 @@ private struct LimitRow: View {
     let now: Date
     let stale: Bool
     let compact: Bool
+    let showPace: Bool
 
     var body: some View {
         let used = window.used(at: now)
+        let pace = showPace ? window.pace(at: now) : nil
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(window.title).font(.system(size: compact ? 11.5 : 12))
@@ -161,16 +191,20 @@ private struct LimitRow: View {
                     .font(.system(size: compact ? 11.5 : 12, weight: .medium))
                     .monospacedDigit()
             }
-            Bar(fraction: used, color: Theme.bar(used, provider))
+            Bar(fraction: used, color: Theme.bar(used, provider), pace: pace)
                 .frame(height: compact ? 4 : 5)
+                .help(pace.map { "Прошло \(Format.percent($0)) окна, израсходовано \(Format.percent(used))" } ?? "")
         }
         .opacity(stale ? 0.5 : 1)
     }
 }
 
+/// Полоска расхода. `pace` — метка темпа: доля прошедшего времени окна. Заливка правее
+/// метки — расход быстрее, чем нужно, чтобы лимита хватило до сброса.
 private struct Bar: View {
     let fraction: Double
     let color: Color
+    var pace: Double?
 
     var body: some View {
         GeometryReader { geo in
@@ -179,6 +213,14 @@ private struct Bar: View {
                 if fraction > 0 {
                     Capsule().fill(color)
                         .frame(width: max(geo.size.height, geo.size.width * fraction))
+                }
+            }
+            // overlay, а не ещё один слой ZStack: метка выше полоски и не должна менять её раскладку.
+            .overlay(alignment: .leading) {
+                if let pace {
+                    Capsule().fill(.primary.opacity(0.55))
+                        .frame(width: 1.5, height: geo.size.height + 4)
+                        .offset(x: min(max(geo.size.width * pace - 0.75, 0), geo.size.width - 1.5))
                 }
             }
         }
