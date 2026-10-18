@@ -12,9 +12,9 @@ public enum Alerts {
         public let resetsAt: Date?
     }
 
-    /// Окна, о которых уже предупредили (`<id аккаунта>/<каталог конфигурации>/<id окна>`) → время
-    /// их сброса; `distantFuture` — API время сброса не отдаёт. Хранится между запусками.
-    /// Каталог в ключе: сменили его — это другой аккаунт по сути, прежние записи к нему не относятся.
+    /// Окна, о которых уже предупредили (`<id аккаунта>/<источник>/<id окна>`, источник — `sourceTag`:
+    /// каталог и ревизия ключа) → время их сброса; `distantFuture` — API время сброса не отдаёт.
+    /// Хранится между запусками. Сменили источник — это другой аккаунт по сути, прежние записи не его.
     public typealias State = [String: Date]
 
     /// Сброс, о котором узнали позже этого (приложение было закрыто), уже не новость.
@@ -29,7 +29,7 @@ public enum Alerts {
         var next = State()
         let limit = (threshold * 100).rounded()
         for account in accounts where account.enabled {
-            let prefix = "\(account.id)/\(account.configDir ?? "")/"
+            let prefix = "\(account.id)/\(account.sourceTag)/"
             guard let snapshot = snapshots[account.id], snapshot.report != nil else {
                 for (key, value) in state where key.hasPrefix(prefix) { next[key] = value }
                 continue

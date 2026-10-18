@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import UsageCore
 
-private func fixture(_ name: String) throws -> Data {
+func fixture(_ name: String) throws -> Data {
     let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
     return try Data(contentsOf: url)
 }

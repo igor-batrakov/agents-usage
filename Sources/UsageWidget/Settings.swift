@@ -21,7 +21,13 @@ final class Settings {
 
     /// Выбранный аккаунт во вкладке «Сервисы». Не сохраняется. Живёт здесь, а не в @State:
     /// в SDK macOS 27 @State — макрос, а его плагина (SwiftUIMacros) нет в Command Line Tools.
-    var selectedAccountID: UUID?
+    var selectedAccountID: UUID? {
+        // Черновик ключа — выбранного аккаунта: при смене выбора его нельзя донести до другого.
+        didSet { if selectedAccountID != oldValue { keyDraft = ""; keyMessage = nil } }
+    }
+    /// Вводимый API-ключ и итог его сохранения. Не сохраняются: сам ключ — только в Связке ключей.
+    var keyDraft = ""
+    var keyMessage: String?
 
     var accounts: [Account] {
         didSet {
@@ -143,7 +149,21 @@ final class Settings {
         selectedAccountID = account.id
     }
 
+    /// Последняя операция с ключом аккаунта. Операции одного аккаунта идут по очереди: удаление
+    /// аккаунта не обгонит идущее сохранение — иначе сохранение заново создало бы ключ, которого
+    /// из приложения уже не удалить. Запись на аккаунт остаётся после завершения — их единицы.
+    @ObservationIgnored private var keyTasks: [UUID: Task<Void, Never>] = [:]
+
+    func withKey(_ id: UUID, _ operation: @escaping @MainActor () async -> Void) {
+        let previous = keyTasks[id]
+        keyTasks[id] = Task {
+            await previous?.value
+            await operation()
+        }
+    }
+
     func remove(_ id: UUID) {
+        if account(id)?.kind.usesAPIKey == true { withKey(id) { try? await KeyStore.delete(id) } }
         accounts.removeAll { $0.id == id }
         if selectedAccountID == id { selectedAccountID = accounts.first?.id }
     }

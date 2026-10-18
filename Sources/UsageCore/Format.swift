@@ -24,4 +24,17 @@ public enum Format {
     public static func percent(_ used: Double) -> String {
         "\(Int((used * 100).rounded()))%"
     }
+
+    /// «$12.34», «¥5.00»; неизвестная валюта — «12.34 EUR». Точка, а не запятая: суммы с консолей
+    /// вендоров, где их пишут так же.
+    public static func money(_ amount: Double, _ currency: String) -> String {
+        // Знак — по округлённой сумме: −0,001 — это «$0.00», а не «−$0.00».
+        let cents = (amount * 100).rounded()
+        let value = String(format: "%.2f", abs(cents) / 100), sign = cents < 0 ? "−" : ""
+        switch currency {
+        case "USD": return sign + "$" + value
+        case "CNY": return sign + "¥" + value
+        default: return "\(sign)\(value) \(currency)"
+        }
+    }
 }

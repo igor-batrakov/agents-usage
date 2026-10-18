@@ -64,7 +64,7 @@ import Testing
 
 @Suite struct CatalogTests {
     @Test func defaultAccountsForInstalledOnly() {
-        let accounts = Catalog.defaultAccounts(installed: { $0 != .codex })
+        let accounts = Catalog.defaultAccounts(installed: { [.claude, .agy].contains($0) })
         #expect(accounts.map(\.kind) == [.claude, .agy])
         #expect(accounts.filter { !$0.enabled }.isEmpty)
         #expect(accounts.map(\.name) == ["Claude Code", "Antigravity"])
