@@ -16,7 +16,7 @@ public enum KeyStore {
         do {
             data = try await ProcessRunner.run(
                 "/usr/bin/security", ["find-generic-password", "-s", service, "-a", id.uuidString, "-w"], timeout: 5)
-        } catch UsageError.exit(_, notFound) {
+        } catch UsageError.exit(_, let status) where status == notFound {
             return nil
         }
         let key = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
@@ -46,7 +46,7 @@ public enum KeyStore {
         do {
             _ = try await ProcessRunner.run(
                 "/usr/bin/security", ["delete-generic-password", "-s", service, "-a", id.uuidString], timeout: 5)
-        } catch UsageError.exit(_, notFound) {}
+        } catch UsageError.exit(_, let status) where status == notFound {}
         guard try await lookup(id) == nil else { throw UsageError.message("не удалось удалить ключ из Связки ключей") }
         return true
     }
