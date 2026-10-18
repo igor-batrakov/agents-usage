@@ -3,9 +3,10 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key><string>ru.batrakov.UsageWidget</string>
-    <key>CFBundleName</key><string>Лимиты ИИ</string>
-    <key>CFBundleDisplayName</key><string>Лимиты ИИ</string>
+    <key>CFBundleName</key><string>Agents Usage</string>
+    <key>CFBundleDisplayName</key><string>Agents Usage</string>
     <key>CFBundleExecutable</key><string>UsageWidget</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>1.0</string>
     <key>CFBundleVersion</key><string>1</string>
