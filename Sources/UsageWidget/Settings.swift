@@ -16,7 +16,7 @@ final class Settings {
     enum PanelMode: Hashable { case off, floating, desktop }
 
     @ObservationIgnored var onChange: (() -> Void)?
-    @ObservationIgnored private let defaults = UserDefaults.standard
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var revertingLaunchAtLogin = false
 
     /// Выбранный аккаунт во вкладке «Сервисы». Не сохраняется. Живёт здесь, а не в @State:
@@ -25,6 +25,8 @@ final class Settings {
         // Черновик ключа — выбранного аккаунта: при смене выбора его нельзя донести до другого.
         didSet { if selectedAccountID != oldValue { keyDraft = ""; keyMessage = nil } }
     }
+    /// Открытая вкладка окна настроек (0 — «Общие»). Не сохраняется, живёт здесь по той же причине.
+    var selectedTab = 0
     /// Вводимый API-ключ и итог его сохранения. Не сохраняются: сам ключ — только в Связке ключей.
     var keyDraft = ""
     var keyMessage: String?
@@ -100,8 +102,10 @@ final class Settings {
         }
     }
 
-    init() {
-        let d = UserDefaults.standard
+    /// `defaults` — свой домен у демо-режима (Demo), иначе стандартный.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        let d = defaults
         if let data = d.data(forKey: "accounts"), let list = try? JSONDecoder().decode([Account].self, from: data) {
             accounts = list
         } else {

@@ -1,0 +1,18 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Translations are in sync with the code
+        run: python3 tools/strings.py --check
+      - name: Test
+        run: swift test
+      - name: Build the app
+        run: ./build.sh

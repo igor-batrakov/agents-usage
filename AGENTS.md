@@ -1,4 +1,6 @@
-# Usage Widget — правила проекта
+# Agents Usage — правила проекта
+
+Для участников по-английски — [CONTRIBUTING.md](CONTRIBUTING.md); здесь — правила для ревьюеров и агентов.
 
 Нативное macOS-приложение для строки меню (Swift, SwiftPM, без Xcode). Показывает лимиты подписок
 Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а также балансы OpenRouter и Moonshot:
@@ -9,6 +11,13 @@ Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а т�
 - `./test.sh` — тесты (Swift Testing). Пути к Testing.framework и плагину макросов из Command Line Tools
   подставляет скрипт: CLT, в отличие от Xcode, сам их не находит.
 - `./build.sh` — `build/Agents Usage.app`, ad-hoc подпись. `./build.sh install` — копия в `~/Applications` и запуск.
+  `UNIVERSAL=1` — arm64 + x86_64, `VERSION=` — версия в Info.plist.
+- Релиз — `tools/release.sh v1.2.0`: универсальная сборка, `dist/Agents-Usage.zip` и `.dmg` (имена без версии —
+  их качает `install.sh` по `releases/latest/download/`), `SHA256SUMS`, GitHub-релиз с заметками
+  `docs/release-notes/<тег>.md`. Подписи Developer ID нет: `install.sh` качает через curl (без карантина).
+- Демо для скриншотов README — `open "Agents Usage.app" --args --demo [-language ru] [--demo-settings]`
+  (`Demo.swift`): свой домен UserDefaults, вымышленные данные; настоящие настройки, ключи и состояние
+  уведомлений не трогает.
 - Иконка — `Resources/AppIcon.icns`, рисует её `tools/make-icon.swift`; пересобрать — `tools/make-icon.sh`.
   Bundle ID `ru.batrakov.UsageWidget` и имя бинаря `UsageWidget` не менять: к ним привязаны настройки,
   аккаунты и разрешение на уведомления.

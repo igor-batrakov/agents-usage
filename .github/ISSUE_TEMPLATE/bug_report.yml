@@ -1,0 +1,32 @@
+name: Bug report
+description: Something shows wrong numbers, an error or does not work
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw and what you expected instead. A screenshot of the popover helps.
+    validations:
+      required: true
+  - type: input
+    id: service
+    attributes:
+      label: Service
+      description: Which service is affected (Claude Code, Codex, Cursor…), if any.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: macOS version and app version (Finder → Get Info on Agents Usage.app).
+      placeholder: macOS 15.4, Agents Usage 1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        Optional. Output of `log show --last 30m --info --predicate 'subsystem == "ru.batrakov.UsageWidget"'`.
+        The app never logs tokens or keys, but check the text before posting.
+      render: text

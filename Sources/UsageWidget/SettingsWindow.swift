@@ -46,13 +46,16 @@ struct SettingsView: View {
     let notifier: Notifier
 
     var body: some View {
-        TabView {
+        TabView(selection: $settings.selectedTab) {
             GeneralTab(settings: settings, notifier: notifier)
                 .tabItem { Label(L("General"), systemImage: "gearshape") }
+                .tag(0)
             ServicesTab(settings: settings, store: store)
                 .tabItem { Label(L("Services"), systemImage: "square.stack.3d.up") }
+                .tag(1)
             PanelTab(settings: settings)
                 .tabItem { Label(L("Panel"), systemImage: "macwindow") }
+                .tag(2)
         }
         .frame(width: 660, height: 480)
         // Новый язык — пересобрать дерево: строки L() вычисляются при построении вида.

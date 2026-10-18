@@ -59,18 +59,18 @@
 /* Sources/UsageCore/Sources.swift */
 "not signed in to Claude Code" = "нет входа в Claude Code";
 "not signed in to Claude Code for this directory" = "нет входа в Claude Code для этого каталога";
-"token expired, run claude" = "токен истёк — запусти claude";
+"token expired, run claude" = "токен истёк — запустите claude";
 "API: too many requests (429)" = "API: слишком часто (429)";
 "GitHub CLI (gh) not found. Copilot signs in through it" = "нет GitHub CLI (gh) — через него берётся вход";
-"not signed in to gh. Run gh auth login" = "нет входа в gh — запусти gh auth login";
-"gh rejected the sign-in. Run gh auth login" = "gh отклонил вход — запусти gh auth login";
+"not signed in to gh. Run gh auth login" = "нет входа в gh — запустите gh auth login";
+"gh rejected the sign-in. Run gh auth login" = "gh отклонил вход — запустите gh auth login";
 "this account has no Copilot" = "у аккаунта нет Copilot";
 "%@ not installed" = "%@ не установлен";
 "app-server didn't respond" = "app-server не ответил";
-"not signed in to Cursor. Sign in in the app" = "нет входа в Cursor — войди в приложении";
-"Cursor sign-in expired. Open Cursor" = "вход в Cursor истёк — открой Cursor";
-"no API key. Add one in Settings" = "нет API-ключа — задай его в настройках";
-"key rejected. Check it in Settings" = "ключ отклонён — проверь его в настройках";
+"not signed in to Cursor. Sign in in the app" = "нет входа в Cursor — войдите в приложении";
+"Cursor sign-in expired. Open Cursor" = "вход в Cursor истёк — откройте Cursor";
+"no API key. Add one in Settings" = "нет API-ключа — добавьте его в настройках";
+"key rejected. Check it in Settings" = "ключ отклонён — проверьте его в настройках";
 "no API addresses" = "нет адресов API";
 
 /* Sources/UsageWidget/App.swift */
@@ -160,7 +160,7 @@
 "Check" = "Проверить";
 "working: %d windows, %@" = "работает: окон %d, %@";
 "Key" = "Ключ";
-"Paste a key to replace the saved one" = "вставь ключ — заменит сохранённый";
+"Paste a key to replace the saved one" = "вставьте ключ";
 "Save" = "Сохранить";
 "key saved to Keychain" = "ключ сохранён в Связке ключей";
 "this key is already saved" = "этот ключ уже сохранён";

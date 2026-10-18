@@ -4,8 +4,8 @@ import UsageCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let store = UsageStore()
-    private let settings = Settings()
+    private let store = Demo.isOn ? UsageStore(makeSource: Demo.source) : UsageStore()
+    private let settings = Demo.isOn ? Demo.settings() : Settings()
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var panel: FloatingPanel?
@@ -69,6 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: screenBack)
         // Первый опрос — всегда, даже с выключенным автообновлением: иначе после запуска пусто.
         Task { await store.refresh() }
+        if Demo.opensSettings { settingsWindow.show() }
     }
 
     private var scheduledInterval: TimeInterval??

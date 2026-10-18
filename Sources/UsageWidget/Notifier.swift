@@ -41,6 +41,8 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
 
     /// Проверить данные после опроса или смены настроек.
     func check(_ store: UsageStore, _ settings: Settings) {
+        // Демо-данные не уведомляют и не трогают сохранённое состояние настоящих аккаунтов.
+        guard !Demo.isOn else { return }
         // Выключенные уведомления не копят состояние: после включения сразу придёт
         // предупреждение об окнах, которые уже за порогом.
         guard settings.notify else {
