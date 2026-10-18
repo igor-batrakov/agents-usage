@@ -22,6 +22,38 @@
    "planType": "plus",
    "rateLimitReachedType": null
   },
+  "rateLimitResetCredits": {
+   "availableCount": 3,
+   "credits": [
+    {
+     "id": "RateLimitResetCredit_00000000000000000000000000000001",
+     "resetType": "codexRateLimits",
+     "status": "available",
+     "grantedAt": 1790111236,
+     "expiresAt": 1792703236,
+     "title": "Full reset (Weekly + 5 hr)",
+     "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+    },
+    {
+     "id": "RateLimitResetCredit_00000000000000000000000000000002",
+     "resetType": "codexRateLimits",
+     "status": "available",
+     "grantedAt": 1790701925,
+     "expiresAt": 1793293925,
+     "title": "Full reset (Weekly + 5 hr)",
+     "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+    },
+    {
+     "id": "RateLimitResetCredit_00000000000000000000000000000003",
+     "resetType": "codexRateLimits",
+     "status": "available",
+     "grantedAt": 1791414261,
+     "expiresAt": 1794006261,
+     "title": "Full reset (Weekly + 5 hr)",
+     "description": "Thanks for using Codex! You've been granted one free rate limit reset."
+    }
+   ]
+  },
   "accountId": "00000000-0000-0000-0000-000000000000"
  }
 }

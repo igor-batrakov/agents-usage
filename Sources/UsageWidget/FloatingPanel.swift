@@ -28,7 +28,7 @@ final class FloatingPanel: NSPanel {
     /// Пользователь перетащил привязанную панель.
     var onUserMove: (() -> Void)?
 
-    init(store: UsageStore, onHide: @escaping () -> Void) {
+    init(store: UsageStore, settings: Settings, onHide: @escaping () -> Void) {
         super.init(contentRect: NSRect(x: 0, y: 0, width: 260, height: 300),
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: true)
@@ -39,7 +39,7 @@ final class FloatingPanel: NSPanel {
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
 
-        let host = NSHostingController(rootView: PanelContent(store: store, hover: hover, onHide: onHide))
+        let host = NSHostingController(rootView: PanelContent(store: store, settings: settings, hover: hover, onHide: onHide))
         host.sizingOptions = .preferredContentSize
         contentViewController = host
 
@@ -152,13 +152,14 @@ private final class PanelHover {
 
 private struct PanelContent: View {
     let store: UsageStore
+    let settings: Settings
     let hover: PanelHover
     let onHide: () -> Void
     private let height = ContentHeight()
 
     var body: some View {
         UsageView(store: store, height: height, maxHeight: UsageView.screenLimit(reserve: 80),
-                  compact: true, include: \.onPanel)
+                  compact: true, showPace: settings.showPace, include: \.onPanel)
             .padding(12)
             .frame(width: 250)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))

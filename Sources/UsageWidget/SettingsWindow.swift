@@ -8,10 +8,12 @@ final class SettingsWindowController {
     private var window: NSWindow?
     private let settings: Settings
     private let store: UsageStore
+    private let notifier: Notifier
 
-    init(settings: Settings, store: UsageStore) {
+    init(settings: Settings, store: UsageStore, notifier: Notifier) {
         self.settings = settings
         self.store = store
+        self.notifier = notifier
     }
 
     func show() {
@@ -20,7 +22,8 @@ final class SettingsWindowController {
                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: true)
             w.title = "Настройки — Лимиты ИИ"
             w.isReleasedWhenClosed = false
-            w.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, store: store))
+            w.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, store: store,
+                                                                                         notifier: notifier))
             w.center()
             window = w
         }
@@ -35,10 +38,11 @@ final class SettingsWindowController {
 struct SettingsView: View {
     @Bindable var settings: Settings
     let store: UsageStore
+    let notifier: Notifier
 
     var body: some View {
         TabView {
-            GeneralTab(settings: settings)
+            GeneralTab(settings: settings, notifier: notifier)
                 .tabItem { Label("Общие", systemImage: "gearshape") }
             ServicesTab(settings: settings, store: store)
                 .tabItem { Label("Сервисы", systemImage: "square.stack.3d.up") }
@@ -53,6 +57,7 @@ struct SettingsView: View {
 
 private struct GeneralTab: View {
     @Bindable var settings: Settings
+    let notifier: Notifier
 
     var body: some View {
         Form {
@@ -64,17 +69,42 @@ private struct GeneralTab: View {
                 .disabled(!settings.autoRefresh)
                 Text("Выключенное автообновление — только кнопка ↻ в поповере (⌘R).")
                     .font(.caption).foregroundStyle(.secondary)
+                Toggle("Экономный опрос", isOn: $settings.economy)
+                    .disabled(!settings.autoRefresh)
+                Text("Не опрашивать, пока экран заблокирован или дисплей спит; от батареи — в 3 раза реже.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
-            Section("Строка меню") {
-                Picker("Вид", selection: $settings.iconStyle) {
+            Section("Уведомления") {
+                Toggle("Предупреждать о лимите", isOn: $settings.notify)
+                Picker("Порог", selection: $settings.notifyThreshold) {
+                    ForEach(Settings.thresholds, id: \.self) { Text(Format.percent($0)).tag($0) }
+                }
+                .disabled(!settings.notify)
+                Toggle("Сообщать, когда лимит сбросился", isOn: $settings.notifyReset)
+                    .disabled(!settings.notify)
+                Text(notifier.denied
+                     ? "Уведомления запрещены в Системных настройках → Уведомления → Лимиты ИИ."
+                     : "Не чаще раза за окно. О сбросе — только по окнам, дошедшим до порога.")
+                    .font(.caption)
+                    .foregroundStyle(notifier.denied ? Color(nsColor: Theme.amber) : .secondary)
+            }
+            Section("Вид") {
+                Picker("Строка меню", selection: $settings.iconStyle) {
                     Text("Полоски").tag(Settings.IconStyle.bars)
                     Text("Проценты").tag(Settings.IconStyle.percents)
                     Text("Только худший").tag(Settings.IconStyle.worst)
                 }
                 .pickerStyle(.segmented)
+                Toggle("Метка темпа на полосках", isOn: $settings.showPace)
+                Text("Чёрточка — сколько времени окна уже прошло. Заливка правее неё — расход быстрее, "
+                     + "чем нужно, чтобы лимита хватило до сброса.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Система") {
                 Toggle("Запускать при входе", isOn: $settings.launchAtLogin)
+                Picker("Открыть поповер", selection: $settings.hotKey) {
+                    ForEach(HotKeyChoice.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
             }
         }
         .formStyle(.grouped)

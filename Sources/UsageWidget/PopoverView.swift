@@ -10,7 +10,8 @@ struct PopoverView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            UsageView(store: store, height: height, maxHeight: UsageView.screenLimit(reserve: 120))
+            UsageView(store: store, height: height, maxHeight: UsageView.screenLimit(reserve: 120),
+                      showPace: settings.showPace)
             Divider()
             footer
         }

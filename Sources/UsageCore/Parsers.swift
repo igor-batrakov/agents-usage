@@ -28,7 +28,8 @@ public enum Parsers {
                     title: title,
                     used: percent / 100,
                     resetsAt: isoDate(limit["resets_at"]),
-                    isShort: kind == "session"))
+                    isShort: kind == "session",
+                    duration: kind == "session" ? fiveHours : kind.hasPrefix("weekly") ? week : nil))
             }
         } else {
             // Старый формат: именованные окна с `utilization` 0–100.
@@ -41,7 +42,8 @@ public enum Parsers {
             for (key, title, short) in named {
                 guard let w = root[key] as? [String: Any], let u = number(w["utilization"]) else { continue }
                 windows.append(LimitWindow(id: "claude-\(key)", title: title, used: u / 100,
-                                           resetsAt: isoDate(w["resets_at"]), isShort: short))
+                                           resetsAt: isoDate(w["resets_at"]), isShort: short,
+                                           duration: short ? fiveHours : week))
             }
         }
         guard !windows.isEmpty else { throw UsageError.message("в ответе нет окон лимита") }
@@ -90,11 +92,22 @@ public enum Parsers {
                     title: prefix.map { "\(base) · \($0)" } ?? base,
                     used: pct / 100,
                     resetsAt: number(w["resetsAt"]).map { Date(timeIntervalSince1970: $0) },
-                    isShort: (mins ?? 0) <= 300))
+                    isShort: (mins ?? 0) <= 300,
+                    duration: mins.map { TimeInterval($0 * 60) }))
             }
         }
         guard !windows.isEmpty else { throw UsageError.message("в ответе нет окон лимита") }
-        return UsageReport(windows: windows, plan: plan)
+        return UsageReport(windows: windows, plan: plan, freeResets: codexFreeResets(result))
+    }
+
+    /// `rateLimitResetCredits`: бесплатные полные сбросы. Считаем только доступные; нет ни одного — nil.
+    static func codexFreeResets(_ result: [String: Any]) -> FreeResets? {
+        guard let root = result["rateLimitResetCredits"] as? [String: Any] else { return nil }
+        let available = (root["credits"] as? [[String: Any]] ?? []).filter { $0["status"] as? String == "available" }
+        let count = number(root["availableCount"]).map(Int.init) ?? available.count
+        guard count > 0 else { return nil }
+        let next = available.compactMap { number($0["expiresAt"]) }.min().map { Date(timeIntervalSince1970: $0) }
+        return FreeResets(count: count, nextExpiry: next)
     }
 
     static func windowTitle(minutes: Int?) -> String {
@@ -139,7 +152,8 @@ public enum Parsers {
                     group: groupName,
                     used: 1 - remaining,
                     resetsAt: isoDate(bucket["reset_time"]),
-                    isShort: window == "5h"))
+                    isShort: window == "5h",
+                    duration: window == "5h" ? fiveHours : window == "weekly" ? week : nil))
             }
         }
         guard !windows.isEmpty else { throw UsageError.message("в ответе нет окон лимита") }
@@ -156,6 +170,9 @@ public enum Parsers {
     }
 
     // MARK: helpers
+
+    static let fiveHours: TimeInterval = 5 * 3600
+    static let week: TimeInterval = 7 * 86400
 
     static func object(_ data: Data) throws -> [String: Any] {
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

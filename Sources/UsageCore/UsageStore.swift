@@ -22,6 +22,8 @@ public final class UsageStore {
 
     /// Вызывается после каждого обновления (перерисовать иконку в строке меню).
     @ObservationIgnored public var onChange: (() -> Void)?
+    /// Разрешён ли плановый опрос по таймеру сейчас; nil — всегда.
+    @ObservationIgnored public var timerGate: (() -> Bool)?
 
     @ObservationIgnored private let makeSource: (Account) -> any UsageSource
     @ObservationIgnored private var timer: Timer?
@@ -69,6 +71,17 @@ public final class UsageStore {
             .compactMap(\.resetsAt).filter { $0 > now }.min()
     }
 
+    /// Есть видимое окно, чей сброс уже прошёл, а свежих данных после него нет.
+    public func hasPassedReset(at now: Date) -> Bool {
+        enabledAccounts.contains { account in
+            let snap = snapshot(account.id)
+            return account.visibleWindows(snap).contains { window in
+                guard let reset = window.resetsAt, reset <= now else { return false }
+                return snap.fetchedAt.map { $0 < reset } ?? true
+            }
+        }
+    }
+
     /// Перезапускает таймер; nil — автообновление выключено.
     /// Допуск 10% даёт системе объединять пробуждения.
     public func schedule(every interval: TimeInterval?) {
@@ -76,11 +89,20 @@ public final class UsageStore {
         timer = nil
         guard let interval else { return }
         let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
-            Task { @MainActor in await self?.refresh() }
+            Task { @MainActor in await self?.timerTick() }
         }
         t.tolerance = interval * 0.1
         RunLoop.main.add(t, forMode: .common)
         timer = t
+    }
+
+    /// Плановый опрос; `timerGate` может его пропустить (экономный режим).
+    public func timerTick() async {
+        if let timerGate, !timerGate() {
+            log.info("timer tick skipped")
+            return
+        }
+        await refresh()
     }
 
     /// Обновить, если данные старше `age` секунд (открытие поповера).
