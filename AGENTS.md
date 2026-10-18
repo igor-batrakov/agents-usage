@@ -13,17 +13,20 @@ Claude Code, Codex и Antigravity (agy): процент использовани
 
 ## Устройство
 
-- `Sources/UsageCore` — без UI, под тесты: модели, парсеры ответов (`Parsers`), источники (`Sources.swift`),
-  запуск подпроцессов (`ProcessRunner`), `UsageStore` (параллельный опрос, таймер).
-- `Sources/UsageWidget` — AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`) + SwiftUI-контент.
+- `Sources/UsageCore` — без UI, под тесты: модели (`Provider` — тип из каталога, `Account` — экземпляр со своими
+  настройками), каталог (`Catalog`), парсеры ответов (`Parsers`), источники (`Sources.swift`), запуск
+  подпроцессов (`ProcessRunner`), `UsageStore` (параллельный опрос включённых аккаунтов, таймер).
+- `Sources/UsageWidget` — AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, окно настроек) + SwiftUI-контент.
+  `Settings` — все настройки и список аккаунтов (JSON в UserDefaults, ключ `accounts`).
+- План развития — [docs/plan-v2.md](docs/plan-v2.md).
 - Фикстуры `Tests/UsageCoreTests/Fixtures` — реальные ответы API, обезличенные (без токенов, id аккаунтов).
 
 ## Источники данных — недокументированные, могут меняться
 
 | Сервис | Откуда |
 |---|---|
-| Claude | Keychain `Claude Code-credentials` через `/usr/bin/security` → `GET api.anthropic.com/api/oauth/usage` (`anthropic-beta: oauth-2025-04-20`). Массив `limits`, запасной путь — `five_hour`/`seven_day` |
-| Codex | `codex app-server` (stdio JSON-RPC): `initialize`, `initialized`, `account/rateLimits/read` |
+| Claude | Keychain `Claude Code-credentials` (с `CLAUDE_CONFIG_DIR` — `…-<sha256(путь NFC)[0:8]>`, как в Claude Code 2.1.x) через `/usr/bin/security` → `GET api.anthropic.com/api/oauth/usage` (`anthropic-beta: oauth-2025-04-20`). Массив `limits`, запасной путь — `five_hour`/`seven_day` |
+| Codex | `codex app-server` (stdio JSON-RPC, `CODEX_HOME` для второго аккаунта): `initialize`, `initialized`, `account/rateLimits/read` |
 | agy | `agy -p /usage --output-format json` → `command.data.groups[].buckets[]` (`remaining_fraction`) |
 
 ## Инварианты (ревьюеру проверять)
@@ -39,3 +42,7 @@ Claude Code, Codex и Antigravity (agy): процент использовани
    подпись «через N» раз в 30 с и только пока вид на экране). Подпроцессы живут секунды, по таймауту гасятся.
 6. **Упавший источник не стирает данные** других и свои прошлые — только ставит текст ошибки.
 7. GUI-приложению не достаётся PATH шелла: бинари ищем по явным путям (`ProcessRunner.locate`).
+8. **Выключенный аккаунт не опрашивается**, его снимок отбрасывается; результат опроса аккаунта, который за время
+   опроса выключили, удалили или сменили ему каталог, не записывается.
+9. **Скрытые окна** не показываются и не влияют ни на цвет иконки, ни на планирование опроса к сбросу.
+10. **id окон стабильны** между опросами (`LimitWindow.id`): по ним хранятся скрытые окна и окно для иконки.

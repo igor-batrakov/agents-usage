@@ -11,7 +11,7 @@ public enum Parsers {
 
         // Новый формат: массив `limits` с видом окна и моделью (например, «Fable»).
         if let limits = root["limits"] as? [[String: Any]], !limits.isEmpty {
-            for (i, limit) in limits.enumerated() {
+            for limit in limits {
                 guard let percent = number(limit["percent"]) else { continue }
                 let kind = limit["kind"] as? String ?? "limit"
                 let model = ((limit["scope"] as? [String: Any])?["model"] as? [String: Any])?["display_name"] as? String
@@ -23,7 +23,8 @@ public enum Parsers {
                 default: title = model.map { "\(kind) · \($0)" } ?? kind
                 }
                 windows.append(LimitWindow(
-                    id: "claude-\(kind)-\(model ?? String(i))",
+                    // id стабилен между опросами: по нему запоминаются скрытые окна и окно для иконки.
+                    id: "claude-\(kind)" + (model.map { "-\($0)" } ?? ""),
                     title: title,
                     used: percent / 100,
                     resetsAt: isoDate(limit["resets_at"]),

@@ -1,34 +1,69 @@
 import SwiftUI
 import UsageCore
 
-/// Общий контент поповера и плавающей панели: блок на каждый сервис.
+/// Высота содержимого — чтобы область с прокруткой была не выше нужного.
+/// Модель вместо @State (SwiftUI-макросов в Command Line Tools нет, см. Settings.selectedAccountID);
+/// живёт в корневом виде поповера или панели, которые создаются один раз.
+@MainActor @Observable
+final class ContentHeight {
+    var value: CGFloat = 0
+}
+
+/// Общий контент поповера и плавающей панели: блок на каждый включённый аккаунт.
 /// Подписи «через N» тикают раз в 30 с и только пока вид на экране.
+/// Выше `maxHeight` — прокрутка (аккаунтов может быть много, а окно не должно уходить за экран).
 struct UsageView: View {
     let store: UsageStore
+    let height: ContentHeight
+    let maxHeight: CGFloat
     var compact = false
+    /// Какие аккаунты показывать (у панели — свой набор).
+    var include: (Account) -> Bool = { _ in true }
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 30)) { context in
-            VStack(alignment: .leading, spacing: compact ? 10 : 14) {
-                ForEach(Provider.allCases, id: \.self) { provider in
-                    ProviderSection(provider: provider, snapshot: store.snapshot(provider),
-                                    now: context.date, compact: compact)
+        let accounts = store.enabledAccounts.filter(include)
+        ScrollView {
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                VStack(alignment: .leading, spacing: compact ? 10 : 14) {
+                    if accounts.isEmpty {
+                        Text("Нет включённых сервисов — добавьте их в настройках")
+                            .font(.system(size: 12)).foregroundStyle(.secondary)
+                    }
+                    ForEach(accounts) { account in
+                        AccountSection(account: account, snapshot: store.snapshot(account.id),
+                                       now: context.date, compact: compact)
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height.value = $0 }
         }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(height: min(max(height.value, 20), maxHeight))
+    }
+
+    /// Предел высоты: видимая область экрана минус запас на рамку, футер и отступы.
+    static func screenLimit(reserve: CGFloat) -> CGFloat {
+        max(200, (NSScreen.main?.visibleFrame.height ?? 900) - reserve)
     }
 }
 
-private struct ProviderSection: View {
-    let provider: Provider
+private struct AccountSection: View {
+    let account: Account
     let snapshot: Snapshot
     let now: Date
     let compact: Bool
 
+    private var provider: Provider { account.kind }
+
     var body: some View {
         VStack(alignment: .leading, spacing: compact ? 5 : 7) {
             header
-            if let windows = snapshot.report?.windows {
+            if snapshot.report != nil {
+                let windows = account.visibleWindows(snapshot)
+                if windows.isEmpty {
+                    Text("все окна скрыты").font(.caption).foregroundStyle(.secondary)
+                }
                 ForEach(groups(windows), id: \.name) { group in
                     if let name = group.name {
                         Text(name.uppercased())
@@ -51,7 +86,7 @@ private struct ProviderSection: View {
     private var header: some View {
         HStack(spacing: 6) {
             Circle().fill(Theme.accent(provider)).frame(width: 7, height: 7)
-            Text(provider.title).font(.system(size: compact ? 12 : 13, weight: .semibold))
+            title
             if let plan = snapshot.report?.plan {
                 Text(plan).font(.system(size: 11)).foregroundStyle(.secondary)
             }
@@ -65,6 +100,27 @@ private struct ProviderSection: View {
                     .truncationMode(.tail)
                     .help(error)
             }
+        }
+    }
+
+    /// Имя аккаунта; если у вендора есть страница лимитов — это ссылка на неё.
+    @ViewBuilder private var title: some View {
+        let text = HStack(spacing: 3) {
+            Text(account.name).font(.system(size: compact ? 12 : 13, weight: .semibold))
+            if account.resolvedUsageURL != nil {
+                Image(systemName: "arrow.up.right").font(.system(size: compact ? 8 : 9, weight: .semibold))
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        if let url = account.resolvedUsageURL {
+            Button { NSWorkspace.shared.open(url) } label: { text }
+                .buttonStyle(.plain)
+                .help("Открыть страницу лимитов: \(url.host() ?? url.absoluteString)")
+                // pointerStyle, а не NSCursor.push/pop: поповер закрывается по клику, и pop
+                // не случился бы — курсор-рука залип бы.
+                .pointerStyle(.link)
+        } else {
+            text
         }
     }
 

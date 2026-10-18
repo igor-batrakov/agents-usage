@@ -8,6 +8,12 @@ import Testing
         #expect(String(decoding: out, as: UTF8.self) == "hello\n")
     }
 
+    @Test func extraEnvironmentIsPassed() async throws {
+        let out = try await ProcessRunner.run("/bin/sh", ["-c", "printf %s \"$CODEX_HOME|$HOME\""],
+                                              environment: ["CODEX_HOME": "/tmp/x"], timeout: 5)
+        #expect(String(decoding: out, as: UTF8.self) == "/tmp/x|\(NSHomeDirectory())")
+    }
+
     @Test func largeOutputIsComplete() async throws {
         // Больше одного куска pipe-буфера (64 КБ).
         let out = try await ProcessRunner.run("/bin/sh", ["-c", "head -c 200000 /dev/zero"], timeout: 5)

@@ -11,5 +11,7 @@
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>LSUIElement</key><true/>
+    <key>NSSupportsAutomaticTermination</key><false/>
+    <key>NSSupportsSuddenTermination</key><false/>
 </dict>
 </plist>
