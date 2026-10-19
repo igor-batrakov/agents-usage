@@ -2,7 +2,7 @@
 # Builds a release: a universal app (Apple Silicon + Intel), ad-hoc signed, packed as zip and dmg in dist/.
 #
 #   tools/release.sh            build dist/Agents-Usage.zip, dist/Agents-Usage.dmg and dist/SHA256SUMS
-#   tools/release.sh v0.1.0     the same with that version, then publish a GitHub release (needs gh)
+#   tools/release.sh v0.1.1     the same with that version, then publish a GitHub release (needs gh)
 #
 # Asset names carry no version: install.sh downloads releases/latest/download/Agents-Usage.zip.
 set -euo pipefail

@@ -96,12 +96,20 @@ cd agents-usage
 ./build.sh install
 ```
 
+### Updates
+
+Once a day the app checks GitHub for a new release. When there is one, the popover shows a line with an
+**Update** button: it downloads that release with the copy of `install.sh` inside the app, replaces the app
+where it is and restarts it. If the app was renamed or sits in a folder you can't write to, the button opens
+the release page instead. Settings → About has a manual check and a switch to turn the daily check off.
+
 ## Privacy and security
 
 - The app uses the logins you already have and never refreshes tokens itself. Refresh tokens are single-use,
   so refreshing one behind a CLI's back would sign that CLI out.
 - API keys go to the macOS Keychain. They are never written to settings or logs.
-- Requests go only to the vendors' own APIs. There is no analytics and no server of ours.
+- Requests go only to the vendors' own APIs, plus one request a day to GitHub for the latest release number
+  (you can turn it off). There is no analytics and no server of ours.
 - Between polls the app does nothing. Typical footprint is about 18 MB of memory and 0% CPU.
 
 ## Settings
@@ -115,6 +123,7 @@ cd agents-usage
 - **Services.** Add, remove and reorder services, hide windows you don't need, pick the window for the menu bar,
   paste API keys, set a custom usage page.
 - **Panel.** Mode, corner and margin, opacity, click-through, which services to show.
+- **About.** Version, update check, links to the project.
 
 ## Languages
 

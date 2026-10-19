@@ -5,7 +5,7 @@
 #
 # Files downloaded with curl carry no quarantine flag, so macOS opens the app without the
 # "unidentified developer" dialog (the app is ad-hoc signed, not notarized).
-# AGENTS_USAGE_VERSION=v0.1.0 installs a specific release instead of the latest one.
+# AGENTS_USAGE_VERSION=v0.1.1 installs a specific release instead of the latest one.
 set -euo pipefail
 
 REPO="igor-batrakov/agents-usage"
@@ -29,12 +29,15 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
 echo "Downloading Agents Usage ($VERSION)…"
-curl -fL --progress-bar "$URL" -o "$work/Agents-Usage.zip" || fail "download failed: $URL"
+# A stalled download gives up (under 1 KB/s for 30 s) instead of hanging: the in-app updater waits for this script.
+curl -fL --progress-bar --connect-timeout 15 --speed-limit 1024 --speed-time 30 "$URL" -o "$work/Agents-Usage.zip" \
+    || fail "download failed: $URL"
 ditto -x -k "$work/Agents-Usage.zip" "$work"
 [ -d "$work/$APP" ] || fail "the archive has no $APP"
 
-# A running copy keeps the old binary; quit it before replacing.
-pkill -x UsageWidget 2>/dev/null && sleep 1 || true
+# A running copy keeps the old binary; quit it before replacing. -a: when the app's updater runs this
+# script, the app is its ancestor, and pkill skips ancestors by default.
+pkill -a -x UsageWidget 2>/dev/null && sleep 1 || true
 mkdir -p "$DEST"
 rm -rf "${DEST:?}/$APP"
 ditto "$work/$APP" "$DEST/$APP"

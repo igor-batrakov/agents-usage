@@ -73,6 +73,25 @@
 "key rejected. Check it in Settings" = "key rejected. Check it in Settings";
 "no API addresses" = "no API addresses";
 
+/* Sources/UsageCore/Updates.swift */
+"unexpected response from GitHub" = "unexpected response from GitHub";
+
+/* Sources/UsageWidget/About.swift */
+"Version %@" = "Version %@";
+"Subscription limits of your AI coding agents in the menu bar." = "Subscription limits of your AI coding agents in the menu bar.";
+"GitHub" = "GitHub";
+"Release notes" = "Release notes";
+"Report a problem" = "Report a problem";
+"MIT License" = "MIT License";
+"Check for Updates" = "Check for Updates";
+"You have the latest version." = "You have the latest version.";
+"Check for updates automatically" = "Check for updates automatically";
+"Version %@ is available" = "Version %@ is available";
+"What's new" = "What's new";
+"Updating…" = "Updating…";
+"Update" = "Update";
+"Download and install it, the app restarts" = "Download and install it, the app restarts";
+
 /* Sources/UsageWidget/App.swift */
 "Edit" = "Edit";
 "Undo" = "Undo";
@@ -112,6 +131,7 @@
 "General" = "General";
 "Services" = "Services";
 "Panel" = "Panel";
+"About" = "About";
 "Data refresh" = "Data refresh";
 "Auto-refresh" = "Auto-refresh";
 "Interval" = "Interval";
@@ -194,6 +214,9 @@
 "stale" = "stale";
 "no data" = "no data";
 "No services enabled" = "No services enabled";
+
+/* Sources/UsageWidget/Updater.swift */
+"Update failed, details in %@" = "Update failed, details in %@";
 
 /* Sources/UsageWidget/UsageView.swift */
 "No services enabled. Add them in Settings" = "No services enabled. Add them in Settings";

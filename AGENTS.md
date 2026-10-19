@@ -29,10 +29,12 @@ and reset time for each window, amounts as a balance line.
 - `Sources/UsageCore` has no UI and is covered by tests: models (`Provider` is a catalog type, `Account` an instance
   with its own settings), the catalog (`Catalog`), response parsers (`Parsers`), sources (`Sources.swift`),
   subprocess launching (`ProcessRunner`), `UsageStore` (parallel polling of enabled accounts, timer),
-  `Alerts` (when to notify), `PollPolicy` (low-power polling), `KeyStore` (API keys in the Keychain).
+  `Alerts` (when to notify), `PollPolicy` (low-power polling), `KeyStore` (API keys in the Keychain),
+  `Updates` (latest GitHub release, version comparison).
 - `Sources/UsageWidget` is AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, settings window) plus SwiftUI content.
   `Settings` holds all settings and the account list (JSON in UserDefaults, key `accounts`). `Notifier` delivers
   notifications, `HotKey` is the global shortcut (Carbon), `SystemState` reports lock, display sleep and battery.
+  `Updater` checks for a new release and installs it; `About.swift` is the About tab and the popover update row.
 - Translations live in `Resources/<code>.lproj/Localizable.strings`, the key is the English text. `Localization`
   (UsageCore) loads the selected language itself, not through `Bundle`, so the language switches in settings without
   a restart. The language list comes from the `*.lproj` directories found; `build.sh` fills `CFBundleLocalizations`.
@@ -53,6 +55,7 @@ and reset time for each window, amounts as a balance line.
 | Kimi Code | API key → `GET api.kimi.com/coding/v1/usages` (on 401, try `api.kimi.ai`): `usages.limit_*.used_ratio` or the `usage` counters (week) and `limits[0]` |
 | OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
 | Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
+| Updates | `GET api.github.com/repos/igor-batrakov/agents-usage/releases/latest` → `tag_name`, `html_url` (public API, no token) |
 
 ## Invariants (reviewers check these)
 
@@ -90,3 +93,7 @@ and reset time for each window, amounts as a balance line.
     bypassing the selected one. Texts from data (window titles, errors) are translated at poll time, so a language
     change triggers a poll. No global constants with `L()` (they would remember the language of the first access),
     only computed ones.
+15. **Updates run only the `install.sh` bundled in the app**, with the exact release tag and the app's own folder;
+    no script is downloaded. The automatic check runs at most once a day after a successful
+    one (launch, settings change, popover opening; no timer of its own), can be turned off, and never runs in demo
+    mode. `install.sh` quits the app with `pkill -a`: the app is the script's ancestor, and plain `pkill` skips it.

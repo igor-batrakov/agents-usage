@@ -18,6 +18,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/UsageWidget"
 cp "Resources/Info.plist" "$PLIST"
 cp "Resources/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
+# The in-app updater runs this copy with the release tag (Updater.swift).
+cp install.sh "$APP/Contents/Resources/install.sh"
 if [[ -n "${VERSION:-}" ]]; then
     /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$PLIST"
 fi

@@ -9,8 +9,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var panel: FloatingPanel?
-    private lazy var settingsWindow = SettingsWindowController(settings: settings, store: store, notifier: notifier)
+    private lazy var settingsWindow = SettingsWindowController(settings: settings, store: store, notifier: notifier,
+                                                               updater: updater)
     private let notifier = Notifier()
+    private let updater = Updater()
     private let hotKey = HotKey()
     private var appliedHotKey: HotKeyChoice?
     /// The applied language; outer nil means not applied yet (first call: the language is already set in main).
@@ -21,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
 
-        let host = NSHostingController(rootView: PopoverView(store: store, settings: settings) { [weak self] in
+        let host = NSHostingController(rootView: PopoverView(store: store, settings: settings, updater: updater) { [weak self] in
             self?.popover.performClose(nil)
             self?.settingsWindow.show()
         })
@@ -121,6 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if settings.notify { notifier.authorize() }
         notifier.check(store, settings)
+        updater.checkIfDue(enabled: settings.checkUpdates)
         updateIcon()
     }
 
@@ -206,5 +209,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
         if settings.autoRefresh { Task { await store.refreshIfStale(olderThan: 60) } }
+        updater.checkIfDue(enabled: settings.checkUpdates)
     }
 }
