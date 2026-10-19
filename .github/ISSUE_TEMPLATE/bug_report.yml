@@ -19,7 +19,7 @@ body:
     attributes:
       label: Versions
       description: macOS version and app version (Finder → Get Info on Agents Usage.app).
-      placeholder: macOS 15.4, Agents Usage 0.1.0
+      placeholder: macOS 15.4, Agents Usage 0.1.1
     validations:
       required: true
   - type: textarea
