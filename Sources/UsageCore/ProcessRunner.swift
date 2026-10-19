@@ -1,13 +1,13 @@
 import Foundation
 
 public enum ProcessRunner {
-    /// Запускает процесс и возвращает накопленный stdout.
-    /// - `input` пишется в stdin; stdin остаётся открытым, пока процесс жив
-    ///   (app-server Codex завершается по EOF раньше, чем успевает ответить).
-    ///   `closeInput` — закрыть stdin после записи: процессу, который читает до EOF (`security -i`).
-    /// - `until` — досрочный выход: как только накопленный вывод ему удовлетворяет,
-    ///   процесс гасится и вывод возвращается.
-    /// - По таймауту процесс гасится, бросается ошибка.
+    /// Runs a process and returns the accumulated stdout.
+    /// - `input` is written to stdin; stdin stays open while the process is alive
+    ///   (Codex app-server exits on EOF before it gets to answer).
+    ///   `closeInput` closes stdin after writing, for a process that reads until EOF (`security -i`).
+    /// - `until` is an early exit: as soon as the accumulated output satisfies it,
+    ///   the process is killed and the output returned.
+    /// - On timeout the process is killed and an error is thrown.
     public static func run(
         _ path: String,
         _ arguments: [String],
@@ -33,9 +33,9 @@ public enum ProcessRunner {
         return try await withCheckedThrowingContinuation { continuation in
             state.continuation = continuation
 
-            // Успешный запуск завершается, когда есть и выход процесса, и EOF stdout —
-            // только тогда вывод точно полный. Если потомок унаследовал stdout (hub у agy),
-            // EOF не придёт: через 2 с после выхода отдаём то, что накоплено.
+            // A successful run finishes once there is both the process exit and stdout EOF:
+            // only then is the output surely complete. If a child inherited stdout (agy's hub),
+            // EOF never comes: 2 s after the exit, return whatever has accumulated.
             let complete = {
                 guard let status = state.exitStatus else { return }
                 stdout.fileHandleForReading.readabilityHandler = nil
@@ -67,13 +67,13 @@ public enum ProcessRunner {
             do {
                 try process.run()
             } catch {
-                // terminationHandler не будет вызван — снимаем обработчик здесь, иначе он держит pipe.
+                // terminationHandler will not be called: remove the handler here, otherwise it holds the pipe.
                 stdout.fileHandleForReading.readabilityHandler = nil
                 state.finish(.failure(UsageError.message(L("can't start %@: %@", path, error.localizedDescription))))
                 return
             }
-            // Таймаут взводится до записи: если процесс не читает stdin, запись блокируется,
-            // и только гашение процесса по таймауту её разблокирует (EPIPE).
+            // The timeout is armed before writing: if the process does not read stdin, the write blocks,
+            // and only killing the process on timeout unblocks it (EPIPE).
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 if state.finish(.failure(UsageError.message(L("timed out after %d s", Int(timeout))))) {
                     stop(process)
@@ -83,12 +83,12 @@ public enum ProcessRunner {
                 try? stdin.fileHandleForWriting.close()
             }
             if let input {
-                // Отдельная очередь — блокирующая запись не держит поток пула Swift Concurrency.
-                // Бросающий вариант: процесс мог уже выйти и закрыть pipe. Небросающий write
-                // в этом случае кидает ObjC-исключение и роняет всё приложение.
-                // Ошибку записи не отдаём наружу: она значит лишь, что процесс вышел или закрыл
-                // stdin, а настоящий итог (код выхода или таймаут) сообщат обработчики выше.
-                // Без `closeInput` stdin не закрываем вручную: pipe закроется вместе с объектами запуска.
+                // A separate queue: a blocking write does not hold a Swift Concurrency pool thread.
+                // The throwing variant: the process may already have exited and closed the pipe. The non-throwing write
+                // raises an ObjC exception in that case and crashes the whole app.
+                // A write error is not passed on: it only means the process exited or closed
+                // stdin, and the real outcome (exit code or timeout) comes from the handlers above.
+                // Without `closeInput` stdin is not closed by hand: the pipe closes along with the launch objects.
                 DispatchQueue.global().async {
                     try? stdin.fileHandleForWriting.write(contentsOf: input)
                     if closeInput { try? stdin.fileHandleForWriting.close() }
@@ -97,7 +97,7 @@ public enum ProcessRunner {
         }
     }
 
-    /// SIGTERM, а если процесс не вышел за 2 с — SIGKILL: зависшие CLI не должны копиться между опросами.
+    /// SIGTERM, then SIGKILL if the process has not exited within 2 s: hung CLIs must not pile up between polls.
     static func stop(_ process: Process) {
         guard process.isRunning else { return }
         process.terminate()
@@ -107,7 +107,7 @@ public enum ProcessRunner {
         }
     }
 
-    /// GUI-приложению не достаётся PATH из шелла — даём минимальный набор.
+    /// A GUI app does not get the shell PATH, so we provide a minimal one.
     static let environment: [String: String] = {
         let home = NSHomeDirectory()
         return [
@@ -117,14 +117,14 @@ public enum ProcessRunner {
         ]
     }()
 
-    /// Первый исполняемый файл из списка кандидатов (`~` раскрывается).
+    /// The first executable from the candidate list (`~` is expanded).
     public static func locate(_ candidates: [String]) -> String? {
         candidates.map { ($0 as NSString).expandingTildeInPath }
             .first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 }
 
-/// Общее состояние одного запуска; continuation возобновляется ровно один раз.
+/// Shared state of one run; the continuation is resumed exactly once.
 private final class RunState: @unchecked Sendable {
     private let lock = NSLock()
     private var buffer = Data()
@@ -137,13 +137,13 @@ private final class RunState: @unchecked Sendable {
     var output: Data { lock.withLock { buffer } }
     var exitStatus: Int32? { lock.withLock { status } }
 
-    /// Отмечает EOF stdout; true — если процесс уже вышел (можно завершать).
+    /// Marks stdout EOF; true if the process has already exited (can finish).
     func markEOF() -> Bool { lock.withLock { eof = true; return status != nil } }
 
-    /// Отмечает выход процесса (сигнал — отрицательным кодом); true — если EOF уже был.
+    /// Marks the process exit (a signal as a negative code); true if EOF has already happened.
     func markExit(_ code: Int32) -> Bool { lock.withLock { status = code; return eof } }
 
-    /// Добавляет кусок вывода; true — если `check` впервые сработал.
+    /// Appends a chunk of output; true if `check` matched for the first time.
     func append(_ chunk: Data, check: ((Data) -> Bool)?) -> Bool {
         lock.withLock {
             buffer.append(chunk)
@@ -153,7 +153,7 @@ private final class RunState: @unchecked Sendable {
         }
     }
 
-    /// true — если именно этот вызов завершил запуск.
+    /// true if this very call finished the run.
     @discardableResult
     func finish(_ result: Result<Data, Error>) -> Bool {
         let c: CheckedContinuation<Data, Error>? = lock.withLock {

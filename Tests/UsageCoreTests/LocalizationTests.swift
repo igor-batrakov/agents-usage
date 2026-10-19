@@ -2,14 +2,14 @@ import Foundation
 import Testing
 @testable import UsageCore
 
-/// Переводы — файлы репозитория, тесты читают их напрямую. Общий `Localization.shared` не трогаем:
-/// тесты идут параллельно, и смена языка в одном сломала бы ожидания других.
+/// Translations are repository files, the tests read them directly. The shared `Localization.shared` is left alone:
+/// tests run in parallel, and switching the language in one would break the expectations of others.
 @Suite struct LocalizationTests {
     static let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         .deletingLastPathComponent()
     static let resources = root.appendingPathComponent("Resources")
 
-    /// Ключи `L("…")` из исходников — как их собирает tools/strings.py (строки-комментарии пропускаются).
+    /// `L("…")` keys from the sources, collected the way tools/strings.py does (comment lines are skipped).
     static func sourceKeys() throws -> Set<String> {
         let regex = try NSRegularExpression(pattern: #"\bL\("((?:[^"\\]|\\.)*)""#)
         var keys = Set<String>()
@@ -29,7 +29,7 @@ import Testing
         NSDictionary(contentsOf: resources.appendingPathComponent("\(code).lproj/Localizable.strings")) as? [String: String] ?? [:]
     }
 
-    /// `%@`, `%d` по порядку — перевод обязан подставлять те же аргументы.
+    /// `%@`, `%d` in order: a translation must substitute the same arguments.
     static func specifiers(_ s: String) -> [String] {
         let regex = try! NSRegularExpression(pattern: #"%(\d+\$)?[@dfs]"#)
         return regex.matches(in: s, range: NSRange(s.startIndex..., in: s)).map { String(s[Range($0.range, in: s)!]) }
@@ -42,7 +42,7 @@ import Testing
         #expect(languages.contains("en") && languages.contains("ru"))
         for code in languages {
             let table = Self.table(code)
-            #expect(Set(table.keys) == keys, "\(code): ключи расходятся с кодом — запусти tools/strings.py")
+            #expect(Set(table.keys) == keys, "\(code): keys differ from the code, run tools/strings.py")
             for (key, value) in table {
                 #expect(Self.specifiers(key) == Self.specifiers(value), "\(code): «\(key)» → «\(value)»")
             }
@@ -56,7 +56,7 @@ import Testing
         #expect(l10n.code == "ru")
         #expect(l10n.string("5 hours") == "5 часов")
         #expect(l10n.string("not in any table") == "not in any table")
-        // Языка нет — как в системе, а не пустая таблица.
+        // No such language: follow the system, not an empty table.
         l10n.use("xx")
         #expect(l10n.available().contains(l10n.code))
     }

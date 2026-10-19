@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import UsageCore
 
-/// Источник со сценарием: по очереди отдаёт заданные результаты, считает вызовы.
+/// A scripted source: returns the given results in turn and counts calls.
 private final class ScriptedSource: UsageSource, @unchecked Sendable {
     private let lock = NSLock()
     private var script: [Result<UsageReport, Error>]
@@ -27,10 +27,10 @@ private final class ScriptedSource: UsageSource, @unchecked Sendable {
 }
 
 private let report = UsageReport(windows: [
-    LimitWindow(id: "w", title: "5 часов", used: 0.3, resetsAt: nil, isShort: true),
+    LimitWindow(id: "w", title: "5 hours", used: 0.3, resetsAt: nil, isShort: true),
 ], plan: "Pro")
 
-/// Стор с одним скриптованным источником на аккаунт.
+/// A store with one scripted source per account.
 @MainActor
 private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
     UsageStore(makeSource: { sources[$0.id]! })
@@ -39,7 +39,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
 @MainActor @Suite struct UsageStoreTests {
     @Test func failureKeepsPreviousDataAndSetsError() async {
         let a = Account(kind: .claude)
-        let store = makeStore([a.id: ScriptedSource([.success(report), .failure(UsageError.message("сеть"))])])
+        let store = makeStore([a.id: ScriptedSource([.success(report), .failure(UsageError.message("network"))])])
         store.setAccounts([a])
 
         await store.refresh()
@@ -49,7 +49,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
 
         await store.refresh()
         #expect(store.snapshot(a.id).report == report)
-        #expect(store.snapshot(a.id).error == "сеть")
+        #expect(store.snapshot(a.id).error == "network")
         #expect(store.snapshot(a.id).fetchedAt == firstFetch)
     }
 
@@ -110,7 +110,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         await store.refresh(only: [b.id])
         #expect(sa.calls == 0)
         #expect(sb.calls == 1)
-        // Частичный опрос не считается «данные свежие»: a ещё не опрашивался.
+        // A partial poll does not count as "data is fresh": a has not been polled yet.
         #expect(store.lastRefresh == nil)
         await store.refreshIfStale(olderThan: 60)
         #expect(sa.calls == 1)
@@ -124,15 +124,15 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         await store.refresh()
         #expect(store.snapshots[a.id] != nil)
 
-        // Добавили b — опросить сразу только его.
+        // Added b: poll only it right away.
         #expect(store.setAccounts([a, b]) == [b.id])
 
-        // Выключили a — снимок пропал, опрашивать нечего.
+        // Disabled a: the snapshot is gone, nothing to poll.
         a.enabled = false
         #expect(store.setAccounts([a, b]).isEmpty)
         #expect(store.snapshots[a.id] == nil)
 
-        // Включили обратно — снова в списке на опрос.
+        // Enabled again: back on the poll list.
         a.enabled = true
         #expect(store.setAccounts([a, b]) == [a.id])
     }
@@ -156,7 +156,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         async let first: Void = store.refresh()
         try? await Task.sleep(for: .milliseconds(50))
         a.keyRevision = 1
-        // Новый ключ — опросить сразу, и этот опрос не пропускается из-за идущего со старым.
+        // New key: poll right away, and this poll is not skipped because of the one running with the old key.
         #expect(store.setAccounts([a]) == [a.id])
         async let second: Void = store.refresh(only: [a.id])
         _ = await (first, second)
@@ -201,7 +201,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         try? await Task.sleep(for: .milliseconds(50))
         a.configDir = "~/.claude-work"
         #expect(store.setAccounts([a]) == [a.id])
-        // Старый опрос ещё идёт — новый всё равно запускается, а не пропускается.
+        // The old poll is still running: the new one starts anyway instead of being skipped.
         async let second: Void = store.refresh(only: [a.id])
         _ = await (first, second)
         #expect(source.calls == 2)
@@ -211,7 +211,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
 
     @Test func totalFailureDoesNotMarkFresh() async {
         let a = Account(kind: .claude)
-        let source = ScriptedSource([.failure(UsageError.message("нет сети"))])
+        let source = ScriptedSource([.failure(UsageError.message("no network"))])
         let store = makeStore([a.id: source])
         store.setAccounts([a])
         await store.refresh()
@@ -243,7 +243,7 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         #expect(store.nextReset(after: now) == nil)
         await store.refresh()
         #expect(store.nextReset(after: now) == now.addingTimeInterval(600))
-        // Сброс «past» был до опроса — свежие данные его уже покрыли.
+        // The "past" reset was before the poll: fresh data already covers it.
         #expect(!store.hasPassedReset(at: now))
         #expect(store.hasPassedReset(at: now.addingTimeInterval(700)))
         a.hiddenWindows = ["near"]

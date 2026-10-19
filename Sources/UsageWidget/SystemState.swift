@@ -1,9 +1,9 @@
 import CoreGraphics
 import IOKit.ps
 
-/// Состояние машины для экономного опроса. Спрашивается в момент тика — без подписок и хранения.
+/// Machine state for low-power polling. Queried at tick time, with no subscriptions or storage.
 enum SystemState {
-    /// Экран заблокирован или основной дисплей спит — данные никто не увидит.
+    /// The screen is locked or the main display is asleep: nobody will see the data.
     static var screenIdle: Bool {
         let session = CGSessionCopyCurrentDictionary() as? [String: Any]
         let locked = session?["CGSSessionScreenIsLocked"] as? Bool ?? false

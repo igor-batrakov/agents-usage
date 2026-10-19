@@ -25,7 +25,7 @@ import Testing
     @Test func chosenBarWindowWins() {
         let a = Account(kind: .agy, barWindowID: "week")
         #expect(a.barUsed(snapshot(windows), at: now) == 0.9)
-        // Выбранное окно пропало из ответа — откат к авто.
+        // The selected window disappeared from the response: fall back to auto.
         let gone = Account(kind: .agy, barWindowID: "nope")
         #expect(gone.barUsed(snapshot(windows), at: now) == 0.4)
     }
@@ -53,7 +53,7 @@ import Testing
 
     @Test func codableRoundTrip() throws {
         let list = [
-            Account(kind: .claude, name: "Работа", configDir: "~/.claude-work", hiddenWindows: ["x"], barWindowID: "y",
+            Account(kind: .claude, name: "Work", configDir: "~/.claude-work", hiddenWindows: ["x"], barWindowID: "y",
                     usageURL: "https://e.x", onPanel: false),
             Account(kind: .agy, enabled: false),
         ]

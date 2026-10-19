@@ -1,7 +1,7 @@
 import SwiftUI
 import UsageCore
 
-/// Поповер — данные и быстрые действия; детальные настройки — в отдельном окне.
+/// Popover: data and quick actions; detailed settings are in a separate window.
 struct PopoverView: View {
     let store: UsageStore
     @Bindable var settings: Settings
@@ -17,7 +17,7 @@ struct PopoverView: View {
         }
         .padding(14)
         .frame(width: 310)
-        .id(settings.language ?? "")  // новый язык — пересобрать: строки L() вычисляются при построении
+        .id(settings.language ?? "")  // new language: rebuild, L() strings are evaluated at build time
     }
 
     private var footer: some View {

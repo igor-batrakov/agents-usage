@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifier = Notifier()
     private let hotKey = HotKey()
     private var appliedHotKey: HotKeyChoice?
-    /// Применённый язык; внешний nil — ещё не применяли (первый вызов: язык уже выбран в main).
+    /// The applied language; outer nil means not applied yet (first call: the language is already set in main).
     private var appliedLanguage: String??
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -49,14 +49,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         applySettings()
         updateIcon()
 
-        // После сна сеть поднимается не сразу — даём ей несколько секунд.
+        // After sleep the network does not come up right away, so give it a few seconds.
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.catchUp(after: .seconds(5), olderThan: 60) }
         }
-        // Экран разблокировали или дисплей проснулся: пока он был тёмным, экономный режим
-        // пропускал опросы — догоняем, если данные устарели.
+        // The screen was unlocked or the display woke: while it was dark, low-power mode
+        // skipped polls, so catch up if the data is stale.
         let screenBack: @Sendable (Notification) -> Void = { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
@@ -67,7 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: Notification.Name("com.apple.screenIsUnlocked"), object: nil, queue: .main, using: screenBack)
         NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.screensDidWakeNotification, object: nil, queue: .main, using: screenBack)
-        // Первый опрос — всегда, даже с выключенным автообновлением: иначе после запуска пусто.
+        // The first poll always runs, even with auto-refresh off: otherwise the app is empty after launch.
         Task { await store.refresh() }
         if Demo.opensSettings { settingsWindow.show() }
     }
@@ -102,8 +102,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.panel = nil
         }
 
-        // Сменили язык: главное меню и заголовок окна — заново, SwiftUI-виды пересоберутся сами
-        // (`.id(settings.language)`), а тексты из данных (заголовки окон, ошибки) придут с опросом.
+        // Language changed: rebuild the main menu and window title; SwiftUI views rebuild themselves
+        // (`.id(settings.language)`), and texts from data (window titles, errors) arrive with the poll.
         if appliedLanguage != .some(settings.language) {
             let first = appliedLanguage == nil
             appliedLanguage = .some(settings.language)
@@ -124,9 +124,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         updateIcon()
     }
 
-    /// Опрос новых и только что включённых аккаунтов — с задержкой в секунду, чтобы ввод
-    /// каталога конфигурации по буквам не запускал опрос на каждое нажатие.
-    /// Отменяется только ожидание: начатый опрос идёт отдельной задачей и не прерывается.
+    /// Polls new and just-enabled accounts after a one-second delay, so typing a config
+    /// directory letter by letter does not start a poll on every keystroke.
+    /// Only the wait is cancelled: a started poll runs as a separate task and is not interrupted.
     private func pollSoon(_ ids: Set<UUID>) {
         pendingPoll.formUnion(ids)
         pollTask?.cancel()
@@ -141,17 +141,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var catchUpTask: Task<Void, Never>?
 
-    /// Догоняющий опрос после сна и разблокировки: прошёл сброс окна — сразу (разовый опрос
-    /// к нему при тёмном экране пропущен), иначе — если данные старше `age`. Пробуждение шлёт
-    /// сразу несколько уведомлений — опрашиваем один раз, по последнему. Отменяется только
-    /// ожидание: начатый опрос идёт отдельной задачей и не прерывается.
+    /// Catch-up poll after sleep and unlock: right away if a window reset has passed (the one-off
+    /// poll for it was skipped while the screen was dark), else if the data is older than `age`. Waking
+    /// sends several notifications at once, so we poll once, on the last one. Only the wait
+    /// is cancelled: a started poll runs as a separate task and is not interrupted.
     private func catchUp(after delay: Duration, olderThan age: TimeInterval) {
         catchUpTask?.cancel()
         catchUpTask = Task { [weak self] in
             try? await Task.sleep(for: delay)
-            // Автообновление могли выключить, пока ждали. Дисплей просыпается и на экране блокировки,
-            // а экран могли снова заблокировать — опрос догонит следующая разблокировка.
-            // Аккаунты, опрос которых уже идёт, стор пропустит сам.
+            // Auto-refresh may have been turned off while waiting. The display also wakes on the lock screen,
+            // and the screen may have been locked again: the next unlock will catch up.
+            // The store skips accounts that are already being polled.
             guard !Task.isCancelled, let self, settings.autoRefresh,
                   !(settings.economy && SystemState.screenIdle) else { return }
             Task {
@@ -173,16 +173,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         scheduleResetRefresh()
     }
 
-    /// Разовый опрос сразу после ближайшего сброса окна (+5 с — сервер успевает обнулить счётчик).
-    /// Если плановый опрос наступит раньше, он сам переставит этот таймер через onChange.
-    /// При выключенном автообновлении не планируется.
+    /// One-off poll right after the nearest window reset (+5 s, so the server has time to zero the counter).
+    /// If a scheduled poll comes first, it reschedules this timer itself through onChange.
+    /// Not scheduled when auto-refresh is off.
     private func scheduleResetRefresh() {
         resetTimer?.invalidate()
         resetTimer = nil
         guard settings.autoRefresh, let reset = store.nextReset(after: Date()) else { return }
         let t = Timer(fire: reset.addingTimeInterval(5), interval: 0, repeats: false) { [weak self] _ in
             Task { @MainActor in
-                // Тёмный экран — опрос догонит разблокировка; батарея разовому опросу не помеха.
+                // Dark screen: the unlock will catch up; battery does not stop a one-off poll.
                 guard let self, !(self.settings.economy && SystemState.screenIdle) else { return }
                 await self.store.refresh()
             }

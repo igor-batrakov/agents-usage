@@ -9,7 +9,7 @@ import Testing
 
     private func snapshot(_ used: Double, resetsAt: Date?, id: String = "w") -> [UUID: Snapshot] {
         [account.id: Snapshot(report: UsageReport(windows: [
-            LimitWindow(id: id, title: "5 часов", used: used, resetsAt: resetsAt, isShort: true),
+            LimitWindow(id: id, title: "5 hours", used: used, resetsAt: resetsAt, isShort: true),
         ], plan: nil), fetchedAt: now)]
     }
 
@@ -25,7 +25,7 @@ import Testing
         #expect(run(snapshot(0.89, resetsAt: reset), &state).isEmpty)
         #expect(run(snapshot(0.92, resetsAt: reset), &state) == [.threshold])
         #expect(run(snapshot(0.97, resetsAt: reset), &state).isEmpty)
-        // Сброс прошёл: старые данные уже считаются нулём — одно уведомление о сбросе.
+        // The reset passed: old data already counts as zero, one reset notification.
         let after = reset.addingTimeInterval(10)
         #expect(run(snapshot(0.97, resetsAt: reset), &state, at: after) == [.reset])
         #expect(run(snapshot(0.05, resetsAt: reset.addingTimeInterval(18000)), &state, at: after).isEmpty)
@@ -35,9 +35,9 @@ import Testing
         let reset = now.addingTimeInterval(3600)
         var state = Alerts.State()
         #expect(run(snapshot(1, resetsAt: reset), &state) == [.threshold])
-        // Сдвиг времени сброса на секунды — тот же период.
+        // The reset time shifted by seconds: same period.
         #expect(run(snapshot(1, resetsAt: reset.addingTimeInterval(1)), &state).isEmpty)
-        // Бесплатный сброс: новое окно на 5 часов — уведомление о сбросе, порог снова взведён.
+        // Free reset: a new 5-hour window gives a reset notification, the threshold is armed again.
         let fresh = now.addingTimeInterval(5 * 3600)
         #expect(run(snapshot(0, resetsAt: fresh), &state) == [.reset])
         #expect(run(snapshot(0.95, resetsAt: fresh), &state) == [.threshold])
@@ -48,7 +48,7 @@ import Testing
         var state = Alerts.State()
         #expect(run(snapshot(1, resetsAt: reset), &state) == [.threshold])
         #expect(run(snapshot(1, resetsAt: reset.addingTimeInterval(30)), &state).isEmpty)
-        // Между старым и новым временем сброса — ни сброса, ни повторного порога.
+        // Between the old and new reset time: neither a reset nor a repeated threshold.
         #expect(run(snapshot(1, resetsAt: reset.addingTimeInterval(30)), &state, at: reset.addingTimeInterval(10)).isEmpty)
         #expect(run(snapshot(1, resetsAt: reset.addingTimeInterval(30)), &state, at: reset.addingTimeInterval(40)) == [.reset])
     }
@@ -65,7 +65,7 @@ import Testing
         var state: Alerts.State = [key: now.addingTimeInterval(3600)]
         var moved = account
         moved.configDir = "~/.claude-work"
-        // Пока новый каталог грузится, старые записи не держим; его данные — с чистого листа.
+        // While the new directory loads, old entries are not kept; its data starts from scratch.
         #expect(run([:], &state, accounts: [moved]).isEmpty)
         #expect(state.isEmpty)
         #expect(run(snapshot(0.95, resetsAt: now.addingTimeInterval(7200)), &state, accounts: [moved]) == [.threshold])
@@ -81,7 +81,7 @@ import Testing
 
     @Test func roundedPercentReachesThreshold() {
         var state = Alerts.State()
-        // В подписи «90%» — значит порог достигнут.
+        // The label says "90%", so the threshold is reached.
         #expect(run(snapshot(0.896, resetsAt: nil), &state) == [.threshold])
     }
 
@@ -126,7 +126,7 @@ import Testing
         #expect(!PollPolicy.timerShouldPoll(lastRefresh: recent, now: now, interval: 300, screenIdle: true, onBattery: false))
         #expect(PollPolicy.timerShouldPoll(lastRefresh: recent, now: now, interval: 300, screenIdle: false, onBattery: false))
         #expect(!PollPolicy.timerShouldPoll(lastRefresh: recent, now: now, interval: 300, screenIdle: false, onBattery: true))
-        // Третий тик от батареи — опрос (lastRefresh стоит на секунды позже тика).
+        // Third tick on battery polls (lastRefresh is set seconds after the tick).
         let threeTicks = now.addingTimeInterval(-3 * 300 + 5)
         #expect(PollPolicy.timerShouldPoll(lastRefresh: threeTicks, now: now, interval: 300, screenIdle: false, onBattery: true))
         #expect(PollPolicy.timerShouldPoll(lastRefresh: nil, now: now, interval: 300, screenIdle: false, onBattery: true))

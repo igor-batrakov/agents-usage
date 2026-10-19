@@ -6,12 +6,12 @@ enum UsageWidgetApp {
     static let delegate = AppDelegate()
 
     static func main() {
-        // Запись в pipe уже вышедшего подпроцесса не должна убивать приложение сигналом:
-        // пусть write вернёт ошибку EPIPE, её обработает ProcessRunner.
+        // Writing to the pipe of an already exited subprocess must not kill the app with a signal:
+        // let write return EPIPE, ProcessRunner handles it.
         signal(SIGPIPE, SIG_IGN)
-        // Без видимых окон AppKit помечает приложение как кандидата на автоматическое завершение
-        // (в логе: _kLSApplicationWouldBeTerminatedByTALKey=1) — строку меню система могла бы
-        // закрыть молча. Ключи NSSupports*Termination в Info.plist — о том же.
+        // With no visible windows AppKit marks the app as a candidate for automatic termination
+        // (in the log: _kLSApplicationWouldBeTerminatedByTALKey=1), so the system could quietly close
+        // the menu bar item. The NSSupports*Termination keys in Info.plist are about the same thing.
         ProcessInfo.processInfo.disableAutomaticTermination("menu bar app must keep running")
         Localization.shared.use(Settings.storedLanguage)
         let app = NSApplication.shared
@@ -21,8 +21,8 @@ enum UsageWidgetApp {
         app.run()
     }
 
-    /// Главное меню с одним «Правка». У приложения без Dock меню не видно, но без него
-    /// в полях окна настроек не работают ⌘C/⌘V/⌘X/⌘A/⌘Z — сочетания ищутся в главном меню.
+    /// Main menu with a single Edit menu. An app without a Dock icon shows no menu, but without it
+    /// ⌘C/⌘V/⌘X/⌘A/⌘Z do not work in settings fields: shortcuts are looked up in the main menu.
     static func editMenu() -> NSMenu {
         let edit = NSMenu(title: L("Edit"))
         edit.addItem(withTitle: L("Undo"), action: Selector(("undo:")), keyEquivalent: "z")
@@ -36,7 +36,7 @@ enum UsageWidgetApp {
         let item = NSMenuItem()
         item.submenu = edit
         let main = NSMenu()
-        main.addItem(NSMenuItem())  // первый пункт — меню приложения, у нас пустое
+        main.addItem(NSMenuItem())  // the first item is the app menu, empty here
         main.addItem(item)
         return main
     }

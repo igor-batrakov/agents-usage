@@ -1,20 +1,20 @@
 import Foundation
 import UsageCore
 
-/// Демо-режим для скриншотов README:
+/// Demo mode for README screenshots:
 ///
 ///     open "Agents Usage.app" --args --demo [-language ru] [--demo-settings] [--demo-panel]
 ///
-/// Вымышленные данные всех сервисов и свои настройки в отдельном домене UserDefaults (стираются при
-/// каждом запуске). Настоящие аккаунты, ключи и состояние уведомлений не трогаются; уведомлений и
-/// горячей клавиши нет. `--demo-settings` сразу открывает настройки на вкладке «Сервисы»,
-/// `--demo-panel` включает панель.
+/// Made-up data for every service and its own settings in a separate UserDefaults domain (wiped on
+/// every launch). Real accounts, keys and notification state are not touched; there are no notifications
+/// and no hotkey. `--demo-settings` opens settings on the Services tab right away,
+/// `--demo-panel` turns on the panel.
 enum Demo {
     static let isOn = CommandLine.arguments.contains("--demo")
     static let opensSettings = CommandLine.arguments.contains("--demo-settings")
     private static let suite = "ru.batrakov.UsageWidget.demo"
 
-    /// Аккаунты демо: порядок — как в строке меню.
+    /// Demo accounts, in menu bar order.
     private static let kinds: [Provider] = [.claude, .codex, .agy, .copilot, .cursor, .openrouter]
 
     @MainActor
@@ -37,7 +37,7 @@ enum Demo {
     static func source(_ account: Account) -> any UsageSource { DemoSource(kind: account.kind) }
 }
 
-/// Отчёт строится при опросе: время сброса — от текущего момента, подписи — на выбранном языке.
+/// The report is built at poll time: reset times count from now, labels are in the selected language.
 private struct DemoSource: UsageSource {
     let kind: Provider
 

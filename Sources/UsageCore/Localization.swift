@@ -1,30 +1,30 @@
 import Foundation
 
-/// Строки интерфейса на выбранном языке.
+/// UI strings in the selected language.
 ///
-/// Языки — каталоги `<код>.lproj/Localizable.strings` в ресурсах приложения: новый язык — новый каталог,
-/// код не меняется (список языков собирается по найденным каталогам). Ключ — английский текст:
-/// непереведённая строка показывается по-английски, а код читается без справочника ключей.
+/// Languages are `<code>.lproj/Localizable.strings` directories in the app resources: a new language is a new
+/// directory, no code changes (the language list comes from the directories found). The key is the English text:
+/// an untranslated string shows in English, and the code reads without a key reference.
 ///
-/// Свой выбор языка, а не системная локализация `Bundle`: язык переключается в настройках без
-/// перезапуска. Поэтому в SwiftUI — `Text(L("…"))`, а не `Text("…")`: литерал SwiftUI переводит сам,
-/// по языку системы.
+/// Our own language choice instead of `Bundle` localization: the language switches in settings without
+/// a restart. That is why SwiftUI uses `Text(L("…"))`, not `Text("…")`: SwiftUI translates a literal itself,
+/// by the system language.
 ///
-/// Читается из любых потоков (парсеры работают вне главного), таблица под замком.
+/// Read from any thread (parsers run off the main one), the table is behind a lock.
 public final class Localization: @unchecked Sendable {
     public static let shared = Localization()
 
-    /// Где искать `*.lproj`: ресурсы приложения; тесты подставляют каталог репозитория.
+    /// Where to look for `*.lproj`: the app resources; tests point it at the repository directory.
     public var resources: URL? = Bundle.main.resourceURL
 
     private let lock = NSLock()
     private var table: [String: String] = [:]
     private var current = "en"
 
-    /// Код действующего языка («en», «ru»).
+    /// Code of the active language ("en", "ru").
     public var code: String { lock.withLock { current } }
 
-    /// Коды языков, для которых есть перевод; английский — всегда (он в ключах).
+    /// Codes of languages that have a translation; English is always there (it is the keys).
     public func available() -> [String] { availableIn(resources) }
 
     func availableIn(_ directory: URL?) -> [String] {
@@ -33,7 +33,7 @@ public final class Localization: @unchecked Sendable {
         return (Set(found).union(["en"])).filter { $0 != "Base" }.sorted()
     }
 
-    /// nil — как в системе: первый из предпочитаемых языков macOS, для которого есть перевод.
+    /// nil follows the system: the first of the preferred macOS languages that has a translation.
     public func use(_ choice: String?) {
         let code = choice.flatMap { available().contains($0) ? $0 : nil } ?? Self.match(Locale.preferredLanguages, in: available())
         let url = resources?.appendingPathComponent("\(code).lproj/Localizable.strings")
@@ -44,7 +44,7 @@ public final class Localization: @unchecked Sendable {
         }
     }
 
-    /// «en-TR» → «en»; ни один не подошёл — английский.
+    /// "en-TR" → "en"; if none matches, English.
     static func match(_ preferred: [String], in available: [String]) -> String {
         for identifier in preferred {
             let language = Locale(identifier: identifier).language.languageCode?.identifier ?? identifier
@@ -57,15 +57,15 @@ public final class Localization: @unchecked Sendable {
         lock.withLock { table[key] } ?? key
     }
 
-    /// Имя языка на нём самом: «English», «Русский».
+    /// Language name in the language itself: "English", "Русский".
     public static func name(_ code: String) -> String {
         let name = Locale(identifier: code).localizedString(forLanguageCode: code) ?? code
         return name.prefix(1).uppercased() + name.dropFirst()
     }
 }
 
-/// Строка на выбранном языке; с аргументами — формат (`%@`, `%d`), как в `String(format:)`.
-/// Без локали формата: числа и суммы форматируются до подстановки, единообразно для всех языков.
+/// String in the selected language; with arguments it is a format (`%@`, `%d`), as in `String(format:)`.
+/// No format locale: numbers and amounts are formatted before substitution, the same way for every language.
 public func L(_ key: String, _ args: CVarArg...) -> String {
     let format = Localization.shared.string(key)
     return args.isEmpty ? format : String(format: format, arguments: args)

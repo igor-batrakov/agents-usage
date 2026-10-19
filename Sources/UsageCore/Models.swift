@@ -1,6 +1,6 @@
 import Foundation
 
-/// Тип источника — запись каталога. Код опроса у каждого свой (`Catalog.source`).
+/// Source type, a catalog entry. Each has its own polling code (`Catalog.source`).
 public enum Provider: String, CaseIterable, Codable, Sendable {
     case claude, codex, agy, copilot, cursor, kimi, openrouter, moonshot
 
@@ -17,7 +17,7 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Страница лимитов у вендора; nil — веб-страницы нет.
+    /// The vendor's usage page; nil if there is no web page.
     public var defaultUsageURL: URL? {
         switch self {
         case .claude: URL(string: "https://claude.ai/settings/usage")
@@ -31,8 +31,8 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Переменная окружения с каталогом конфигурации — она различает аккаунты одного сервиса.
-    /// nil — аккаунт у сервиса один.
+    /// Environment variable holding the config directory; it tells accounts of one service apart.
+    /// nil means the service has a single account.
     public var configDirVariable: String? {
         switch self {
         case .claude: "CLAUDE_CONFIG_DIR"
@@ -41,7 +41,7 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Вход по API-ключу из консоли вендора (хранится в Связке ключей, `KeyStore`), а не через CLI.
+    /// Signs in with an API key from the vendor console (stored in the Keychain, `KeyStore`), not through a CLI.
     public var usesAPIKey: Bool {
         switch self {
         case .kimi, .openrouter, .moonshot: true
@@ -49,7 +49,7 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Где выпустить ключ.
+    /// Where to create the key.
     public var apiKeysURL: URL? {
         switch self {
         case .kimi: URL(string: "https://www.kimi.com/code/console")
@@ -59,28 +59,28 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Несколько аккаунтов — у сервисов с каталогом конфигурации или ключом (ключ на аккаунт).
+    /// Multiple accounts: for services with a config directory or a key (one key per account).
     public var allowsMultipleAccounts: Bool { configDirVariable != nil || usesAPIKey }
 }
 
-/// Аккаунт — экземпляр сервиса из каталога со своими настройками. Порядок — порядок в списке.
+/// Account: an instance of a catalog service with its own settings. Order is the list order.
 public struct Account: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var kind: Provider
     public var name: String
     public var enabled: Bool
-    /// Каталог конфигурации (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`); nil — по умолчанию.
+    /// Config directory (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`); nil means the default.
     public var configDir: String?
-    /// Скрытые окна (по `LimitWindow.id`): не показываются и не влияют на цвет иконки.
+    /// Hidden windows (by `LimitWindow.id`): not shown and do not affect the icon color.
     public var hiddenWindows: Set<String>
-    /// Окно для полоски в строке меню; nil — авто (максимум по коротким окнам).
+    /// Window for the menu bar; nil means auto (maximum over the short windows).
     public var barWindowID: String?
-    /// Своя ссылка на страницу лимитов; nil — `kind.defaultUsageURL`.
+    /// Custom link to the usage page; nil means `kind.defaultUsageURL`.
     public var usageURL: String?
     public var onPanel: Bool
-    /// Растёт при каждой смене API-ключа (сам ключ — в `KeyStore`). Для стора и уведомлений это смена
-    /// источника, как смена каталога: опрос со старым ключом отбрасывается. Optional — старые
-    /// сохранённые аккаунты без этого поля читаются как есть.
+    /// Grows on every API key change (the key itself is in `KeyStore`). For the store and notifications this is
+    /// a source change, like a directory change: a poll with the old key is discarded. Optional so that old
+    /// saved accounts without this field decode as they are.
     public var keyRevision: Int?
 
     public init(id: UUID = UUID(), kind: Provider, name: String? = nil, enabled: Bool = true,
@@ -97,12 +97,12 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
         self.onPanel = onPanel
     }
 
-    /// Откуда берутся данные аккаунта, кроме его типа: сменилось — это по сути другой аккаунт.
+    /// Where the account data comes from besides its type: if it changes, it is effectively another account.
     public func sameSource(as other: Account) -> Bool {
         configDir == other.configDir && keyRevision == other.keyRevision
     }
 
-    /// То же для ключей состояния уведомлений: без ключа API — прежний вид (каталог).
+    /// Same for notification state keys: without an API key, the old form (directory only).
     public var sourceTag: String {
         (configDir ?? "") + (keyRevision.map { "#\($0)" } ?? "")
     }
@@ -116,16 +116,16 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
         (snapshot.report?.windows ?? []).filter { !hiddenWindows.contains($0.id) }
     }
 
-    /// У сервиса только баланс, окон лимита нет: полоска в строке меню у него была бы всегда пустой.
-    /// Moonshot — по типу (окон у него не бывает: до первого ответа и при ошибке тоже), остальные —
-    /// по ответу (OpenRouter без бюджета ключа).
+    /// The service has only a balance and no limit windows: its menu bar bar would always be empty.
+    /// Moonshot by type (it never has windows, neither before the first response nor on error), the rest
+    /// by response (OpenRouter without a key budget).
     public func balanceOnly(_ snapshot: Snapshot) -> Bool {
         if kind == .moonshot { return true }
         guard let report = snapshot.report else { return false }
         return report.windows.isEmpty && !report.balances.isEmpty
     }
 
-    /// Доля для полоски в строке меню: выбранное окно, иначе максимум по коротким, иначе по всем.
+    /// Fraction for the menu bar: the selected window, else the maximum over short ones, else over all.
     public func barUsed(_ snapshot: Snapshot, at now: Date) -> Double? {
         let windows = visibleWindows(snapshot)
         if let barWindowID, let w = windows.first(where: { $0.id == barWindowID }) { return w.used(at: now) }
@@ -133,23 +133,23 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
         return (short.isEmpty ? windows : short).map { $0.used(at: now) }.max()
     }
 
-    /// Самое напряжённое видимое окно — по нему выбирается цвет.
+    /// The most loaded visible window; it picks the color.
     public func maxUsed(_ snapshot: Snapshot, at now: Date) -> Double? {
         visibleWindows(snapshot).map { $0.used(at: now) }.max()
     }
 }
 
-/// Одно окно лимита. `used` — доля израсходованного, 0…1.
+/// One limit window. `used` is the fraction consumed, 0…1.
 public struct LimitWindow: Sendable, Equatable, Identifiable {
     public let id: String
     public let title: String
-    /// Подзаголовок-группа (у agy: «Gemini», «Claude и GPT»); nil — без группы.
+    /// Group subheading (for agy: "Gemini", "Claude and GPT"); nil means no group.
     public let group: String?
     public let used: Double
     public let resetsAt: Date?
-    /// Короткое (5-часовое) окно: по нему рисуется полоска в строке меню.
+    /// Short (5-hour) window: the menu bar bar is drawn from it.
     public let isShort: Bool
-    /// Длина окна, с; nil — неизвестна (тогда нет метки темпа).
+    /// Window length in seconds; nil if unknown (then there is no pace marker).
     public let duration: TimeInterval?
 
     public init(id: String, title: String, group: String? = nil, used: Double, resetsAt: Date?, isShort: Bool,
@@ -165,21 +165,21 @@ public struct LimitWindow: Sendable, Equatable, Identifiable {
 
     public var fullTitle: String { group.map { "\($0) · \(title)" } ?? title }
 
-    /// Если время сброса уже прошло, окно считается пустым до следующего опроса.
+    /// If the reset time has passed, the window counts as empty until the next poll.
     public func used(at now: Date) -> Double {
         if let resetsAt, resetsAt <= now { return 0 }
         return used
     }
 
-    /// Темп: какая доля окна по времени уже прошла, 0…1. Расход выше темпа — лимит кончится до сброса.
-    /// nil — длина или время сброса неизвестны, либо сброс уже прошёл.
+    /// Pace: how much of the window has elapsed in time, 0…1. Usage above pace runs out before the reset.
+    /// nil if the length or reset time is unknown, or the reset has already passed.
     public func pace(at now: Date) -> Double? {
         guard let duration, duration > 0, let resetsAt, resetsAt > now else { return nil }
         return min(max(1 - resetsAt.timeIntervalSince(now) / duration, 0), 1)
     }
 }
 
-/// Бесплатные сбросы лимита (у Codex — «Full reset»): сколько доступно и когда сгорит ближайший.
+/// Free limit resets (Codex "Full reset"): how many are available and when the nearest one expires.
 public struct FreeResets: Sendable, Equatable {
     public let count: Int
     public let nextExpiry: Date?
@@ -190,13 +190,13 @@ public struct FreeResets: Sendable, Equatable {
     }
 }
 
-/// Денежная метрика без доли (баланс счёта): показывается строкой рядом с окнами лимита.
+/// Money metric without a fraction (account balance): shown as a line next to the limit windows.
 public struct Balance: Sendable, Equatable, Identifiable {
     public let id: String
     public let title: String
-    /// В единицах валюты (доллары, юани), не в центах.
+    /// In currency units (dollars, yuan), not cents.
     public let amount: Double
-    /// Код ISO 4217: USD, CNY.
+    /// ISO 4217 code: USD, CNY.
     public let currency: String
 
     public init(id: String, title: String, amount: Double, currency: String) {
@@ -235,7 +235,7 @@ public struct Snapshot: Sendable, Equatable {
 
 public enum UsageError: LocalizedError, Equatable {
     case message(String)
-    /// Процесс вышел с ненулевым кодом: по коду вызывающий различает исходы (у `security` 44 — «элемента нет»).
+    /// The process exited with a nonzero code: the caller tells outcomes apart by it (`security` 44 is "no item").
     case exit(tool: String, status: Int32)
 
     public var errorDescription: String? {

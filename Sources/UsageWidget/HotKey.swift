@@ -2,7 +2,7 @@ import Carbon.HIToolbox
 import UsageCore
 import os
 
-/// Сочетание для поповера — выбор из нескольких готовых (запись произвольного сочетания не нужна).
+/// Popover shortcut: a choice from a few presets (recording an arbitrary shortcut is not needed).
 enum HotKeyChoice: String, CaseIterable {
     case off, ctrlOptL, ctrlOptU
 
@@ -23,13 +23,13 @@ enum HotKeyChoice: String, CaseIterable {
     }
 }
 
-/// Глобальное сочетание через Carbon `RegisterEventHotKey`: в отличие от мониторинга
-/// клавиатуры, не требует разрешения «Универсальный доступ».
+/// Global shortcut through Carbon `RegisterEventHotKey`: unlike keyboard monitoring,
+/// it does not need the Accessibility permission.
 @MainActor
 final class HotKey {
     private var ref: EventHotKeyRef?
     private var handler: EventHandlerRef?
-    /// Обработчик Carbon — C-функция без контекста, поэтому действие хранится статически.
+    /// The Carbon handler is a C function without context, so the action is stored statically.
     fileprivate static var action: (() -> Void)?
 
     func set(_ choice: HotKeyChoice, action: @escaping () -> Void) {
@@ -40,7 +40,7 @@ final class HotKey {
         if handler == nil {
             var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
             InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
-                // Carbon вызывает обработчик на главном потоке.
+                // Carbon calls the handler on the main thread.
                 MainActor.assumeIsolated { HotKey.action?() }
                 return noErr
             }, 1, &spec, nil, &handler)

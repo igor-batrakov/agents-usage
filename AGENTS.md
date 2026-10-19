@@ -1,86 +1,92 @@
-# Agents Usage — правила проекта
+# Agents Usage: project rules
 
-Для участников по-английски — [CONTRIBUTING.md](CONTRIBUTING.md); здесь — правила для ревьюеров и агентов.
+The contributor guide is [CONTRIBUTING.md](CONTRIBUTING.md); this file holds the rules for reviewers and agents.
 
-Нативное macOS-приложение для строки меню (Swift, SwiftPM, без Xcode). Показывает лимиты подписок
-Claude Code, Codex, Antigravity (agy), GitHub Copilot, Cursor, Kimi Code, а также балансы OpenRouter и Moonshot:
-процент использования и время сброса каждого окна, суммы — строкой баланса.
+A native macOS menu bar app (Swift, SwiftPM, no Xcode). It shows subscription limits for Claude Code, Codex,
+Antigravity (agy), GitHub Copilot, Cursor and Kimi Code, plus OpenRouter and Moonshot balances: usage percentage
+and reset time for each window, amounts as a balance line.
 
-## Сборка и тесты
+## Build and test
 
-- `./test.sh` — тесты (Swift Testing). Пути к Testing.framework и плагину макросов из Command Line Tools
-  подставляет скрипт: CLT, в отличие от Xcode, сам их не находит.
-- `./build.sh` — `build/Agents Usage.app`, ad-hoc подпись. `./build.sh install` — копия в `~/Applications` и запуск.
-  `UNIVERSAL=1` — arm64 + x86_64, `VERSION=` — версия в Info.plist.
-- Релиз — `tools/release.sh v1.2.0`: универсальная сборка, `dist/Agents-Usage.zip` и `.dmg` (имена без версии —
-  их качает `install.sh` по `releases/latest/download/`), `SHA256SUMS`, GitHub-релиз с заметками
-  `docs/release-notes/<тег>.md`. Подписи Developer ID нет: `install.sh` качает через curl (без карантина).
-- Демо для скриншотов README — `open "Agents Usage.app" --args --demo [-language ru] [--demo-settings]`
-  (`Demo.swift`): свой домен UserDefaults, вымышленные данные; настоящие настройки, ключи и состояние
-  уведомлений не трогает.
-- Иконка — `Resources/AppIcon.icns`, рисует её `tools/make-icon.swift`; пересобрать — `tools/make-icon.sh`.
-  Bundle ID `ru.batrakov.UsageWidget` и имя бинаря `UsageWidget` не менять: к ним привязаны настройки,
-  аккаунты и разрешение на уведомления.
-- **Без SwiftUI-макросов.** В SDK macOS 27 `@State`/`@Entry` — макросы, а плагина `SwiftUIMacros` в CLT нет:
-  сборка падает. Состояние UI держим в `@Observable`-моделях (Observation-макросы в CLT есть).
+- `./test.sh` runs the tests (Swift Testing). The script supplies the paths to Testing.framework and the macro
+  plugin from Command Line Tools: unlike Xcode, CLT does not find them on its own.
+- `./build.sh` builds `build/Agents Usage.app` with an ad-hoc signature. `./build.sh install` copies it to
+  `~/Applications` and launches it. `UNIVERSAL=1` builds arm64 + x86_64, `VERSION=` sets the Info.plist version.
+- Release: `tools/release.sh v1.2.0`: universal build, `dist/Agents-Usage.zip` and `.dmg` (names without a version,
+  `install.sh` downloads them from `releases/latest/download/`), `SHA256SUMS`, a GitHub release with notes from
+  `docs/release-notes/<tag>.md`. There is no Developer ID signature: `install.sh` downloads with curl (no quarantine).
+- Demo for the README screenshots: `open "Agents Usage.app" --args --demo [-language ru] [--demo-settings]`
+  (`Demo.swift`): its own UserDefaults domain and made-up data; real settings, keys and notification state are
+  left alone.
+- The icon is `Resources/AppIcon.icns`, drawn by `tools/make-icon.swift`; rebuild it with `tools/make-icon.sh`.
+  Do not change the bundle ID `ru.batrakov.UsageWidget` or the binary name `UsageWidget`: settings, accounts and
+  the notification permission are tied to them.
+- **No SwiftUI macros.** In the macOS 27 SDK `@State`/`@Entry` are macros, and CLT lacks the `SwiftUIMacros`
+  plugin, so the build fails. UI state lives in `@Observable` models (the Observation macros are in CLT).
 
-## Устройство
+## Layout
 
-- `Sources/UsageCore` — без UI, под тесты: модели (`Provider` — тип из каталога, `Account` — экземпляр со своими
-  настройками), каталог (`Catalog`), парсеры ответов (`Parsers`), источники (`Sources.swift`), запуск
-  подпроцессов (`ProcessRunner`), `UsageStore` (параллельный опрос включённых аккаунтов, таймер),
-  `Alerts` (когда уведомлять), `PollPolicy` (экономный опрос), `KeyStore` (API-ключи в Связке ключей).
-- `Sources/UsageWidget` — AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, окно настроек) + SwiftUI-контент.
-  `Settings` — все настройки и список аккаунтов (JSON в UserDefaults, ключ `accounts`). `Notifier` — доставка
-  уведомлений, `HotKey` — глобальное сочетание (Carbon), `SystemState` — блокировка, сон дисплея, батарея.
-- Переводы — `Resources/<код>.lproj/Localizable.strings`, ключ — английский текст. `Localization` (UsageCore)
-  грузит выбранный язык сам, не через `Bundle`: язык переключается в настройках без перезапуска. Список языков —
-  по найденным `*.lproj`, `CFBundleLocalizations` заполняет `build.sh`. `tools/strings.py` собирает ключи `L("…")`
-  из кода и пересобирает `en.lproj` (образец для нового языка); `LocalizationTests` сверяет ключи и `%@`/`%d`.
-- План развития — [docs/plan-v2.md](docs/plan-v2.md).
-- Фикстуры `Tests/UsageCoreTests/Fixtures` — реальные ответы API, обезличенные (без токенов, id аккаунтов).
+- `Sources/UsageCore` has no UI and is covered by tests: models (`Provider` is a catalog type, `Account` an instance
+  with its own settings), the catalog (`Catalog`), response parsers (`Parsers`), sources (`Sources.swift`),
+  subprocess launching (`ProcessRunner`), `UsageStore` (parallel polling of enabled accounts, timer),
+  `Alerts` (when to notify), `PollPolicy` (low-power polling), `KeyStore` (API keys in the Keychain).
+- `Sources/UsageWidget` is AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, settings window) plus SwiftUI content.
+  `Settings` holds all settings and the account list (JSON in UserDefaults, key `accounts`). `Notifier` delivers
+  notifications, `HotKey` is the global shortcut (Carbon), `SystemState` reports lock, display sleep and battery.
+- Translations live in `Resources/<code>.lproj/Localizable.strings`, the key is the English text. `Localization`
+  (UsageCore) loads the selected language itself, not through `Bundle`, so the language switches in settings without
+  a restart. The language list comes from the `*.lproj` directories found; `build.sh` fills `CFBundleLocalizations`.
+  `tools/strings.py` collects the `L("…")` keys from the code and rebuilds `en.lproj` (the template for a new
+  language); `LocalizationTests` checks the keys and `%@`/`%d`.
+- Roadmap: [docs/plan-v2.md](docs/plan-v2.md).
+- Fixtures in `Tests/UsageCoreTests/Fixtures` are real API responses, anonymized (no tokens, no account ids).
 
-## Источники данных — недокументированные, могут меняться
+## Data sources: undocumented, may change
 
-| Сервис | Откуда |
+| Service | Source |
 |---|---|
-| Claude | Keychain `Claude Code-credentials` (с `CLAUDE_CONFIG_DIR` — `…-<sha256(путь NFC)[0:8]>`, как в Claude Code 2.1.x) через `/usr/bin/security` → `GET api.anthropic.com/api/oauth/usage` (`anthropic-beta: oauth-2025-04-20`). Массив `limits`, запасной путь — `five_hour`/`seven_day` |
-| Codex | `codex app-server` (stdio JSON-RPC, `CODEX_HOME` для второго аккаунта): `initialize`, `initialized`, `account/rateLimits/read` |
+| Claude | Keychain `Claude Code-credentials` (with `CLAUDE_CONFIG_DIR`: `…-<sha256(NFC path)[0:8]>`, as in Claude Code 2.1.x) via `/usr/bin/security` → `GET api.anthropic.com/api/oauth/usage` (`anthropic-beta: oauth-2025-04-20`). The `limits` array, falling back to `five_hour`/`seven_day` |
+| Codex | `codex app-server` (stdio JSON-RPC, `CODEX_HOME` for a second account): `initialize`, `initialized`, `account/rateLimits/read` |
 | agy | `agy -p /usage --output-format json` → `command.data.groups[].buckets[]` (`remaining_fraction`) |
-| Copilot | токен `gh auth token` → `GET api.github.com/copilot_internal/user` (`Authorization: token …` + editor-заголовки) → `quota_snapshots.*.percent_remaining`, сброс `quota_reset_date_utc`; безлимитные и с `entitlement` 0 — пропуск |
-| Cursor | `cursorAuth/accessToken` из `state.vscdb` (`/usr/bin/sqlite3 -readonly`) → cookie `WorkosCursorSessionToken=<хвост sub>%3A%3A<jwt>` → `GET cursor.com/api/usage-summary`. Проценты — уже проценты, деньги — центы |
-| Kimi Code | API-ключ → `GET api.kimi.com/coding/v1/usages` (401 — пробуем `api.kimi.ai`): `usages.limit_*.used_ratio` или счётчики `usage` (неделя) и `limits[0]` |
-| OpenRouter | API-ключ → `GET openrouter.ai/api/v1/key` (бюджет ключа, даты сброса нет) и `/credits` (баланс, необязателен) |
-| Moonshot | API-ключ → `GET api.moonshot.ai/v1/users/me/balance` (401 — `api.moonshot.cn`, тогда юани) → `data.available_balance` |
+| Copilot | `gh auth token` → `GET api.github.com/copilot_internal/user` (`Authorization: token …` + editor headers) → `quota_snapshots.*.percent_remaining`, reset `quota_reset_date_utc`; unlimited ones and those with `entitlement` 0 are skipped |
+| Cursor | `cursorAuth/accessToken` from `state.vscdb` (`/usr/bin/sqlite3 -readonly`) → cookie `WorkosCursorSessionToken=<sub tail>%3A%3A<jwt>` → `GET cursor.com/api/usage-summary`. Percentages are already percentages, money is in cents |
+| Kimi Code | API key → `GET api.kimi.com/coding/v1/usages` (on 401, try `api.kimi.ai`): `usages.limit_*.used_ratio` or the `usage` counters (week) and `limits[0]` |
+| OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
+| Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
 
-## Инварианты (ревьюеру проверять)
+## Invariants (reviewers check these)
 
-1. **Токены не обновляем сами.** Refresh-токены одноразовые: обновление за спиной CLI разлогинит Claude Code или
-   Codex. Истёк токен — показываем прошлые данные и подсказку запустить CLI.
-2. **Секреты не покидают память.** Токен не пишется в лог, UI, файлы, тексты ошибок. В фикстурах — ни токенов,
-   ни идентификаторов аккаунтов.
-3. **Keychain — только через `/usr/bin/security`**: он в ACL элемента Claude Code, прямой `SecItemCopyMatching`
-   вызовет запрос доступа. API-ключи (`KeyStore`) — свои элементы, тоже через него: ad-hoc подпись приложения
-   меняется с каждой сборкой, ACL на приложение спрашивал бы доступ после каждого обновления. Ключ пишется через
-   stdin (`security -i`), не аргументом — аргументы видны в `ps`; в UserDefaults и в логи не попадает.
-4. **Проценты везде «использовано»**, доля 0…1. У Codex/agy `1 − remaining` там, где API отдаёт остаток.
-5. **Минимум ресурсов.** Между опросами — ничего: ни анимаций, ни постоянных таймеров перерисовки (тикает только
-   подпись «через N» раз в 30 с и только пока вид на экране). Подпроцессы живут секунды, по таймауту гасятся.
-6. **Упавший источник не стирает данные** других и свои прошлые — только ставит текст ошибки.
-7. GUI-приложению не достаётся PATH шелла: бинари ищем по явным путям (`ProcessRunner.locate`).
-8. **Выключенный аккаунт не опрашивается**, его снимок отбрасывается; результат опроса аккаунта, который за время
-   опроса выключили, удалили или сменили ему каталог, не записывается.
-9. **Скрытые окна** не показываются и не влияют ни на цвет иконки, ни на планирование опроса к сбросу, ни на
-   уведомления.
-10. **id окон стабильны** между опросами (`LimitWindow.id`): по ним хранятся скрытые окна, окно для иконки и
-    состояние уведомлений.
-11. **Уведомление — не чаще раза за окно** и только при выданном разрешении (иначе система примет его молча,
-    а окно сочтётся предупреждённым). Бесплатные сбросы Codex приложение только показывает, не тратит.
-12. **Экономный опрос** пропускает только плановые опросы (таймер, разовый к сбросу при тёмном экране); ручной
-    ↻, «Проверить» и открытие поповера работают всегда.
-13. **Сервис только с балансом** (нет окон лимита) полоски в строке меню не получает — сумма в подсказке.
-    Деньги — в единицах валюты (`Balance.amount`), центы переводятся при разборе.
-14. **Каждая строка интерфейса — через `L("English")`**, ключ одним литералом (его ищет `tools/strings.py`).
-    В SwiftUI — `Text(L("…"))`, не `Text("…")`: литерал SwiftUI переводит сам, по языку системы, мимо выбранного.
-    Тексты из данных (заголовки окон, ошибки) переводятся при опросе — смена языка запускает опрос. Глобальные
-    константы с `L()` — нельзя (запомнят язык первого обращения), только вычисляемые.
+1. **We never refresh tokens ourselves.** Refresh tokens are single-use: refreshing behind a CLI's back logs out
+   Claude Code or Codex. If a token has expired, show the previous data and a hint to run the CLI.
+2. **Secrets stay in memory.** A token never goes to the log, UI, files or error texts. Fixtures contain no tokens
+   and no account identifiers.
+3. **Keychain only through `/usr/bin/security`**: it is in the ACL of the Claude Code item, while a direct
+   `SecItemCopyMatching` would trigger an access prompt. API keys (`KeyStore`) are our own items, also through it:
+   the app's ad-hoc signature changes with every build, so an ACL on the app would ask for access after every update.
+   The key is written through stdin (`security -i`), not as an argument, since arguments show up in `ps`; it never
+   reaches UserDefaults or the logs.
+4. **Percentages always mean "used"**, as a 0…1 fraction. For Codex/agy it is `1 − remaining` where the API
+   returns the remainder.
+5. **Minimal resources.** Nothing runs between polls: no animations, no permanent redraw timers (only the "in N"
+   label ticks, every 30 s and only while the view is on screen). Subprocesses live for seconds and are killed on
+   timeout.
+6. **A failed source never erases data**, neither other sources' nor its own previous data; it only sets an
+   error text.
+7. A GUI app does not get the shell PATH: binaries are looked up at explicit paths (`ProcessRunner.locate`).
+8. **A disabled account is not polled**, its snapshot is dropped; the poll result of an account that was disabled,
+   removed or given another directory during the poll is not stored.
+9. **Hidden windows** are not shown and affect neither the icon color, nor scheduling the poll at reset, nor
+   notifications.
+10. **Window ids are stable** across polls (`LimitWindow.id`): hidden windows, the icon window and notification
+    state are stored by them.
+11. **At most one notification per window**, and only with permission granted (otherwise the system accepts it
+    silently and the window counts as warned). The app only shows free Codex resets, it never spends them.
+12. **Low-power polling** skips only scheduled polls (the timer, the one-off poll at reset while the screen is dark);
+    manual ↻, "Check" and opening the popover always work.
+13. **A balance-only service** (no limit windows) gets no bar in the menu bar; the amount goes to the tooltip.
+    Money is in currency units (`Balance.amount`), cents are converted while parsing.
+14. **Every UI string goes through `L("English")`**, the key as a single literal (`tools/strings.py` looks for it).
+    In SwiftUI it is `Text(L("…"))`, not `Text("…")`: SwiftUI translates a literal itself, by the system language,
+    bypassing the selected one. Texts from data (window titles, errors) are translated at poll time, so a language
+    change triggers a poll. No global constants with `L()` (they would remember the language of the first access),
+    only computed ones.

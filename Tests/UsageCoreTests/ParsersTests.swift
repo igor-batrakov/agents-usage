@@ -7,7 +7,7 @@ func fixture(_ name: String) throws -> Data {
     return try Data(contentsOf: url)
 }
 
-/// Длины окон: 5 часов и неделя.
+/// Window lengths: 5 hours and a week.
 private let h5: TimeInterval? = 5 * 3600
 private let wk: TimeInterval? = 7 * 86400
 
@@ -118,7 +118,7 @@ private let wk: TimeInterval? = 7 * 86400
         let w = LimitWindow(id: "a", title: "t", used: 0.5, resetsAt: now.addingTimeInterval(3600), isShort: true,
                             duration: 4 * 3600)
         #expect(w.pace(at: now) == 0.75)
-        // Сброс прошёл, длина неизвестна — метки нет.
+        // The reset passed and the length is unknown: no marker.
         #expect(w.pace(at: now.addingTimeInterval(3601)) == nil)
         #expect(LimitWindow(id: "b", title: "t", used: 0.5, resetsAt: now.addingTimeInterval(60), isShort: true)
             .pace(at: now) == nil)

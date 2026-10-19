@@ -10,8 +10,8 @@ enum Theme {
         case .claude: NSColor(srgbRed: 0.851, green: 0.467, blue: 0.341, alpha: 1)  // #D97757
         case .codex: NSColor(srgbRed: 0.063, green: 0.639, blue: 0.498, alpha: 1)   // #10A37F
         case .agy: NSColor(srgbRed: 0.259, green: 0.522, blue: 0.957, alpha: 1)     // #4285F4
-        // У Copilot, Cursor и Kimi фирменный цвет чёрный, у OpenRouter серый — на полосках они
-        // слились бы с подложкой и «нет данных». Берём различимые тона, далёкие от янтаря и красного.
+        // Copilot, Cursor and Kimi have black brand colors, OpenRouter gray: on the bars they would
+        // blend with the track and "no data". Use distinct tones, far from amber and red.
         case .copilot: NSColor(srgbRed: 0.545, green: 0.361, blue: 0.965, alpha: 1)  // #8B5CF6
         case .cursor: NSColor(srgbRed: 0.851, green: 0.275, blue: 0.937, alpha: 1)   // #D946EF
         case .kimi: NSColor(srgbRed: 0.024, green: 0.714, blue: 0.831, alpha: 1)     // #06B6D4
@@ -23,8 +23,8 @@ enum Theme {
     static let amber = NSColor(srgbRed: 0.961, green: 0.647, blue: 0.141, alpha: 1)  // #F5A524
     static let red = NSColor(srgbRed: 0.898, green: 0.282, blue: 0.302, alpha: 1)    // #E5484D
 
-    /// Предупреждающий цвет по доле использования; nil — всё спокойно.
-    /// Порог — по округлённому проценту, как в подписи: «90%» не должно быть янтарным.
+    /// Warning color for a usage fraction; nil when all is calm.
+    /// The threshold uses the rounded percentage, as in the label: "90%" must not be amber.
     static func warning(_ used: Double) -> NSColor? {
         let percent = (used * 100).rounded()
         return percent >= 90 ? red : percent >= 70 ? amber : nil

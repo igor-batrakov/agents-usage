@@ -1,6 +1,6 @@
 import Foundation
 
-/// Разбор ответов трёх источников в общий `UsageReport`. Чистые функции — под тесты.
+/// Parses the source responses into a common `UsageReport`. Pure functions, covered by tests.
 public enum Parsers {
 
     // MARK: Claude — GET api.anthropic.com/api/oauth/usage
@@ -9,7 +9,7 @@ public enum Parsers {
         let root = try object(data)
         var windows: [LimitWindow] = []
 
-        // Новый формат: массив `limits` с видом окна и моделью (например, «Fable»).
+        // New format: a `limits` array with window kind and model (for example, "Fable").
         if let limits = root["limits"] as? [[String: Any]], !limits.isEmpty {
             for limit in limits {
                 guard let percent = number(limit["percent"]) else { continue }
@@ -23,7 +23,7 @@ public enum Parsers {
                 default: title = model.map { "\(kind) · \($0)" } ?? kind
                 }
                 windows.append(LimitWindow(
-                    // id стабилен между опросами: по нему запоминаются скрытые окна и окно для иконки.
+                    // The id is stable across polls: hidden windows and the icon window are stored by it.
                     id: "claude-\(kind)" + (model.map { "-\($0)" } ?? ""),
                     title: title,
                     used: percent / 100,
@@ -32,7 +32,7 @@ public enum Parsers {
                     duration: kind == "session" ? fiveHours : kind.hasPrefix("weekly") ? week : nil))
             }
         } else {
-            // Старый формат: именованные окна с `utilization` 0–100.
+            // Old format: named windows with `utilization` 0–100.
             let named: [(String, String, Bool)] = [
                 ("five_hour", L("5 hours"), true),
                 ("seven_day", L("Week"), false),
@@ -69,7 +69,7 @@ public enum Parsers {
         }
         guard let result = root["result"] as? [String: Any] else { throw UsageError.message(L("no result in the response")) }
 
-        // Основной лимит первым, затем дополнительные (если появятся отдельные лимиты моделей).
+        // Main limit first, then additional ones (in case separate per-model limits appear).
         var snapshots: [[String: Any]] = []
         if let main = result["rateLimits"] as? [String: Any] { snapshots.append(main) }
         if let byId = result["rateLimitsByLimitId"] as? [String: [String: Any]] {
@@ -100,7 +100,7 @@ public enum Parsers {
         return UsageReport(windows: windows, plan: plan, freeResets: codexFreeResets(result))
     }
 
-    /// `rateLimitResetCredits`: бесплатные полные сбросы. Считаем только доступные; нет ни одного — nil.
+    /// `rateLimitResetCredits`: free full resets. Only available ones count; none at all gives nil.
     static func codexFreeResets(_ result: [String: Any]) -> FreeResets? {
         guard let root = result["rateLimitResetCredits"] as? [String: Any] else { return nil }
         let available = (root["credits"] as? [[String: Any]] ?? []).filter { $0["status"] as? String == "available" }
@@ -133,7 +133,7 @@ public enum Parsers {
         var windows: [LimitWindow] = []
         for group in groups {
             let groupName = agyGroupTitle(group["name"] as? String ?? "")
-            // agy отдаёт неделю раньше 5 часов; у остальных сервисов короткое окно первым — выравниваем.
+            // agy returns the week before the 5 hours; other services put the short window first, so align.
             let buckets = (group["buckets"] as? [[String: Any]] ?? [])
                 .sorted { ($0["window"] as? String == "5h") && ($1["window"] as? String != "5h") }
             for bucket in buckets {
@@ -171,7 +171,7 @@ public enum Parsers {
 
     // MARK: Copilot — GET api.github.com/copilot_internal/user
 
-    /// Месячные квоты. Безлимитные и с нулевым объёмом (премиум на бесплатном плане) — пропуск.
+    /// Monthly quotas. Unlimited ones and those with zero entitlement (premium on the free plan) are skipped.
     public static func copilot(_ data: Data) throws -> UsageReport {
         let root = try object(data)
         let reset = isoDate(root["quota_reset_date_utc"])
@@ -192,7 +192,7 @@ public enum Parsers {
 
     // MARK: Cursor — GET cursor.com/api/usage-summary
 
-    /// Проценты в ответе — уже проценты (0.36 — это 0,36%), деньги — в центах.
+    /// Percentages in the response are already percentages (0.36 means 0.36%), money is in cents.
     public static func cursor(_ data: Data) throws -> UsageReport {
         let root = try object(data)
         let start = isoDate(root["billingCycleStart"]), end = isoDate(root["billingCycleEnd"])
@@ -226,8 +226,8 @@ public enum Parsers {
 
     // MARK: Kimi Code — GET api.kimi.com/coding/v1/usages
 
-    /// Новый формат — доли `usages.limit_*.used_ratio`; старый — счётчики-строки `usage` (неделя)
-    /// и `limits[0]` (короткое окно). id окон одинаковы в обоих: по ним хранятся скрытые окна.
+    /// New format: fractions `usages.limit_*.used_ratio`; old one: string counters `usage` (week)
+    /// and `limits[0]` (short window). Window ids are the same in both: hidden windows are stored by them.
     public static func kimi(_ data: Data) throws -> UsageReport {
         let root = try object(data)
         var windows: [LimitWindow] = []
@@ -266,7 +266,7 @@ public enum Parsers {
         return UsageReport(windows: windows, plan: plan)
     }
 
-    /// `used/limit`, без `used` — `(limit − remaining)/limit`; лимит ≤ 0 — окна нет.
+    /// `used/limit`, without `used` it is `(limit − remaining)/limit`; limit ≤ 0 means no window.
     static func countRatio(_ d: [String: Any]) -> Double? {
         guard let limit = number(d["limit"]), limit > 0 else { return nil }
         if let used = number(d["used"]) { return used / limit }
@@ -277,10 +277,10 @@ public enum Parsers {
         ["resetTime", "resetAt", "reset_time", "reset_at"].lazy.compactMap { isoDate(d[$0]) }.first
     }
 
-    // MARK: OpenRouter — GET openrouter.ai/api/v1/key и /credits
+    // MARK: OpenRouter: GET openrouter.ai/api/v1/key and /credits
 
-    /// `key` — бюджет ключа (доллары): окно, если лимит задан, иначе траты ключа. Даты сброса
-    /// API не даёт — только период. `credits` — баланс счёта; nil — запрос не удался.
+    /// `key` is the key budget (dollars): a window if a limit is set, else the key's spending. The API gives
+    /// no reset date, only the period. `credits` is the account balance; nil if the request failed.
     public static func openRouter(key: Data, credits: Data?) throws -> UsageReport {
         guard let k = try object(key)["data"] as? [String: Any] else { throw UsageError.message(L("no data in the response")) }
         var windows: [LimitWindow] = []
@@ -298,7 +298,7 @@ public enum Parsers {
             windows.append(LimitWindow(id: "openrouter-key", title: title, used: used / limit, resetsAt: nil, isShort: false))
         }
         if let credits {
-            // Ответ есть, но не разобрать — ошибка, а не «баланса нет»: иначе показанный баланс пропал бы молча.
+            // There is a response we cannot parse: an error, not "no balance", or a shown balance would vanish silently.
             guard let c = try object(credits)["data"] as? [String: Any],
                   let total = number(c["total_credits"]), let spent = number(c["total_usage"])
             else { throw UsageError.message(L("no balance in the /credits response")) }
@@ -313,7 +313,7 @@ public enum Parsers {
 
     // MARK: Moonshot — GET api.moonshot.ai/v1/users/me/balance
 
-    /// Только баланс; валюта — по домену: .ai — доллары, .cn — юани.
+    /// Balance only; currency by domain: .ai is dollars, .cn is yuan.
     public static func moonshot(_ data: Data, currency: String) throws -> UsageReport {
         let root = try object(data)
         if let code = number(root["code"]), code != 0 {
@@ -331,7 +331,7 @@ public enum Parsers {
 
     static func capitalized(_ s: String) -> String { s.prefix(1).uppercased() + s.dropFirst() }
 
-    /// Длина месячного окна, кончающегося в `end` (календарный месяц, UTC): для метки темпа.
+    /// Length of the monthly window ending at `end` (calendar month, UTC), for the pace marker.
     static func monthBefore(_ end: Date?) -> TimeInterval? {
         guard let end else { return nil }
         var calendar = Calendar(identifier: .gregorian)
@@ -359,8 +359,8 @@ public enum Parsers {
 
     static func isoDate(_ value: Any?) -> Date? {
         guard let s = value as? String else { return nil }
-        // У Claude — микросекунды (`.394710+00:00`), их ISO8601DateFormatter не понимает.
-        // Отрезаем дробную часть: точность до секунды достаточна.
+        // Claude sends microseconds (`.394710+00:00`), which ISO8601DateFormatter does not understand.
+        // Cut the fractional part: one-second precision is enough.
         let trimmed = s.replacingOccurrences(of: #"\.\d+"#, with: "", options: .regularExpression)
         return ISO8601DateFormatter().date(from: trimmed)
     }

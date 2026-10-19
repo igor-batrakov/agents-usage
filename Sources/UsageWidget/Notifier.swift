@@ -3,13 +3,13 @@ import Observation
 import UsageCore
 import UserNotifications
 
-/// Доставка уведомлений о лимитах. Когда уведомлять — решает `Alerts`; его состояние
-/// (о каких окнах уже предупредили) хранится между запусками, чтобы перезапуск не повторял их.
+/// Delivers limit notifications. `Alerts` decides when to notify; its state
+/// (which windows were already warned about) is kept across launches so a restart does not repeat them.
 @MainActor @Observable
 final class Notifier: NSObject, UNUserNotificationCenterDelegate {
-    /// Уведомления запрещены в Системных настройках — для подсказки в окне настроек.
+    /// Notifications are denied in System Settings, for the hint in the settings window.
     private(set) var denied = false
-    /// Клик по уведомлению.
+    /// Click on a notification.
     @ObservationIgnored var onOpen: (() -> Void)?
 
     @ObservationIgnored private let center = UNUserNotificationCenter.current()
@@ -24,10 +24,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center.delegate = self
     }
 
-    /// Разрешение выдано — проверить заново (то, что пришло до него, не показывалось).
+    /// Permission granted: check again (whatever came before it was not shown).
     @ObservationIgnored var onAuthorized: (() -> Void)?
 
-    /// Запрос разрешения — один раз за запуск; система спрашивает пользователя только впервые.
+    /// Permission is requested once per launch; the system asks the user only the first time.
     func authorize() {
         guard !authorized else { return }
         authorized = true
@@ -39,19 +39,19 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         }
     }
 
-    /// Проверить данные после опроса или смены настроек.
+    /// Check the data after a poll or a settings change.
     func check(_ store: UsageStore, _ settings: Settings) {
-        // Демо-данные не уведомляют и не трогают сохранённое состояние настоящих аккаунтов.
+        // Demo data does not notify and does not touch the saved state of real accounts.
         guard !Demo.isOn else { return }
-        // Выключенные уведомления не копят состояние: после включения сразу придёт
-        // предупреждение об окнах, которые уже за порогом.
+        // Disabled notifications do not accumulate state: once enabled, a warning arrives right away
+        // for windows already over the threshold.
         guard settings.notify else {
             save([:])
             return
         }
-        // Без разрешения система принимает уведомление, но не показывает его — а окно уже
-        // считалось бы предупреждённым. Поэтому оцениваем только при выданном разрешении
-        // (его могли и отозвать в Системных настройках — спрашиваем каждый раз).
+        // Without permission the system accepts a notification but does not show it, while the window
+        // would already count as warned. So evaluate only with permission granted
+        // (it may be revoked in System Settings, so ask every time).
         center.getNotificationSettings { current in
             let status = current.authorizationStatus
             Task { @MainActor in
@@ -91,7 +91,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center.add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
     }
 
-    // Приложение из строки меню часто «активно» (открыт поповер) — без этого баннер не показался бы.
+    // A menu bar app is often "active" (popover open); without this the banner would not show.
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
                                             withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound])

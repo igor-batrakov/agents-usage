@@ -3,14 +3,14 @@ import Observation
 import SwiftUI
 import UsageCore
 
-/// Плавающая панель без рамки: не забирает фокус, видна на всех рабочих столах,
-/// перетаскивается за фон.
+/// Borderless floating panel: does not take focus, shows on all desktops,
+/// is dragged by its background.
 ///
-/// Положение — привязка к углу экрана с отступом либо «свободно». Свободная позиция
-/// хранится как верхний левый угол: высота меняется вместе с данными, и панель должна
-/// расти вниз, а не уезжать вверх за край экрана (frame autosave хранит нижний левый
-/// угол, поэтому он здесь не подходит). У привязанной панели при смене размера и экрана
-/// держится её угол. Перетаскивание привязанной панели переводит её в «свободно».
+/// Position is either pinned to a screen corner with a margin or "free". The free position
+/// is stored as the top-left corner: the height changes with the data, and the panel should
+/// grow downward instead of sliding up past the screen edge (frame autosave stores the bottom-left
+/// corner, so it does not fit here). A pinned panel keeps its corner when its size or the screen
+/// changes. Dragging a pinned panel switches it to "free".
 final class FloatingPanel: NSPanel {
     struct Placement: Equatable {
         var anchor: Settings.PanelAnchor
@@ -19,13 +19,13 @@ final class FloatingPanel: NSPanel {
 
     private static let positionKey = "panelTopLeft"
     private var placement = Placement(anchor: .free, margin: 12)
-    /// Свои перемещения не считаются перетаскиванием пользователя.
+    /// Our own moves do not count as user drags.
     private var positioning = false
-    /// Явная перестановка в угол (смена привязки или экрана).
+    /// Explicit move to the corner (pin or screen change).
     private var snapping = false
     private var observers: [NSObjectProtocol] = []
     private let hover = PanelHover()
-    /// Пользователь перетащил привязанную панель.
+    /// The user dragged a pinned panel.
     var onUserMove: (() -> Void)?
 
     init(store: UsageStore, settings: Settings, onHide: @escaping () -> Void) {
@@ -44,14 +44,14 @@ final class FloatingPanel: NSPanel {
         contentViewController = host
 
         place { setFrameTopLeftPoint(Self.savedTopLeft() ?? Self.defaultTopLeft()) }
-        // queue: nil — синхронно, внутри setFrame: флаг positioning ещё стоит, и своё
-        // перемещение не примется за перетаскивание пользователем.
+        // queue: nil means synchronous, inside setFrame: the positioning flag is still set, and our own
+        // move is not mistaken for a user drag.
         observers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.didMoveNotification, object: self, queue: nil
         ) { [weak self] _ in
             MainActor.assumeIsolated { self?.didMove() }
         })
-        // Монитор подключили, отключили или сменили разрешение — вернуть панель в её угол.
+        // A monitor was connected, disconnected or changed resolution: put the panel back in its corner.
         observers.append(NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -77,9 +77,9 @@ final class FloatingPanel: NSPanel {
 
     override var canBecomeKey: Bool { false }
 
-    /// Смена размера — у привязанной панели держится угол, у свободной верхний край.
-    /// Перемещение без смены размера — это перетаскивание пользователем: его не трогаем,
-    /// а didMove переведёт привязанную панель в «свободно».
+    /// On resize a pinned panel keeps its corner, a free one keeps its top edge.
+    /// A move without resize is a user drag: leave it alone,
+    /// and didMove switches a pinned panel to "free".
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
         var rect = frameRect
         let resized = rect.size != frame.size
@@ -107,7 +107,7 @@ final class FloatingPanel: NSPanel {
             setFrame(frame, display: true)
             snapping = false
         } else if Self.savedTopLeft() == nil {
-            // Свободная позиция осталась на отключённом мониторе.
+            // The free position was left on a disconnected monitor.
             place { setFrameTopLeftPoint(Self.defaultTopLeft()) }
         }
     }
@@ -128,7 +128,7 @@ final class FloatingPanel: NSPanel {
         }
     }
 
-    /// Сохранённая точка, если она всё ещё на одном из экранов (монитор могли отключить).
+    /// The saved point, if it is still on one of the screens (a monitor may have been disconnected).
     private static func savedTopLeft() -> NSPoint? {
         guard let s = UserDefaults.standard.string(forKey: positionKey) else { return nil }
         let p = NSPointFromString(s)
@@ -136,15 +136,15 @@ final class FloatingPanel: NSPanel {
         return NSScreen.screens.contains { $0.visibleFrame.contains(probe) } ? p : nil
     }
 
-    /// Первый запуск — правый верхний угол основного экрана.
+    /// First launch: top-right corner of the main screen.
     private static func defaultTopLeft() -> NSPoint {
         let screen = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         return NSPoint(x: screen.maxX - 270, y: screen.maxY - 12)
     }
 }
 
-/// Наведён ли курсор на панель — для крестика. Отдельная модель вместо @State
-/// (SwiftUI-макросов в Command Line Tools нет, см. Settings.selectedAccountID).
+/// Whether the pointer is over the panel, for the close button. A separate model instead of @State
+/// (Command Line Tools have no SwiftUI macros, see Settings.selectedAccountID).
 @MainActor @Observable
 private final class PanelHover {
     var inside = false
@@ -178,13 +178,13 @@ private struct PanelContent: View {
                 }
             }
             .onHover { hover.inside = $0 }
-            // isMovableByWindowBackground не срабатывает: SwiftUI-контент забирает нажатие мыши.
-            // Кнопки внутри (ссылка, крестик) получают клики раньше жеста.
+            // isMovableByWindowBackground does not work: the SwiftUI content takes the mouse down.
+            // Buttons inside (the link, the close button) get clicks before the gesture.
             .gesture(WindowDragGesture())
             .contextMenu {
                 Button(L("Refresh")) { Task { await store.refresh() } }
                 Button(L("Hide the panel"), action: onHide)
             }
-            .id(settings.language ?? "")  // новый язык — пересобрать: строки L() вычисляются при построении
+            .id(settings.language ?? "")  // new language: rebuild, L() strings are evaluated at build time
     }
 }

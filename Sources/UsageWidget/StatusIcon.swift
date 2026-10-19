@@ -1,22 +1,22 @@
 import AppKit
 import UsageCore
 
-/// Иконка строки меню в трёх видах:
-/// - полоски — по одной на включённый аккаунт, сверху вниз в порядке списка;
-///   длина — окно для строки меню, цвет — самое напряжённое видимое окно;
-/// - проценты — те же значения числами;
-/// - худший — один процент самого напряжённого окна среди всех аккаунтов.
-/// Цвет: обычный цвет строки меню, янтарный от 70%, красный от 90%.
+/// Menu bar icon in three styles:
+/// - bars: one per enabled account, top to bottom in list order;
+///   length is the menu bar window, color is the most loaded visible window;
+/// - percentages: the same values as numbers;
+/// - worst: a single percentage of the most loaded window across all accounts.
+/// Color: the regular menu bar color, amber from 70%, red from 90%.
 @MainActor
 enum StatusIcon {
     struct Bar {
-        var fill: Double?       // nil — данных нет
+        var fill: Double?       // nil means no data
         var warning: NSColor?
-        var stale: Bool         // последний опрос упал, показаны старые данные
+        var stale: Bool         // the last poll failed, old data is shown
         var maxUsed: Double?
     }
 
-    /// Сервисы только с балансом полоски не получают — их сумма в подсказке.
+    /// Balance-only services get no bar; their amount is in the tooltip.
     static func bars(_ store: UsageStore, now: Date = Date()) -> [Bar] {
         store.enabledAccounts.filter { !$0.balanceOnly(store.snapshot($0.id)) }.map { a in
             let s = store.snapshot(a.id)
@@ -25,7 +25,7 @@ enum StatusIcon {
         }
     }
 
-    /// Применяет вид к кнопке строки меню: картинка или текст.
+    /// Applies the style to the menu bar button: an image or text.
     static func apply(_ style: Settings.IconStyle, bars: [Bar], to button: NSStatusBarButton) {
         switch style {
         case .bars:
@@ -59,8 +59,8 @@ enum StatusIcon {
     }
 
     static func image(_ bars: [Bar]) -> NSImage {
-        // Без включённых аккаунтов — одна пустая полоска: иначе иконка пропала бы и по ней не кликнуть.
-        // Больше 8 — одна сводная полоска по самому напряжённому: тоньше 1 pt полоски не различить.
+        // No enabled accounts: one empty bar, otherwise the icon would vanish and could not be clicked.
+        // More than 8: one summary bar for the most loaded account; bars thinner than 1 pt are indistinguishable.
         let bars: [Bar] = if bars.isEmpty {
             [Bar(fill: nil, warning: nil, stale: false, maxUsed: nil)]
         } else if bars.count > 8 {
@@ -69,21 +69,21 @@ enum StatusIcon {
             bars
         }
         let size = NSSize(width: 18, height: 16)
-        // Толщина под число аккаунтов: до трёх полосок — по 3 pt, больше — тоньше (при 8 — около 1 pt).
+        // Thickness depends on the account count: up to three bars 3 pt each, more get thinner (about 1 pt at 8).
         let n = CGFloat(bars.count)
         let gap: CGFloat = n > 6 ? 1 : n > 3 ? 1.5 : 2.5
         let h = min(3, (size.height - gap * (n - 1)) / n)
-        // Рисуется при каждом отображении — цвета подстраиваются под светлую/тёмную строку меню.
+        // Drawn on every display, so the colors adapt to a light or dark menu bar.
         let image = NSImage(size: size, flipped: true) { _ in
             var y = (size.height - (h * n + gap * (n - 1))) / 2
             for bar in bars {
                 let track = NSRect(x: 0, y: y, width: size.width, height: h)
-                // Предупреждение тонирует и подложку: иначе при пустом 5-часовом окне
-                // исчерпанная неделя была бы не видна.
+                // A warning tints the track too: otherwise, with an empty 5-hour window,
+                // an exhausted week would not be visible.
                 (bar.warning?.withAlphaComponent(0.45) ?? NSColor.labelColor.withAlphaComponent(0.22)).setFill()
                 NSBezierPath(roundedRect: track, xRadius: h / 2, yRadius: h / 2).fill()
                 if let fill = bar.fill, fill > 0 {
-                    // Минимум — кружок, чтобы 1% был виден.
+                    // The minimum is a dot, so that 1% is visible.
                     let w = max(h, size.width * fill)
                     let color = bar.warning ?? NSColor.labelColor
                     color.withAlphaComponent(bar.stale ? 0.4 : 1).setFill()
