@@ -25,7 +25,7 @@ The Command Line Tools have no SwiftUI macro plugin, so `@State` does not compil
   sources, the polling store, notification rules, localization.
 - `Sources/UsageWidget` is the app: menu bar item, popover, floating panel, settings window.
 - `Tests/UsageCoreTests` holds the tests. Fixtures are real API responses with tokens and account ids removed.
-- `AGENTS.md` lists the invariants every change must keep (in Russian). The short version: never refresh a
+- `AGENTS.md` lists the invariants every change must keep. The short version: never refresh a
   CLI's token, never log or store secrets outside the Keychain, a failing source never erases other data.
 
 ## Adding a service

@@ -1,24 +1,24 @@
 import SwiftUI
 import UsageCore
 
-/// Высота содержимого — чтобы область с прокруткой была не выше нужного.
-/// Модель вместо @State (SwiftUI-макросов в Command Line Tools нет, см. Settings.selectedAccountID);
-/// живёт в корневом виде поповера или панели, которые создаются один раз.
+/// Content height, so the scroll area is no taller than needed.
+/// A model instead of @State (Command Line Tools have no SwiftUI macros, see Settings.selectedAccountID);
+/// lives in the root view of the popover or panel, which are created once.
 @MainActor @Observable
 final class ContentHeight {
     var value: CGFloat = 0
 }
 
-/// Общий контент поповера и плавающей панели: блок на каждый включённый аккаунт.
-/// Подписи «через N» тикают раз в 30 с и только пока вид на экране.
-/// Выше `maxHeight` — прокрутка (аккаунтов может быть много, а окно не должно уходить за экран).
+/// Content shared by the popover and the floating panel: a block per enabled account.
+/// The "in N" labels tick every 30 s and only while the view is on screen.
+/// Above `maxHeight` it scrolls (there may be many accounts, and the window must stay on screen).
 struct UsageView: View {
     let store: UsageStore
     let height: ContentHeight
     let maxHeight: CGFloat
     var compact = false
     var showPace = true
-    /// Какие аккаунты показывать (у панели — свой набор).
+    /// Which accounts to show (the panel has its own set).
     var include: (Account) -> Bool = { _ in true }
 
     var body: some View {
@@ -43,7 +43,7 @@ struct UsageView: View {
         .frame(height: min(max(height.value, 20), maxHeight))
     }
 
-    /// Предел высоты: видимая область экрана минус запас на рамку, футер и отступы.
+    /// Height limit: the visible screen area minus room for the frame, footer and padding.
     static func screenLimit(reserve: CGFloat) -> CGFloat {
         max(200, (NSScreen.main?.visibleFrame.height ?? 900) - reserve)
     }
@@ -116,7 +116,7 @@ private struct AccountSection: View {
         }
     }
 
-    /// Имя аккаунта; если у вендора есть страница лимитов — это ссылка на неё.
+    /// Account name; if the vendor has a usage page, it links there.
     @ViewBuilder private var title: some View {
         let text = HStack(spacing: 3) {
             Text(account.name).font(.system(size: compact ? 12 : 13, weight: .semibold))
@@ -129,16 +129,16 @@ private struct AccountSection: View {
             Button { NSWorkspace.shared.open(url) } label: { text }
                 .buttonStyle(.plain)
                 .help(L("Open the usage page: %@", url.host() ?? url.absoluteString))
-                // pointerStyle, а не NSCursor.push/pop: поповер закрывается по клику, и pop
-                // не случился бы — курсор-рука залип бы.
+                // pointerStyle, not NSCursor.push/pop: the popover closes on click, and pop
+                // would never happen, leaving the hand cursor stuck.
                 .pointerStyle(.link)
         } else {
             text
         }
     }
 
-    /// «Бесплатные сбросы: 3 … сгорит через 2 д» — ссылкой на страницу лимитов, где сброс
-    /// активируется. Сами сбросы приложение не тратит.
+    /// "Free resets: 3 … expires in 2d", linking to the usage page where a reset is
+    /// activated. The app never spends the resets itself.
     @ViewBuilder private func freeResets(_ resets: FreeResets) -> some View {
         let expiry = resets.nextExpiry.flatMap { $0 > now ? $0 : nil }
         let label = HStack(spacing: 4) {
@@ -162,7 +162,7 @@ private struct AccountSection: View {
         }
     }
 
-    /// Окна подряд с одинаковой группой — одна секция (у agy: Gemini, Claude и GPT, Argon).
+    /// Consecutive windows with the same group form one section (for agy: Gemini, Claude and GPT, Argon).
     private func groups(_ windows: [LimitWindow]) -> [(name: String?, windows: [LimitWindow])] {
         var result: [(name: String?, windows: [LimitWindow])] = []
         for w in windows {
@@ -209,8 +209,8 @@ private struct LimitRow: View {
     }
 }
 
-/// Полоска расхода. `pace` — метка темпа: доля прошедшего времени окна. Заливка правее
-/// метки — расход быстрее, чем нужно, чтобы лимита хватило до сброса.
+/// Usage bar. `pace` is the pace marker: the elapsed fraction of the window. Fill to the right
+/// of the marker means usage is faster than needed for the limit to last until the reset.
 private struct Bar: View {
     let fraction: Double
     let color: Color
@@ -225,7 +225,7 @@ private struct Bar: View {
                         .frame(width: max(geo.size.height, geo.size.width * fraction))
                 }
             }
-            // overlay, а не ещё один слой ZStack: метка выше полоски и не должна менять её раскладку.
+            // overlay, not another ZStack layer: the marker sits above the bar and must not change its layout.
             .overlay(alignment: .leading) {
                 if let pace {
                     Capsule().fill(.primary.opacity(0.55))

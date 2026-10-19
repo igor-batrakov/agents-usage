@@ -2,21 +2,21 @@ import Foundation
 import Testing
 @testable import UsageCore
 
-/// Длины месяцев — константами: литерал-произведение внутри `#expect` сравнивается не как TimeInterval?.
+/// Month lengths as constants: a product literal inside `#expect` is not compared as TimeInterval?.
 private let days31: TimeInterval? = 31 * 86400
 private let days30: TimeInterval? = 30 * 86400
 
 @Suite struct CopilotParserTests {
     @Test func monthlyQuotasSkipZeroEntitlement() throws {
         let r = try Parsers.copilot(fixture("copilot_user"))
-        // Премиум на бесплатном плане — объём 0, не показываем.
+        // Premium on the free plan has entitlement 0, not shown.
         #expect(r.windows.map(\.id) == ["copilot-chat", "copilot-completions"])
         #expect(r.windows.map(\.title) == ["Chat", "Completions"])
         #expect(r.windows[0].used == 0)
         #expect(abs(r.windows[1].used - 0.006) < 1e-9)
         let reset = try #require(ISO8601DateFormatter().date(from: "2026-11-01T00:00:00Z"))
         #expect(r.windows[1].resetsAt == reset)
-        // Октябрь — 31 день.
+        // October has 31 days.
         #expect(r.windows[1].duration == days31)
         #expect(r.plan == "Free")
     }
@@ -33,7 +33,7 @@ private let days30: TimeInterval? = 30 * 86400
         #expect(r.windows.map(\.id) == ["cursor-plan", "cursor-auto", "cursor-api"])
         #expect(r.windows.allSatisfy { $0.used == 0 })
         #expect(r.plan == "Free")
-        // Окно — расчётный период: от начала до конца.
+        // The window is the billing period: from its start to its end.
         let end = try #require(ISO8601DateFormatter().date(from: "2026-11-01T16:57:17Z"))
         #expect(r.windows[0].resetsAt == end)
         #expect(r.windows[0].duration == days31)
@@ -61,7 +61,7 @@ private let days30: TimeInterval? = 30 * 86400
     }
 
     @Test func jwtSubjectGivesUserID() {
-        // {"sub":"auth0|user_abc"} в base64url без выравнивания.
+        // {"sub":"auth0|user_abc"} in base64url without padding.
         let jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhdXRoMHx1c2VyX2FiYyJ9.sig"
         #expect(CursorSource.userID(jwt: jwt) == "user_abc")
         #expect(CursorSource.userID(jwt: "not-a-jwt") == nil)
@@ -93,7 +93,7 @@ private let days30: TimeInterval? = 30 * 86400
         let r = try Parsers.kimi(Data(json.utf8))
         #expect(r.windows.map(\.id) == ["kimi-5h", "kimi-month"])
         #expect(r.windows[1].used == 0.0056)
-        // Сентябрь — 30 дней.
+        // September has 30 days.
         #expect(r.windows[1].duration == days30)
         #expect(r.plan == "Moderato")
     }
@@ -167,19 +167,19 @@ private let days30: TimeInterval? = 30 * 86400
         #expect(!KeyStore.isValid("ключ"))
     }
 
-    /// Живая Связка ключей — только по `LIVE_KEYCHAIN=1 ./test.sh`: пишет и удаляет свой элемент.
+    /// Live Keychain only with `LIVE_KEYCHAIN=1 ./test.sh`: writes and deletes its own item.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["LIVE_KEYCHAIN"] != nil))
     func liveSaveReadReplaceDelete() async throws {
         let id = UUID()
         #expect(try await KeyStore.save("test-key_1", for: id))
         #expect(try await KeyStore.lookup(id) == "test-key_1")
-        // Тот же ключ — «не изменился».
+        // The same key: "unchanged".
         #expect(try await !KeyStore.save("test-key_1", for: id))
         #expect(try await KeyStore.save("test-key_2", for: id))
         #expect(try await KeyStore.lookup(id) == "test-key_2")
         #expect(try await KeyStore.delete(id))
         #expect(try await KeyStore.lookup(id) == nil)
-        // Удалить отсутствующий — не ошибка, но и не изменение.
+        // Deleting a missing key is not an error, and not a change either.
         #expect(try await !KeyStore.delete(id))
     }
 }

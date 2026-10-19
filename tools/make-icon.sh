@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Пересобирает Resources/AppIcon.icns из tools/make-icon.swift (нужно только при смене рисунка).
+# Rebuilds Resources/AppIcon.icns from tools/make-icon.swift (only needed when the drawing changes).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SET="build/AppIcon.iconset"
@@ -10,4 +10,4 @@ for s in 16 32 128 256 512; do
     sips -z $((s * 2)) $((s * 2)) build/AppIcon.png --out "$SET/icon_${s}x${s}@2x.png" >/dev/null
 done
 iconutil -c icns "$SET" -o Resources/AppIcon.icns
-echo "Готово: Resources/AppIcon.icns ($(ls "$SET" | wc -l | tr -d ' ') размеров, $(du -h Resources/AppIcon.icns | cut -f1))"
+echo "Done: Resources/AppIcon.icns ($(ls "$SET" | wc -l | tr -d ' ') sizes, $(du -h Resources/AppIcon.icns | cut -f1))"

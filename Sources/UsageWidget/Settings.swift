@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 import ServiceManagement
-import SwiftUI  // Array.move(fromOffsets:toOffset:) — расширение из SwiftUI
+import SwiftUI  // Array.move(fromOffsets:toOffset:) is a SwiftUI extension
 import UsageCore
 import os
 
-/// Все настройки приложения; каждое изменение сохраняется в UserDefaults и вызывает `onChange`.
+/// All app settings; every change is saved to UserDefaults and calls `onChange`.
 @MainActor @Observable
 final class Settings {
     static let intervals: [TimeInterval] = [60, 300, 900, 1800]
@@ -19,15 +19,15 @@ final class Settings {
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private var revertingLaunchAtLogin = false
 
-    /// Выбранный аккаунт во вкладке «Сервисы». Не сохраняется. Живёт здесь, а не в @State:
-    /// в SDK macOS 27 @State — макрос, а его плагина (SwiftUIMacros) нет в Command Line Tools.
+    /// The account selected on the Services tab. Not saved. Lives here, not in @State:
+    /// in the macOS 27 SDK @State is a macro, and its plugin (SwiftUIMacros) is missing from Command Line Tools.
     var selectedAccountID: UUID? {
-        // Черновик ключа — выбранного аккаунта: при смене выбора его нельзя донести до другого.
+        // The key draft belongs to the selected account: when the selection changes it must not carry over.
         didSet { if selectedAccountID != oldValue { keyDraft = ""; keyMessage = nil } }
     }
-    /// Открытая вкладка окна настроек (0 — «Общие»). Не сохраняется, живёт здесь по той же причине.
+    /// The open settings tab (0 is General). Not saved, lives here for the same reason.
     var selectedTab = 0
-    /// Вводимый API-ключ и итог его сохранения. Не сохраняются: сам ключ — только в Связке ключей.
+    /// The API key being entered and the result of saving it. Not saved: the key itself lives only in the Keychain.
     var keyDraft = ""
     var keyMessage: String?
 
@@ -40,35 +40,35 @@ final class Settings {
     var autoRefresh: Bool { didSet { save(autoRefresh, "autoRefresh") } }
     var interval: TimeInterval { didSet { save(interval, "interval") } }
     var iconStyle: IconStyle { didSet { save(iconStyle.rawValue, "iconStyle") } }
-    /// Экономный опрос: не по таймеру при заблокированном экране и спящем дисплее, от батареи — реже.
+    /// Low-power polling: no timer polls while the screen is locked or the display sleeps, less often on battery.
     var economy: Bool { didSet { save(economy, "economy") } }
-    /// Метка темпа на полосках.
+    /// Pace marker on the bars.
     var showPace: Bool { didSet { save(showPace, "showPace") } }
     var hotKey: HotKeyChoice { didSet { save(hotKey.rawValue, "hotKey") } }
-    /// Код языка интерфейса; nil — как в системе. Хранится пустой строкой.
+    /// UI language code; nil follows the system. Stored as an empty string.
     var language: String? { didSet { save(language ?? "", "language") } }
 
-    /// Язык нужен до создания настроек: главное меню строится раньше.
+    /// The language is needed before settings are created: the main menu is built earlier.
     static var storedLanguage: String? {
         UserDefaults.standard.string(forKey: "language").flatMap { $0.isEmpty ? nil : $0 }
     }
 
     var notify: Bool { didSet { save(notify, "notify") } }
     var notifyThreshold: Double { didSet { save(notifyThreshold, "notifyThreshold") } }
-    /// Уведомлять о сбросе окна, которое дошло до порога.
+    /// Notify when a window that reached the threshold resets.
     var notifyReset: Bool { didSet { save(notifyReset, "notifyReset") } }
 
     var panelEnabled: Bool { didSet { save(panelEnabled, "panelEnabled") } }
-    /// true — панель на уровне рабочего стола (видна поверх обоев), false — поверх окон.
+    /// true: the panel sits at desktop level (visible over the wallpaper); false: above windows.
     var panelOnDesktop: Bool { didSet { save(panelOnDesktop, "panelOnDesktop") } }
     var panelAnchor: PanelAnchor { didSet { save(panelAnchor.rawValue, "panelAnchor") } }
-    /// Отступ от краёв экрана при привязке к углу, pt.
+    /// Margin from the screen edges when pinned to a corner, pt.
     var panelMargin: Double { didSet { save(panelMargin, "panelMargin") } }
     var panelOpacity: Double { didSet { save(panelOpacity, "panelOpacity") } }
-    /// Панель не перехватывает мышь: клики уходят окнам и столу под ней.
+    /// The panel ignores the mouse: clicks go to the windows and desktop below it.
     var panelClickThrough: Bool { didSet { save(panelClickThrough, "panelClickThrough") } }
 
-    /// Оба флага панели одним значением — для сегмента в настройках.
+    /// Both panel flags as one value, for the segmented control in settings.
     var panelMode: PanelMode {
         get { !panelEnabled ? .off : panelOnDesktop ? .desktop : .floating }
         set {
@@ -77,12 +77,12 @@ final class Settings {
         }
     }
 
-    /// Состояние хранит сама система (SMAppService); здесь — зеркало для UI.
+    /// The system keeps the state itself (SMAppService); this is a mirror for the UI.
     var launchAtLogin: Bool {
         didSet {
             guard !revertingLaunchAtLogin else { return }
-            // Выключение снимает и регистрацию в статусе .requiresApproval (её отключили
-            // в Системных настройках), а не только .enabled.
+            // Turning off also removes a registration in the .requiresApproval state (disabled
+            // in System Settings), not just an .enabled one.
             let status = SMAppService.mainApp.status
             do {
                 if launchAtLogin, status != .enabled {
@@ -93,8 +93,8 @@ final class Settings {
             } catch {
                 Logger(subsystem: "ru.batrakov.UsageWidget", category: "settings")
                     .error("launch at login: \(error.localizedDescription, privacy: .public)")
-                // Откат тумблера к фактическому состоянию — без побочных эффектов didSet:
-                // иначе неудачное включение (статус .requiresApproval) вызвало бы unregister.
+                // Roll the toggle back to the actual state without didSet side effects:
+                // otherwise a failed enable (status .requiresApproval) would call unregister.
                 revertingLaunchAtLogin = true
                 launchAtLogin = SMAppService.mainApp.status == .enabled
                 revertingLaunchAtLogin = false
@@ -102,15 +102,15 @@ final class Settings {
         }
     }
 
-    /// `defaults` — свой домен у демо-режима (Demo), иначе стандартный.
+    /// `defaults`: demo mode (Demo) has its own domain, otherwise the standard one.
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
         let d = defaults
         if let data = d.data(forKey: "accounts"), let list = try? JSONDecoder().decode([Account].self, from: data) {
             accounts = list
         } else {
-            // Первый запуск или переход с v1, где списка аккаунтов не было. Сохраняем сразу:
-            // id аккаунтов должны быть постоянными (didSet в init не срабатывает).
+            // First launch or migration from v1, which had no account list. Save right away:
+            // account ids must stay the same (didSet does not fire in init).
             let defaults = Catalog.defaultAccounts()
             accounts = defaults
             if let data = try? JSONEncoder().encode(defaults) { d.set(data, forKey: "accounts") }
@@ -129,7 +129,7 @@ final class Settings {
         notifyReset = d.object(forKey: "notifyReset") as? Bool ?? true
         panelEnabled = d.bool(forKey: "panelEnabled")
         panelOnDesktop = d.bool(forKey: "panelOnDesktop")
-        // v1 запоминал свободную позицию панели — сохраняем её; иначе по умолчанию правый верхний угол.
+        // v1 remembered the free panel position: keep it; otherwise default to the top-right corner.
         panelAnchor = d.string(forKey: "panelAnchor").flatMap(PanelAnchor.init)
             ?? (d.string(forKey: "panelTopLeft") != nil ? .free : .topRight)
         panelMargin = d.object(forKey: "panelMargin") as? Double ?? 12
@@ -143,7 +143,7 @@ final class Settings {
         onChange?()
     }
 
-    // MARK: Аккаунты
+    // MARK: Accounts
 
     func account(_ id: UUID) -> Account? { accounts.first { $0.id == id } }
 
@@ -154,16 +154,16 @@ final class Settings {
 
     func add(_ kind: Provider) {
         guard Catalog.canAdd(kind, to: accounts) else { return }
-        // Второй аккаунт того же сервиса получает номер в имени, чтобы их различать.
+        // A second account of the same service gets a number in its name to tell them apart.
         let same = accounts.filter { $0.kind == kind }.count
         let account = Account(kind: kind, name: same == 0 ? kind.title : "\(kind.title) \(same + 1)")
         accounts.append(account)
         selectedAccountID = account.id
     }
 
-    /// Последняя операция с ключом аккаунта. Операции одного аккаунта идут по очереди: удаление
-    /// аккаунта не обгонит идущее сохранение — иначе сохранение заново создало бы ключ, которого
-    /// из приложения уже не удалить. Запись на аккаунт остаётся после завершения — их единицы.
+    /// The latest key operation per account. Operations of one account run in order: removing
+    /// an account cannot overtake a save in progress, otherwise the save would recreate a key that
+    /// the app could no longer delete. The entry stays after completion; there are only a few.
     @ObservationIgnored private var keyTasks: [UUID: Task<Void, Never>] = [:]
 
     func withKey(_ id: UUID, _ operation: @escaping @MainActor () async -> Void) {

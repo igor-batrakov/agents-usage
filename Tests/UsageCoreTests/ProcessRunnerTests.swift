@@ -15,7 +15,7 @@ import Testing
     }
 
     @Test func largeOutputIsComplete() async throws {
-        // Больше одного куска pipe-буфера (64 КБ).
+        // More than one pipe buffer chunk (64 KB).
         let out = try await ProcessRunner.run("/bin/sh", ["-c", "head -c 200000 /dev/zero"], timeout: 5)
         #expect(out.count == 200_000)
     }
@@ -27,7 +27,7 @@ import Testing
     }
 
     @Test func closeInputGivesEOF() async throws {
-        // Без закрытия stdin cat ждал бы ввода до таймаута.
+        // Without closing stdin, cat would wait for input until the timeout.
         let start = Date()
         let out = try await ProcessRunner.run("/bin/cat", [], input: Data("key\n".utf8), closeInput: true, timeout: 5)
         #expect(String(decoding: out, as: UTF8.self) == "key\n")
@@ -35,7 +35,7 @@ import Testing
     }
 
     @Test func untilStopsLongRunningProcess() async throws {
-        // cat с открытым stdin не завершится сам — выходим по условию.
+        // cat with stdin open never exits on its own: leave on the condition.
         let start = Date()
         let out = try await ProcessRunner.run("/bin/cat", [], input: Data("ping\n".utf8), timeout: 5,
                                               until: { String(decoding: $0, as: UTF8.self).contains("ping") })
@@ -50,7 +50,7 @@ import Testing
     }
 
     @Test func processIgnoringSigtermIsKilled() async throws {
-        // exec — чтобы sleep заменил shell и унаследовал игнор SIGTERM, а не остался сиротой.
+        // exec, so that sleep replaces the shell and inherits the ignored SIGTERM instead of being orphaned.
         let marker = "31.4159"
         _ = try await ProcessRunner.run("/bin/sh", ["-c", "trap '' TERM; echo ready; exec /bin/sleep \(marker)"],
                                         timeout: 5, until: { String(decoding: $0, as: UTF8.self).contains("ready") })
@@ -60,7 +60,7 @@ import Testing
     }
 
     @Test func writeToExitedProcessFailsWithoutCrash() async {
-        // Процесс выходит сразу, не читая stdin; 1 МБ не влезает в буфер pipe → EPIPE.
+        // The process exits immediately without reading stdin; 1 MB does not fit the pipe buffer → EPIPE.
         signal(SIGPIPE, SIG_IGN)
         await #expect(throws: UsageError.self) {
             try await ProcessRunner.run("/bin/sh", ["-c", "exit 3"], input: Data(count: 1 << 20), timeout: 5)
@@ -68,7 +68,7 @@ import Testing
     }
 
     @Test func timeoutWorksWhenStdinIsNotRead() async {
-        // sleep не читает stdin, 1 МБ не влезает в pipe — запись блокируется; таймаут всё равно срабатывает.
+        // sleep does not read stdin, 1 MB does not fit the pipe, the write blocks; the timeout still fires.
         signal(SIGPIPE, SIG_IGN)
         let start = Date()
         await #expect(throws: UsageError.message("timed out after 0 s")) {
@@ -78,7 +78,7 @@ import Testing
     }
 
     @Test func descendantHoldingStdoutDoesNotHang() async throws {
-        // Фоновый sleep наследует stdout — EOF придёт только через 6 с. Ждём не его, а 2 с после выхода.
+        // A background sleep inherits stdout, EOF comes only after 6 s. Wait not for it but 2 s after the exit.
         let start = Date()
         let out = try await ProcessRunner.run("/bin/sh", ["-c", "echo hi; /bin/sleep 6 & exit 0"], timeout: 10)
         #expect(String(decoding: out, as: UTF8.self) == "hi\n")

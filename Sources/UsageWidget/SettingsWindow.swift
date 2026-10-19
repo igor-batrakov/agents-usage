@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import UsageCore
 
-/// Окно детальных настроек. Создаётся при первом открытии и потом только прячется.
+/// Detailed settings window. Created on first open, afterwards only hidden.
 @MainActor
 final class SettingsWindowController {
     private var window: NSWindow?
@@ -28,13 +28,13 @@ final class SettingsWindowController {
         }
         relocalize()
         if settings.selectedAccountID == nil { settings.selectedAccountID = settings.accounts.first?.id }
-        // Приложение без Dock-иконки: без активации окно откроется за другими.
+        // The app has no Dock icon: without activation the window opens behind the others.
         NSApp.activate()
         if window?.isMiniaturized == true { window?.deminiaturize(nil) }
         window?.makeKeyAndOrderFront(nil)
     }
 
-    /// Заголовок окна — AppKit, сам при смене языка не обновится.
+    /// The window title is AppKit and does not update itself on a language change.
     func relocalize() {
         window?.title = L("Agents Usage Settings")
     }
@@ -58,12 +58,12 @@ struct SettingsView: View {
                 .tag(2)
         }
         .frame(width: 660, height: 480)
-        // Новый язык — пересобрать дерево: строки L() вычисляются при построении вида.
+        // New language: rebuild the tree, L() strings are evaluated when the view is built.
         .id(settings.language ?? "")
     }
 }
 
-// MARK: Общие
+// MARK: General
 
 private struct GeneralTab: View {
     @Bindable var settings: Settings
@@ -106,12 +106,12 @@ private struct GeneralTab: View {
                 }
                 .pickerStyle(.segmented)
                 Toggle(L("Pace marker on bars"), isOn: $settings.showPace)
-                // Ключ перевода — одним литералом: его находит проверка строк (LocalizationTests).
+                // The translation key is a single literal: the strings check (LocalizationTests) finds it.
                 Text(L("The tick shows how much of the window has passed. Fill past it means the limit is being used faster than it would last until the reset."))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section(L("System")) {
-                // Названия языков — на них самих: найти свой язык должен тот, кто не читает текущий.
+                // Language names are in the languages themselves: someone who cannot read the current one must find theirs.
                 Picker(L("Language"), selection: $settings.language) {
                     Text(L("System default")).tag(String?.none)
                     ForEach(Localization.shared.available(), id: \.self) { code in
@@ -128,7 +128,7 @@ private struct GeneralTab: View {
     }
 }
 
-// MARK: Сервисы
+// MARK: Services
 
 private struct ServicesTab: View {
     @Bindable var settings: Settings
@@ -206,7 +206,7 @@ private struct AccountDetail: View {
     let settings: Settings
     let store: UsageStore
 
-    /// Привязка к полю аккаунта в настройках (без @State — см. Settings.selectedAccountID).
+    /// Binding to an account field in settings (no @State, see Settings.selectedAccountID).
     private func field<T>(_ keyPath: WritableKeyPath<Account, T>) -> Binding<T> {
         let id = account.id, fallback = account[keyPath: keyPath]
         return Binding(get: { settings.account(id)?[keyPath: keyPath] ?? fallback },
@@ -282,13 +282,13 @@ private struct AccountDetail: View {
         .formStyle(.grouped)
     }
 
-    /// Смена ключа в Связке ключей. Удалась — у аккаунта растёт `keyRevision`: стор отбросит опрос
-    /// со старым ключом и его снимок и опросит заново (как при смене каталога). Делается для того
-    /// аккаунта, чей ключ меняли, даже если за время записи выбрали другой; итог — только своему.
-    /// Тот же ключ ещё раз (или удаление отсутствующего) ревизию не меняет: иначе стор и уведомления
-    /// сочли бы аккаунт новым, и предупреждение о пороге пришло бы повторно.
-    /// Черновик очищается, только если в поле всё ещё отправленный ключ: правку, сделанную во время
-    /// записи, не стираем (`submitted` nil — удаление, черновик не трогаем).
+    /// Changes the key in the Keychain. On success the account's `keyRevision` grows: the store drops the poll
+    /// with the old key and its snapshot and polls again (as on a directory change). This is done for the
+    /// account whose key was changed, even if another one was selected during the write; the result goes only to it.
+    /// The same key again (or deleting a missing one) keeps the revision: otherwise the store and notifications
+    /// would treat the account as new, and the threshold warning would come again.
+    /// The draft is cleared only if the field still holds the submitted key: an edit made during
+    /// the write is kept (`submitted` nil means deletion, the draft is left alone).
     private func keyChange(_ id: UUID, submitted: String?, done: String, same: String,
                            _ change: @escaping () async throws -> Bool) {
         settings.withKey(id) {
@@ -304,7 +304,7 @@ private struct AccountDetail: View {
         }
     }
 
-    /// Ключ вводится и сразу уходит в Связку ключей; в поле его потом не видно — только итог.
+    /// The key is entered and goes straight to the Keychain; the field does not show it afterwards, only the result.
     private var keySection: some View {
         let id = account.id
         return Section(L("API key")) {
@@ -335,7 +335,7 @@ private struct AccountDetail: View {
     }
 }
 
-// MARK: Панель
+// MARK: Panel
 
 private struct PanelTab: View {
     @Bindable var settings: Settings

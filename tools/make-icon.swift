@@ -1,6 +1,6 @@
-// Рисует иконку приложения 1024×1024 PNG: `swift tools/make-icon.swift <out.png>`.
-// Мотив — как в строке меню: три полоски в цветах сервисов с меткой темпа.
-// Тело — «сквиркл» по сетке иконок macOS (824 из 1024, поля под тень).
+// Draws the 1024×1024 PNG app icon: `swift tools/make-icon.swift <out.png>`.
+// Motif as in the menu bar: three bars in service colors with a pace marker.
+// Body: a "squircle" on the macOS icon grid (824 of 1024, margins for the shadow).
 import AppKit
 
 let size: CGFloat = 1024
@@ -11,7 +11,7 @@ func color(_ hex: UInt32, _ alpha: CGFloat = 1) -> CGColor {
             blue: CGFloat(hex & 0xFF) / 255, alpha: alpha)
 }
 
-/// Суперэллипс |x|^n + |y|^n = 1 — близок к форме иконок Apple (непрерывная кривизна углов).
+/// Superellipse |x|^n + |y|^n = 1, close to the Apple icon shape (continuous corner curvature).
 func squircle(_ rect: CGRect, n: CGFloat = 5) -> CGPath {
     let path = CGMutablePath()
     let a = rect.width / 2, b = rect.height / 2
@@ -31,7 +31,7 @@ func capsule(_ rect: CGRect) -> CGPath {
     return CGPath(roundedRect: rect, cornerWidth: r, cornerHeight: r, transform: nil)
 }
 
-/// Тот же цвет светлее на `d` по каждому каналу — верх градиента полоски.
+/// The same color lighter by `d` on each channel, for the top of the bar gradient.
 func lighter(_ hex: UInt32, _ d: CGFloat) -> CGColor {
     let p = color(hex).components!
     return CGColor(srgbRed: min(p[0] + d, 1), green: min(p[1] + d, 1), blue: min(p[2] + d, 1), alpha: 1)
@@ -40,14 +40,14 @@ func lighter(_ hex: UInt32, _ d: CGFloat) -> CGColor {
 let space = CGColorSpace(name: CGColorSpace.sRGB)!
 let ctx = CGContext(data: nil, width: Int(size), height: Int(size), bitsPerComponent: 8, bytesPerRow: 0,
                     space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
-// Координаты сверху вниз — так проще читать раскладку.
+// Coordinates go top to bottom: the layout reads easier that way.
 ctx.translateBy(x: 0, y: size)
 ctx.scaleBy(x: 1, y: -1)
 
 let body = CGRect(x: 100, y: 100, width: 824, height: 824)
 let shape = squircle(body)
 
-// Тень под телом.
+// Shadow under the body.
 ctx.saveGState()
 ctx.setShadow(offset: CGSize(width: 0, height: 10), blur: 28, color: color(0x000000, 0.35))
 ctx.addPath(shape)
@@ -55,7 +55,7 @@ ctx.setFillColor(color(0x17181D))
 ctx.fillPath()
 ctx.restoreGState()
 
-// Тело: тёмный градиент сверху вниз и мягкий блик у верхнего края.
+// Body: dark top-to-bottom gradient and a soft highlight near the top edge.
 ctx.saveGState()
 ctx.addPath(shape)
 ctx.clip()
@@ -67,7 +67,7 @@ ctx.drawRadialGradient(glow, startCenter: CGPoint(x: 512, y: body.minY), startRa
                        endCenter: CGPoint(x: 512, y: body.minY), endRadius: 620, options: [])
 ctx.restoreGState()
 
-// Тонкая светлая кромка.
+// Thin light rim.
 ctx.saveGState()
 ctx.addPath(squircle(body.insetBy(dx: 1.5, dy: 1.5)))
 ctx.setStrokeColor(color(0xFFFFFF, 0.08))
@@ -75,7 +75,7 @@ ctx.setLineWidth(3)
 ctx.strokePath()
 ctx.restoreGState()
 
-// Полоски: Claude, Codex, agy — заполнение и метка темпа.
+// Bars: Claude, Codex, agy, with fill and pace marker.
 let bars: [(hex: UInt32, used: CGFloat, pace: CGFloat)] = [
     (0xD97757, 0.74, 0.62),
     (0x10A37F, 0.46, 0.55),
@@ -109,5 +109,5 @@ for bar in bars {
 let image = ctx.makeImage()!
 let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: out) as CFURL, "public.png" as CFString, 1, nil)!
 CGImageDestinationAddImage(dest, image, nil)
-guard CGImageDestinationFinalize(dest) else { fatalError("не записан \(out)") }
-print("Готово: \(out)")
+guard CGImageDestinationFinalize(dest) else { fatalError("not written: \(out)") }
+print("Done: \(out)")

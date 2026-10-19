@@ -1,6 +1,6 @@
 import Foundation
 
-/// Каталог: как опрашивать аккаунт и какие сервисы установлены.
+/// Catalog: how to poll an account and which services are installed.
 public enum Catalog {
     public static func source(for account: Account) -> any UsageSource {
         switch account.kind {
@@ -15,8 +15,8 @@ public enum Catalog {
         }
     }
 
-    /// Признак, что сервис стоит на машине: его CLI или каталог конфигурации.
-    /// Сервисам по API-ключу ставить нечего — false: сами при первом запуске не добавляются.
+    /// Whether the service is installed on this machine: its CLI or its config directory.
+    /// API-key services have nothing to install, so false: they are not added on first launch.
     public static func isInstalled(_ kind: Provider) -> Bool {
         switch kind {
         case .claude:
@@ -30,12 +30,12 @@ public enum Catalog {
         }
     }
 
-    /// Первый запуск (и переход с v1, где списка не было): по аккаунту на каждый найденный сервис.
+    /// First launch (and migration from v1, which had no list): one account per detected service.
     public static func defaultAccounts(installed: (Provider) -> Bool = isInstalled) -> [Account] {
         Provider.allCases.filter(installed).map { Account(kind: $0) }
     }
 
-    /// Можно ли добавить ещё один аккаунт этого сервиса.
+    /// Whether another account of this service can be added.
     public static func canAdd(_ kind: Provider, to accounts: [Account]) -> Bool {
         kind.allowsMultipleAccounts || !accounts.contains { $0.kind == kind }
     }

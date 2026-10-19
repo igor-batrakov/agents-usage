@@ -1,89 +1,93 @@
-# План v2: сервисы, настройки, панель
+# Plan v2: services, settings, panel
 
-Согласован с Игорем 18.10.2026. Три PR по очереди: основа → добавки → новые вендоры.
+Three stages, one PR each: foundation, additions, new vendors.
 
-## Решения
+## Decisions
 
-- Сервисы — **каталог** (типы источников в коде) + **аккаунты** (экземпляры: несколько у одного сервиса,
-  например второй `CLAUDE_CONFIG_DIR`). «Удалить» — убрать аккаунт, «выключить» — оставить, но не показывать.
-- Выключенный аккаунт **не опрашивается**; после включения опрашивается сразу.
-- Клик по сервису открывает **страницу лимитов вендора** в браузере; адрес правится в настройках.
-- Поповер — только быстрое; детальные настройки — отдельное окно с вкладками.
-- Kimi Code — через **API-ключ** из консоли Kimi (CLI не трогаем: его refresh-токен одноразовый).
-- Gemini CLI не поддерживаем: Google отключил вход для личных аккаунтов с 18.06.2026, замена — Antigravity.
-- Anthropic/OpenAI API-балансы не поддерживаем: баланса через API нет, траты — только admin-ключом организации.
+- Services are a **catalog** (source types in code) plus **accounts** (instances: several per service, for
+  example a second `CLAUDE_CONFIG_DIR`). "Remove" deletes an account, "disable" keeps it but hides it.
+- A disabled account is **not polled**; once enabled, it is polled right away.
+- Clicking a service opens the **vendor's usage page** in the browser; the URL is editable in settings.
+- The popover is for quick actions only; detailed settings live in a separate window with tabs.
+- Kimi Code uses an **API key** from the Kimi console (the CLI is left alone: its refresh token is single-use).
+- Gemini CLI is not supported: Google turned off sign-in for personal accounts on 18.06.2026, Antigravity
+  replaces it.
+- Anthropic/OpenAI API balances are not supported: the API exposes no balance, and spending needs an
+  organization admin key.
 
-## Этап 1 — основа
+## Stage 1: foundation
 
-- `ProviderKind` (каталог): название, акцент, как найти (CLI/файл/ключ), ссылка на страницу лимитов,
-  поддержка нескольких аккаунтов, параметры аккаунта.
-- `Account`: id, kind, имя, enabled, порядок, параметры (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), скрытые окна,
-  окно для строки меню, своя ссылка. Хранение — JSON в UserDefaults; миграция v1 — аккаунты по найденным CLI.
-- Опрос только включённых аккаунтов; тумблер автообновления (он же пауза в поповере) и интервал 1 / 5 / 15 / 30.
-  Выключенное автообновление — только ↻ (и первый опрос при запуске).
-- Поповер: заголовок сервиса — ссылка; футер: обновлено, ↻, пауза, панель вкл/выкл, «Настройки…», выход.
-- Окно настроек (TabView):
-  - **Общие** — интервал, автозапуск, вид иконки (полоски / проценты / только худший);
-  - **Сервисы** — список с перетаскиванием, тумблером, «+» из каталога, «−»; детали аккаунта: имя,
-    параметры, видимые окна, окно для строки меню, ссылка, «Проверить»;
-  - **Панель** — вкл/выкл, уровень, якорь (4 угла / свободно) и отступ, прозрачность, «сквозь клики»
-    (в обоих режимах), набор сервисов.
-- Панель: крестик при наведении; якорь держится при смене экрана; перетаскивание → «свободно».
+- `ProviderKind` (catalog): name, accent, how to detect it (CLI/file/key), usage page link, support for
+  multiple accounts, account parameters.
+- `Account`: id, kind, name, enabled, order, parameters (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), hidden windows,
+  menu bar window, custom link. Stored as JSON in UserDefaults; v1 migration creates accounts for the CLIs found.
+- Only enabled accounts are polled; an auto-refresh toggle (also the pause in the popover) and an interval of
+  1 / 5 / 15 / 30 min. With auto-refresh off, only ↻ (and the first poll at launch).
+- Popover: the service title is a link; footer: updated time, ↻, pause, panel on/off, settings, quit.
+- Settings window (TabView):
+  - **General**: interval, launch at login, icon style (bars / percentages / worst only);
+  - **Services**: a list with drag to reorder, toggle, "+" from the catalog, "−"; account details: name,
+    parameters, visible windows, menu bar window, link, "Check";
+  - **Panel**: on/off, level, anchor (4 corners / free) and margin, opacity, click-through
+    (in both modes), set of services.
+- Panel: close button on hover; the anchor holds when the screen changes; dragging switches it to "free".
 
-Сделан: PR #1, смержен 18.10.
+Done.
 
-## Этап 2 — добавки
+## Stage 2: additions
 
-- Метка темпа на полоске (доля прошедшего времени окна; у окон появляется длина).
-- Уведомления: порог (по умолчанию 90%) и «окно сбросилось»; не чаще раза за окно.
-- Бесплатные сбросы Codex (`rateLimitResetCredits`): число и ближайшее сгорание, ссылкой.
-- Экономный опрос: пропуск при заблокированном экране и спящем дисплее, после разблокировки — опрос,
-  если данные устарели; от батареи интервал ×3. Горячая клавиша поповера.
+- Pace marker on the bar (elapsed fraction of the window; windows get a length).
+- Notifications: threshold (90% by default) and "window reset"; at most once per window.
+- Free Codex resets (`rateLimitResetCredits`): count and nearest expiry, as a link.
+- Low-power polling: skip while the screen is locked or the display sleeps, poll after unlock if the data is
+  stale; on battery the interval is ×3. Popover hotkey.
 
-Сделан: PR #2, смержен 18.10. Затем PR #3 — название Agents Usage и иконка.
+Done, followed by the Agents Usage name and icon.
 
-Как сделано (ветка `feat/pace-notifications`):
-- Темп — `LimitWindow.duration` (Claude: session 5 ч, weekly 7 дн; Codex: `windowDurationMins`; agy: `5h`/`weekly`),
-  `pace(at:)`; чёрточка на полоске, тумблер в «Общих».
-- Уведомления — `Alerts.evaluate` (UsageCore, под тестами): состояние «окно → время его сброса» в UserDefaults
-  (`alertState`), о сбросе — только по окнам, дошедшим до порога, и не позже часа после сброса. Оценка — только
-  при выданном разрешении: без него система принимает уведомление молча, а окно считалось бы предупреждённым.
-- Сбросы Codex — `UsageReport.freeResets` (доступные `credits`, ближайший `expiresAt`); приложение их не тратит.
-- Экономный опрос — `PollPolicy.timerShouldPoll` через `UsageStore.timerGate`; блокировка — `CGSessionCopyCurrentDictionary`,
-  сон дисплея — `CGDisplayIsAsleep`, батарея — `IOPSGetProvidingPowerSourceType`, всё в момент тика.
-  После сна и разблокировки — один догоняющий опрос на все уведомления пробуждения (`catchUp`): прошёл сброс окна,
-  которого свежий снимок ещё не видел (`hasPassedReset`), — сразу, иначе — если данные устарели.
-- Горячая клавиша — Carbon `RegisterEventHotKey` (без разрешения «Универсальный доступ»), выбор ⌃⌥L / ⌃⌥U / нет.
+How it was built:
+- Pace: `LimitWindow.duration` (Claude: session 5 h, weekly 7 days; Codex: `windowDurationMins`; agy:
+  `5h`/`weekly`), `pace(at:)`; a tick on the bar, a toggle in General.
+- Notifications: `Alerts.evaluate` (UsageCore, covered by tests): "window → its reset time" state in UserDefaults
+  (`alertState`); reset notifications only for windows that reached the threshold, and no later than an hour after
+  the reset. Evaluated only with permission granted: without it the system silently accepts a notification, and the
+  window would count as warned.
+- Codex resets: `UsageReport.freeResets` (available `credits`, nearest `expiresAt`); the app never spends them.
+- Low-power polling: `PollPolicy.timerShouldPoll` through `UsageStore.timerGate`; lock via
+  `CGSessionCopyCurrentDictionary`, display sleep via `CGDisplayIsAsleep`, battery via
+  `IOPSGetProvidingPowerSourceType`, all checked at tick time. After sleep and unlock, one catch-up poll for all
+  wake notifications (`catchUp`): right away if a window reset passed that the fresh snapshot has not seen yet
+  (`hasPassedReset`), otherwise if the data is stale.
+- Hotkey: Carbon `RegisterEventHotKey` (no Accessibility permission needed), choice of ⌃⌥L / ⌃⌥U / none.
 
-## Этап 3 — новые вендоры
+## Stage 3: new vendors
 
-| Сервис | Источник (проверено 18.10) | Показываем |
+| Service | Source (checked 18.10) | Shown |
 |---|---|---|
-| GitHub Copilot | `GET api.github.com/copilot_internal/user`, токен `gh` (`Authorization: token …` + editor-заголовки) — 200 | `quota_snapshots.{premium_interactions,chat,completions}`: used = 1 − percent_remaining/100, сброс `quota_reset_date_utc`; `unlimited` и entitlement 0 — пропуск |
-| Cursor | `GET cursor.com/api/usage-summary`, cookie `WorkosCursorSessionToken=<userId>%3A%3A<jwt>` из `state.vscdb` (`cursorAuth/accessToken`, только чтение) — 200. `api2.cursor.sh` закрыт Cloudflare (1010) | `individualUsage.plan` (totalPercentUsed, used/limit), `onDemand`, сброс `billingCycleEnd` |
-| Kimi Code | `GET api.kimi.com/coding/v1/usages`, Bearer API-ключ | `usage` (неделя), `limits[]` (5 ч), `boosterWallet` |
-| OpenRouter | `GET openrouter.ai/api/v1/key` (+ `/credits`), Bearer ключ | баланс $, бюджет ключа со сбросом |
-| Moonshot | `GET api.moonshot.ai/v1/users/me/balance` (.cn — для китайских ключей) | `available_balance` |
+| GitHub Copilot | `GET api.github.com/copilot_internal/user`, `gh` token (`Authorization: token …` + editor headers): 200 | `quota_snapshots.{premium_interactions,chat,completions}`: used = 1 − percent_remaining/100, reset `quota_reset_date_utc`; `unlimited` and entitlement 0 are skipped |
+| Cursor | `GET cursor.com/api/usage-summary`, cookie `WorkosCursorSessionToken=<userId>%3A%3A<jwt>` from `state.vscdb` (`cursorAuth/accessToken`, read-only): 200. `api2.cursor.sh` is blocked by Cloudflare (1010) | `individualUsage.plan` (totalPercentUsed, used/limit), `onDemand`, reset `billingCycleEnd` |
+| Kimi Code | `GET api.kimi.com/coding/v1/usages`, Bearer API key | `usage` (week), `limits[]` (5 h), `boosterWallet` |
+| OpenRouter | `GET openrouter.ai/api/v1/key` (+ `/credits`), Bearer key | $ balance, key budget with reset |
+| Moonshot | `GET api.moonshot.ai/v1/users/me/balance` (.cn for Chinese keys) | `available_balance` |
 
-Денежная метрика (баланс или траты против лимита, валюта) — новый вид рядом с окном лимита.
+A money metric (a balance, or spending against a limit, with currency) is a new kind shown next to the limit window.
 
-Ссылки на страницы лимитов: Claude `https://claude.ai/settings/usage`, Codex
-`https://chatgpt.com/codex/settings/usage` (проверить), Copilot `https://github.com/settings/copilot/features`,
+Usage page links: Claude `https://claude.ai/settings/usage`, Codex
+`https://chatgpt.com/codex/settings/usage` (to verify), Copilot `https://github.com/settings/copilot/features`,
 Cursor `https://cursor.com/dashboard/spending`, OpenRouter `https://openrouter.ai/activity`,
-Moonshot `https://platform.moonshot.ai/console/account`, Kimi Code `https://www.kimi.com/code/console` (проверить),
-agy — веб-страницы нет (уточнить).
+Moonshot `https://platform.moonshot.ai/console/account`, Kimi Code `https://www.kimi.com/code/console` (to verify),
+agy has no web page (to clarify).
 
-Аналог для сверки эндпоинтов: [steipete/CodexBar](https://github.com/steipete/CodexBar).
+Reference for cross-checking endpoints: [steipete/CodexBar](https://github.com/steipete/CodexBar).
 
-Как сделано (ветка `feat/vendors`):
-- Copilot — токен `gh auth token` (его хранит и обновляет gh), не свой OAuth-вход, как у CodexBar.
-  На бесплатном плане премиум-квота нулевая — не показывается. Окна месячные, темп — по календарному месяцу.
-- Cursor — токен из `state.vscdb` через `/usr/bin/sqlite3 -readonly`; окна «Включено в план», Auto, API-модели
-  на расчётный период; on-demand с лимитом — окно, без лимита — потраченная сумма.
-- Kimi Code, OpenRouter, Moonshot — API-ключ на аккаунт в Связке ключей (`KeyStore`, через `/usr/bin/security`),
-  в настройках сервиса — поле ключа и ссылка «Где взять ключ». Регион ключа (`.ai`/`.com` или `.cn`) не
-  спрашиваем: 401 на международном адресе — пробуем второй.
-- Денежная метрика — `UsageReport.balances` (`Balance`: сумма в единицах валюты). Сервис только с балансом
-  полоски в строке меню не получает.
-- Вживую проверены Copilot и Cursor (бесплатные планы Игоря). Kimi, OpenRouter, Moonshot — по образцам ответов
-  CodexBar, живая проверка — когда в настройках появятся ключи.
+How it was built:
+- Copilot: the `gh auth token` token (gh stores and refreshes it), not a separate OAuth sign-in as in CodexBar.
+  On the free plan the premium quota is zero and is not shown. Windows are monthly, pace follows the calendar month.
+- Cursor: the token from `state.vscdb` via `/usr/bin/sqlite3 -readonly`; windows "Included in plan", Auto and API
+  models per billing period; on-demand with a limit is a window, without a limit it is the amount spent.
+- Kimi Code, OpenRouter, Moonshot: an API key per account in the Keychain (`KeyStore`, via `/usr/bin/security`),
+  with a key field and a "Get a key" link in the service settings. The key region (`.ai`/`.com` or `.cn`)
+  is not asked for: on a 401 from the international URL, the second one is tried.
+- Money metric: `UsageReport.balances` (`Balance`: amount in currency units). A balance-only service gets no
+  menu bar bar.
+- Copilot and Cursor were checked live on free plans. Kimi, OpenRouter and Moonshot follow the CodexBar response
+  samples; a live check comes once keys are configured.

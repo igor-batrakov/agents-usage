@@ -5,7 +5,7 @@ public protocol UsageSource: Sendable {
     func fetch() async throws -> UsageReport
 }
 
-/// `~/x` → абсолютный путь; пустая строка — nil (каталог по умолчанию).
+/// `~/x` → absolute path; an empty string gives nil (default directory).
 func expandedDir(_ path: String?) -> String? {
     guard let path = path?.trimmingCharacters(in: .whitespaces), !path.isEmpty else { return nil }
     return (path as NSString).expandingTildeInPath
@@ -13,16 +13,16 @@ func expandedDir(_ path: String?) -> String? {
 
 // MARK: Claude Code
 
-/// Токен — из Keychain через `/usr/bin/security`: он уже в ACL элемента,
-/// который создаёт Claude Code, поэтому запроса доступа не возникает.
-/// Токен сам не обновляем: refresh-токен одноразовый, обновление за спиной
-/// у CLI разлогинило бы его. Истёк — просим запустить claude.
+/// The token comes from the Keychain through `/usr/bin/security`: it is already in the ACL of the item
+/// Claude Code creates, so no access prompt appears.
+/// We never refresh the token: the refresh token is single-use, and refreshing behind
+/// the CLI's back would log it out. If it expired, we ask the user to run claude.
 public struct ClaudeSource: UsageSource {
     let configDir: String?
     public init(configDir: String? = nil) { self.configDir = expandedDir(configDir) }
 
-    /// Имя элемента Keychain — как его строит Claude Code (2.1.x): при заданном
-    /// CLAUDE_CONFIG_DIR к имени добавляются первые 8 hex-символов sha256 от пути в NFC.
+    /// Keychain item name, built the way Claude Code (2.1.x) does: with CLAUDE_CONFIG_DIR set,
+    /// the first 8 hex characters of sha256 of the NFC path are appended to the name.
     static func keychainService(configDir: String?) -> String {
         guard let configDir else { return "Claude Code-credentials" }
         let digest = SHA256.hash(data: Data(configDir.precomposedStringWithCanonicalMapping.utf8))
@@ -30,8 +30,8 @@ public struct ClaudeSource: UsageSource {
         return "Claude Code-credentials-\(hex.prefix(8))"
     }
 
-    /// Варианты имени: путь как введён и без завершающего «/». Нормализует ли путь сам
-    /// Claude Code, по минифицированному бинарю не установить — пробуем оба.
+    /// Name variants: the path as entered and without a trailing "/". Whether Claude Code normalizes the path
+    /// itself cannot be told from the minified binary, so we try both.
     static func keychainServices(configDir: String?) -> [String] {
         guard let configDir else { return [keychainService(configDir: nil)] }
         let names = [configDir, (configDir as NSString).standardizingPath].map { keychainService(configDir: $0) }
@@ -41,7 +41,7 @@ public struct ClaudeSource: UsageSource {
     public func fetch() async throws -> UsageReport {
         var found: Data?
         for service in Self.keychainServices(configDir: configDir) {
-            // Нет элемента — security выходит с кодом 44; это не ошибка, пробуем следующий вариант.
+            // No item: security exits with code 44; not an error, try the next variant.
             if let data = try? await ProcessRunner.run(
                 "/usr/bin/security", ["find-generic-password", "-s", service, "-w"], timeout: 5) {
                 found = data
@@ -70,9 +70,9 @@ public struct ClaudeSource: UsageSource {
     }
 }
 
-/// GET с общими ошибками. `errors` — свои тексты для кодов (401 — что сделать пользователю).
+/// GET with common errors. `errors` holds custom texts per status code (401: what the user should do).
 enum HTTP {
-    /// Ephemeral: без дискового кэша и cookie — меньше памяти, ничего не остаётся на диске.
+    /// Ephemeral: no disk cache and no cookies, less memory, nothing left on disk.
     static let session = URLSession(configuration: .ephemeral)
 
     static func get(_ url: String, headers: [String: String], errors: [Int: String] = [:],
@@ -98,8 +98,8 @@ enum HTTP {
 
 // MARK: GitHub Copilot
 
-/// Токен — у GitHub CLI (`gh auth token`, сам gh держит его в Связке ключей и обновляет).
-/// Эндпоинт внутренний, тот же, что у расширения Copilot в редакторе: без editor-заголовков не отвечает.
+/// The token comes from the GitHub CLI (`gh auth token`; gh keeps it in the Keychain and refreshes it).
+/// Internal endpoint, the same one the Copilot editor extension uses: it does not answer without editor headers.
 public struct CopilotSource: UsageSource {
     public init() {}
 
@@ -127,8 +127,8 @@ public struct CopilotSource: UsageSource {
 
 // MARK: Codex
 
-/// `codex app-server` по stdio: сам Codex держит авторизацию и обновляет токен.
-/// Три сообщения можно отправить разом — сервер обрабатывает их по порядку.
+/// `codex app-server` over stdio: Codex itself holds the auth and refreshes the token.
+/// The three messages can be sent at once; the server handles them in order.
 public struct CodexSource: UsageSource {
     let codexHome: String?
     public init(codexHome: String? = nil) { self.codexHome = expandedDir(codexHome) }
@@ -155,7 +155,7 @@ public struct CodexSource: UsageSource {
         return try Parsers.codex(line)
     }
 
-    /// Строка JSON-RPC ответа с нужным id из потока строк (неполная последняя строка пропускается).
+    /// The JSON-RPC response line with the given id from a stream of lines (an incomplete last line is skipped).
     static func response(id: Int, in output: Data) -> Data? {
         for line in output.split(separator: 0x0A) {
             guard let obj = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
@@ -168,8 +168,8 @@ public struct CodexSource: UsageSource {
 
 // MARK: Cursor
 
-/// Токен — из базы состояния Cursor (`state.vscdb`, только чтение): обновляет его сам Cursor.
-/// Веб-API принимает его в cookie сессии сайта: `<userId>%3A%3A<jwt>`, userId — хвост `sub` из JWT.
+/// The token comes from the Cursor state database (`state.vscdb`, read-only); Cursor refreshes it itself.
+/// The web API takes it in the site session cookie: `<userId>%3A%3A<jwt>`, userId is the tail of `sub` from the JWT.
 public struct CursorSource: UsageSource {
     public init() {}
 
@@ -190,7 +190,7 @@ public struct CursorSource: UsageSource {
         return try Parsers.cursor(data)
     }
 
-    /// `sub` вида `auth0|user_…` → `user_…`.
+    /// `sub` like `auth0|user_…` → `user_…`.
     static func userID(jwt: String) -> String? {
         let parts = jwt.split(separator: ".")
         guard parts.count == 3 else { return nil }
@@ -204,19 +204,19 @@ public struct CursorSource: UsageSource {
     }
 }
 
-// MARK: По API-ключу: Kimi Code, OpenRouter, Moonshot
+// MARK: API key: Kimi Code, OpenRouter, Moonshot
 
-/// Ключ аккаунта из Связки ключей; нет — подсказка, где его задать.
+/// The account key from the Keychain; if missing, a hint on where to set it.
 func apiKey(_ id: UUID) async throws -> String {
     guard let key = try await KeyStore.lookup(id) else { throw UsageError.message(L("no API key. Add one in Settings")) }
     return key
 }
 
-/// Вычисляемое, а не `let`: глобальная константа запомнила бы язык первого обращения.
+/// Computed, not `let`: a global constant would remember the language of the first access.
 var keyRejected: [Int: String] { [401: L("key rejected. Check it in Settings")] }
 
-/// Ключ живёт в одном регионе вендора — международном или китайском. Пробуем по очереди:
-/// 401 не на последнем — значит, ключ другого региона. Возвращает ответ и индекс сработавшего адреса.
+/// A key lives in one vendor region, international or Chinese. Try them in turn:
+/// a 401 before the last one means a key from the other region. Returns the response and the index of the URL that worked.
 func getInRegions(_ urls: [String], key: String) async throws -> (Data, Int) {
     let headers = ["Authorization": "Bearer \(key)", "Accept": "application/json"]
     for (i, url) in urls.enumerated() {
@@ -227,7 +227,7 @@ func getInRegions(_ urls: [String], key: String) async throws -> (Data, Int) {
     throw UsageError.message(L("no API addresses"))
 }
 
-/// Подписка Kimi Code: ключ из консоли Kimi. CLI не трогаем — его refresh-токен одноразовый.
+/// Kimi Code subscription: a key from the Kimi console. The CLI is left alone, its refresh token is single-use.
 public struct KimiSource: UsageSource {
     let accountID: UUID
     public init(accountID: UUID) { self.accountID = accountID }
@@ -249,15 +249,15 @@ public struct OpenRouterSource: UsageSource {
         let headers = ["Authorization": "Bearer \(key)", "Accept": "application/json"]
         async let keyInfo = HTTP.get("https://openrouter.ai/api/v1/key", headers: headers, errors: keyRejected)
         async let credits = HTTP.request("https://openrouter.ai/api/v1/credits", headers: headers)
-        // Баланс счёта ключу может быть не положен (401/403) — тогда без него, только бюджет ключа.
-        // Остальные сбои — сбой опроса: иначе временная ошибка молча стёрла бы показанный баланс.
+        // The key may not be allowed to see the account balance (401/403): then go without it, key budget only.
+        // Other failures fail the poll: otherwise a transient error would silently wipe the shown balance.
         let (creditsData, status) = try await credits
         let balance = [401, 403].contains(status) ? nil : try HTTP.check(creditsData, status, [:])
         return try Parsers.openRouter(key: try await keyInfo, credits: balance)
     }
 }
 
-/// Баланс платформы Moonshot (API Kimi по токенам), не подписка.
+/// Moonshot platform balance (pay-per-token Kimi API), not a subscription.
 public struct MoonshotSource: UsageSource {
     let accountID: UUID
     public init(accountID: UUID) { self.accountID = accountID }
@@ -272,7 +272,7 @@ public struct MoonshotSource: UsageSource {
 
 // MARK: Antigravity (agy)
 
-/// Read-only слэш-команда в print-режиме: модель не запускается, токен agy обновляет сам.
+/// A read-only slash command in print mode: no model runs, agy refreshes the token itself.
 public struct AgySource: UsageSource {
     public init() {}
 

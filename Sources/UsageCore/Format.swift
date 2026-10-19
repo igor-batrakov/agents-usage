@@ -1,11 +1,11 @@
 import Foundation
 
 public enum Format {
-    /// «in 3d 4h», «in 1h 12m», «in 5m»; прошедший — «reset». По-русски — «через 3 д 4 ч».
+    /// "in 3d 4h", "in 1h 12m", "in 5m"; in the past, "reset". Translated through `L()`.
     public static func resetIn(_ date: Date, now: Date) -> String {
         let seconds = date.timeIntervalSince(now)
         guard seconds > 0 else { return L("reset") }
-        // Округляем вверх: «через 1 м» до самого сброса, без «через 0 м».
+        // Round up: "in 1m" right until the reset, never "in 0m".
         let total = Int((seconds / 60).rounded(.up))
         let d = total / 1440, h = (total % 1440) / 60, m = total % 60
         let parts = d > 0 ? [L("%dd", d)] + (h > 0 ? [L("%dh", h)] : [])
@@ -22,7 +22,7 @@ public enum Format {
         return L("%d h ago", mins / 60)
     }
 
-    /// Дата и время на выбранном в приложении языке, а не на языке системы.
+    /// Date and time in the language chosen in the app, not the system language.
     public static func date(_ date: Date, date dateStyle: Date.FormatStyle.DateStyle = .abbreviated,
                             time: Date.FormatStyle.TimeStyle = .shortened) -> String {
         date.formatted(Date.FormatStyle(date: dateStyle, time: time, locale: Locale(identifier: Localization.shared.code)))
@@ -32,10 +32,10 @@ public enum Format {
         "\(Int((used * 100).rounded()))%"
     }
 
-    /// «$12.34», «¥5.00»; неизвестная валюта — «12.34 EUR». Точка, а не запятая: суммы с консолей
-    /// вендоров, где их пишут так же.
+    /// "$12.34", "¥5.00"; unknown currency: "12.34 EUR". A dot, not a comma, as on the vendor
+    /// consoles the amounts come from.
     public static func money(_ amount: Double, _ currency: String) -> String {
-        // Знак — по округлённой сумме: −0,001 — это «$0.00», а не «−$0.00».
+        // Sign follows the rounded amount: -0.001 is "$0.00", not "-$0.00".
         let cents = (amount * 100).rounded()
         let value = String(format: "%.2f", abs(cents) / 100), sign = cents < 0 ? "−" : ""
         switch currency {

@@ -2,33 +2,33 @@ import Foundation
 import Observation
 import os
 
-/// Снимки аккаунтов и расписание опроса. Опрос — только по таймеру,
-/// по запросу или после сна; между опросами ничего не работает.
-/// Опрашиваются только включённые аккаунты.
+/// Account snapshots and the polling schedule. Polling happens only on the timer,
+/// on request or after sleep; nothing runs between polls.
+/// Only enabled accounts are polled.
 @MainActor @Observable
 public final class UsageStore {
     public private(set) var accounts: [Account] = []
     public private(set) var snapshots: [UUID: Snapshot] = [:]
-    /// Аккаунты, опрос которых идёт прямо сейчас, → поколение, с которым опрос начат.
+    /// Accounts being polled right now → the generation the poll started with.
     public private(set) var inFlight: [UUID: Int] = [:]
-    /// Время последнего полного опроса, в котором ответил хотя бы один источник. Полностью
-    /// неудачный опрос (нет сети после сна) его не сдвигает — поповер повторит опрос сразу.
-    /// Частичный опрос (`only:` — «Проверить», только что включённый аккаунт) тоже не сдвигает:
-    /// остальные аккаунты при нём не опрашивались.
+    /// Time of the last full poll in which at least one source answered. A completely
+    /// failed poll (no network after sleep) does not move it, so the popover retries right away.
+    /// A partial poll (`only:`, "Check" or a just-enabled account) does not move it either:
+    /// the other accounts were not polled.
     public private(set) var lastRefresh: Date?
 
     public var isRefreshing: Bool { !inFlight.isEmpty }
     public var enabledAccounts: [Account] { accounts.filter(\.enabled) }
 
-    /// Вызывается после каждого обновления (перерисовать иконку в строке меню).
+    /// Called after every update (to redraw the menu bar icon).
     @ObservationIgnored public var onChange: (() -> Void)?
-    /// Разрешён ли плановый опрос по таймеру сейчас; nil — всегда.
+    /// Whether a scheduled timer poll is allowed right now; nil means always.
     @ObservationIgnored public var timerGate: (() -> Bool)?
 
     @ObservationIgnored private let makeSource: (Account) -> any UsageSource
     @ObservationIgnored private var timer: Timer?
-    /// Поколение аккаунта растёт при выключении, удалении и смене каталога: результат опроса,
-    /// начатого в прежнем поколении, не записывается (даже если потом всё вернули как было).
+    /// The account generation grows on disable, removal and directory change: the result of a poll
+    /// started in an earlier generation is not stored (even if everything was later set back).
     @ObservationIgnored private var generation: [UUID: Int] = [:]
 
     private func gen(_ id: UUID) -> Int { generation[id, default: 0] }
@@ -40,14 +40,14 @@ public final class UsageStore {
 
     public func snapshot(_ id: UUID) -> Snapshot { snapshots[id] ?? Snapshot() }
 
-    /// Новый список аккаунтов. Снимки удалённых и выключенных отбрасываются: данные
-    /// выключенного устаревают, а после включения он опрашивается заново.
-    /// Возвращает id аккаунтов, которые стоит опросить сразу (новые и только что включённые).
+    /// New account list. Snapshots of removed and disabled accounts are dropped: a disabled
+    /// account's data goes stale, and after enabling it is polled again.
+    /// Returns ids of accounts worth polling right away (new and just enabled).
     @discardableResult
     public func setAccounts(_ new: [Account]) -> Set<UUID> {
         let wasEnabled = Set(enabledAccounts.map(\.id))
         let newByID = Dictionary(uniqueKeysWithValues: new.map { ($0.id, $0) })
-        // Сменился каталог конфигурации или API-ключ — это другой аккаунт по сути, старые данные не его.
+        // The config directory or API key changed: effectively another account, the old data is not its own.
         var changedSource: Set<UUID> = []
         for old in accounts {
             let now = newByID[old.id]
@@ -64,14 +64,14 @@ public final class UsageStore {
         return enabled.subtracting(wasEnabled).union(changedSource.intersection(enabled))
     }
 
-    /// Ближайший будущий сброс среди окон включённых аккаунтов — к нему приложение планирует
-    /// разовый опрос, чтобы иконка не держала исчерпанный лимит до следующего планового.
+    /// The nearest future reset among windows of enabled accounts. The app schedules a one-off
+    /// poll for it so the icon does not show an exhausted limit until the next scheduled poll.
     public func nextReset(after now: Date) -> Date? {
         enabledAccounts.flatMap { $0.visibleWindows(snapshot($0.id)) }
             .compactMap(\.resetsAt).filter { $0 > now }.min()
     }
 
-    /// Есть видимое окно, чей сброс уже прошёл, а свежих данных после него нет.
+    /// There is a visible window whose reset has passed, with no fresh data since.
     public func hasPassedReset(at now: Date) -> Bool {
         enabledAccounts.contains { account in
             let snap = snapshot(account.id)
@@ -82,8 +82,8 @@ public final class UsageStore {
         }
     }
 
-    /// Перезапускает таймер; nil — автообновление выключено.
-    /// Допуск 10% даёт системе объединять пробуждения.
+    /// Restarts the timer; nil means auto-refresh is off.
+    /// 10% tolerance lets the system coalesce wakeups.
     public func schedule(every interval: TimeInterval?) {
         timer?.invalidate()
         timer = nil
@@ -96,7 +96,7 @@ public final class UsageStore {
         timer = t
     }
 
-    /// Плановый опрос; `timerGate` может его пропустить (экономный режим).
+    /// Scheduled poll; `timerGate` may skip it (low-power mode).
     public func timerTick() async {
         if let timerGate, !timerGate() {
             log.info("timer tick skipped")
@@ -105,16 +105,16 @@ public final class UsageStore {
         await refresh()
     }
 
-    /// Обновить, если данные старше `age` секунд (открытие поповера).
+    /// Refresh if the data is older than `age` seconds (popover opening).
     public func refreshIfStale(olderThan age: TimeInterval) async {
         if let lastRefresh, Date().timeIntervalSince(lastRefresh) < age { return }
         await refresh()
     }
 
-    /// Опрос включённых аккаунтов параллельно (`only` — подмножество).
-    /// Аккаунт, опрос которого уже идёт в текущем поколении, пропускается; опрос прежнего
-    /// поколения (сменили каталог, выключили и включили) новому не мешает.
-    /// Упавший источник сохраняет прошлые данные и получает текст ошибки.
+    /// Polls enabled accounts in parallel (`only` is a subset).
+    /// An account already being polled in the current generation is skipped; a poll from an earlier
+    /// generation (directory changed, disabled and re-enabled) does not block the new one.
+    /// A failed source keeps its previous data and gets an error text.
     public func refresh(only ids: Set<UUID>? = nil) async {
         let targets = enabledAccounts.filter { (ids?.contains($0.id) ?? true) && inFlight[$0.id] != gen($0.id) }
         guard !targets.isEmpty else { return }
@@ -136,10 +136,10 @@ public final class UsageStore {
             }
             for await (account, result) in group {
                 let startedGen = started[account.id]!
-                // Метку «в работе» снимает только свой опрос: более новый мог уже начаться.
+                // Only its own poll clears the "in progress" mark: a newer one may have started already.
                 if inFlight[account.id] == startedGen { inFlight[account.id] = nil }
-                // Пока шёл опрос, аккаунт могли выключить, удалить или сменить ему каталог —
-                // тогда результат относится к прежнему поколению и не нужен.
+                // While the poll ran, the account may have been disabled, removed or given another directory:
+                // then the result belongs to the earlier generation and is not needed.
                 guard gen(account.id) == startedGen, enabledAccounts.contains(where: { $0.id == account.id })
                 else { continue }
                 var snap = snapshots[account.id] ?? Snapshot()
