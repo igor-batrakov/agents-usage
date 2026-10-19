@@ -47,6 +47,8 @@ final class Settings {
     var hotKey: HotKeyChoice { didSet { save(hotKey.rawValue, "hotKey") } }
     /// UI language code; nil follows the system. Stored as an empty string.
     var language: String? { didSet { save(language ?? "", "language") } }
+    /// Check GitHub for a new version once a day.
+    var checkUpdates: Bool { didSet { save(checkUpdates, "checkUpdates") } }
 
     /// The language is needed before settings are created: the main menu is built earlier.
     static var storedLanguage: String? {
@@ -123,6 +125,7 @@ final class Settings {
         showPace = d.object(forKey: "showPace") as? Bool ?? true
         hotKey = d.string(forKey: "hotKey").flatMap(HotKeyChoice.init) ?? .ctrlOptL
         language = Self.storedLanguage
+        checkUpdates = d.object(forKey: "checkUpdates") as? Bool ?? true
         notify = d.object(forKey: "notify") as? Bool ?? true
         let threshold = d.double(forKey: "notifyThreshold")
         notifyThreshold = Self.thresholds.contains(threshold) ? threshold : 0.9

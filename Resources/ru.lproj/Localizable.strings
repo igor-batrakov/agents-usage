@@ -73,6 +73,25 @@
 "key rejected. Check it in Settings" = "ключ отклонён — проверьте его в настройках";
 "no API addresses" = "нет адресов API";
 
+/* Sources/UsageCore/Updates.swift */
+"unexpected response from GitHub" = "непонятный ответ GitHub";
+
+/* Sources/UsageWidget/About.swift */
+"Version %@" = "Версия %@";
+"Subscription limits of your AI coding agents in the menu bar." = "Лимиты подписок ваших ИИ-агентов в строке меню.";
+"GitHub" = "GitHub";
+"Release notes" = "История версий";
+"Report a problem" = "Сообщить о проблеме";
+"MIT License" = "лицензия MIT";
+"Check for Updates" = "Проверить обновления";
+"You have the latest version." = "У вас последняя версия.";
+"Check for updates automatically" = "Проверять обновления автоматически";
+"Version %@ is available" = "Доступна версия %@";
+"What's new" = "Что нового";
+"Updating…" = "Обновляется…";
+"Update" = "Установить";
+"Download and install it, the app restarts" = "Скачать и установить, приложение перезапустится";
+
 /* Sources/UsageWidget/App.swift */
 "Edit" = "Правка";
 "Undo" = "Отменить";
@@ -112,6 +131,7 @@
 "General" = "Общие";
 "Services" = "Сервисы";
 "Panel" = "Панель";
+"About" = "О программе";
 "Data refresh" = "Обновление";
 "Auto-refresh" = "Автообновление";
 "Interval" = "Интервал";
@@ -194,6 +214,9 @@
 "stale" = "устарело";
 "no data" = "нет данных";
 "No services enabled" = "Нет включённых сервисов";
+
+/* Sources/UsageWidget/Updater.swift */
+"Update failed, details in %@" = "Не удалось обновить, подробности в %@";
 
 /* Sources/UsageWidget/UsageView.swift */
 "No services enabled. Add them in Settings" = "Нет включённых сервисов — добавьте их в настройках";

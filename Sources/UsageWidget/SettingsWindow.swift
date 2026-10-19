@@ -9,11 +9,13 @@ final class SettingsWindowController {
     private let settings: Settings
     private let store: UsageStore
     private let notifier: Notifier
+    private let updater: Updater
 
-    init(settings: Settings, store: UsageStore, notifier: Notifier) {
+    init(settings: Settings, store: UsageStore, notifier: Notifier, updater: Updater) {
         self.settings = settings
         self.store = store
         self.notifier = notifier
+        self.updater = updater
     }
 
     func show() {
@@ -22,7 +24,7 @@ final class SettingsWindowController {
                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: true)
             w.isReleasedWhenClosed = false
             w.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, store: store,
-                                                                                         notifier: notifier))
+                                                                                         notifier: notifier, updater: updater))
             w.center()
             window = w
         }
@@ -44,6 +46,7 @@ struct SettingsView: View {
     @Bindable var settings: Settings
     let store: UsageStore
     let notifier: Notifier
+    let updater: Updater
 
     var body: some View {
         TabView(selection: $settings.selectedTab) {
@@ -56,6 +59,9 @@ struct SettingsView: View {
             PanelTab(settings: settings)
                 .tabItem { Label(L("Panel"), systemImage: "macwindow") }
                 .tag(2)
+            AboutTab(settings: settings, updater: updater)
+                .tabItem { Label(L("About"), systemImage: "info.circle") }
+                .tag(3)
         }
         .frame(width: 660, height: 480)
         // New language: rebuild the tree, L() strings are evaluated when the view is built.

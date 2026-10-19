@@ -5,13 +5,18 @@ import UsageCore
 struct PopoverView: View {
     let store: UsageStore
     @Bindable var settings: Settings
+    let updater: Updater
     let openSettings: () -> Void
     private let height = ContentHeight()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            UsageView(store: store, height: height, maxHeight: UsageView.screenLimit(reserve: 120),
+            UsageView(store: store, height: height, maxHeight: UsageView.screenLimit(reserve: 150),
                       showPace: settings.showPace)
+            if let release = updater.available {
+                Divider()
+                UpdateRow(updater: updater, release: release)
+            }
             Divider()
             footer
         }
