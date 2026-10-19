@@ -16,6 +16,17 @@ import Testing
         #expect(throws: UsageError.self) { try Updates.parse(Data("not json".utf8)) }
     }
 
+    @Test func acceptsOnlyPlainVersionTags() throws {
+        func release(_ tag: String) -> Data {
+            Data(#"{"tag_name":"\#(tag)","html_url":"https://github.com/igor-batrakov/agents-usage/releases/tag/x"}"#.utf8)
+        }
+        #expect(try Updates.parse(release("v1.2.3")).version == "1.2.3")
+        #expect(try Updates.parse(release("2.0")).version == "2.0")
+        for bad in ["", "v1.2.3/../../x", "v1.2.3-beta", "latest", "v1 2", "v1.2.3.4.5"] {
+            #expect(throws: UsageError.self) { try Updates.parse(release(bad)) }
+        }
+    }
+
     @Test func comparesVersionsNumerically() {
         #expect(Updates.isNewer("v0.2.0", than: "0.1.0"))
         #expect(Updates.isNewer("0.10.0", than: "0.9.1"))

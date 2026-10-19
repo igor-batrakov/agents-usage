@@ -31,8 +31,10 @@ public enum Updates {
     }
 
     public static func parse(_ data: Data) throws -> Release {
+        // The tag goes into the download URL: only the plain form v1.2.3 is accepted.
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let tag = root["tag_name"] as? String, !tag.isEmpty,
+              let tag = root["tag_name"] as? String,
+              tag.range(of: #"^v?[0-9]+(\.[0-9]+){0,3}$"#, options: .regularExpression) != nil,
               let page = root["html_url"] as? String, let url = URL(string: page)
         else { throw UsageError.message(L("unexpected response from GitHub")) }
         return Release(tag: tag, url: url)
