@@ -139,24 +139,42 @@
 "Choose the revo executable" = "Выберите исполняемый файл revo";
 "No executable file at %@" = "По пути %@ нет исполняемого файла";
 "This is not revo, or a revo too old for the app. Update it: %@" = "Это не revo или слишком старая для приложения версия. Обновите её: %@";
+"default" = "по умолчанию";
 "limit, resets %@" = "лимит, сброс %@";
 "CLI not found" = "CLI не найден";
-"runs if the one above hits a limit" = "вступает, если у предыдущего лимит";
-"runs if the one above fails" = "вступает, если предыдущий не справился";
-"default" = "по умолчанию";
+"invalid model name" = "недопустимое имя модели";
+"never runs: no required reviewer above it" = "не запустится: выше нет обязательного";
+"no fallback below it" = "ниже нет запасного";
+"↳ for %@" = "↳ за %@";
 "System default" = "Как в системе";
+"required" = "обязательный";
+"fallback" = "запасной";
+"Remove %@" = "Удалить %@";
+"Add %@: %@, %@, %@" = "Добавить %@: %@, %@, %@";
 "Order: %@" = "Порядок: %@";
 "%@: turn on" = "%@: включить";
 "%@: turn off" = "%@: выключить";
 "%@: model %@ → %@" = "%@: модель %@ → %@";
 "%@: effort %@ → %@" = "%@: effort %@ → %@";
+"%@: %@ → %@" = "%@: %@ → %@";
+"%@: steps in %@" = "%@: подменяет, %@";
 "Review rounds: %@ → %@" = "Прогонов ревью: %@ → %@";
 "Review language: %@ → %@" = "Язык ревью: %@ → %@";
+"No review from a required reviewer: %@" = "Нет ревью от обязательного: %@";
+"if it hits a limit" = "если лимит";
+"if it gives no review" = "если не ответил";
+"commit with a note" = "коммитить с примечанием";
+"wait for my decision" = "ждать моего решения";
 
 /* Sources/UsageWidget/ReviewChainTab.swift */
+"No required reviewer is on: reviews will not start." = "Нет ни одного включённого обязательного ревьюера: ревью не начнётся.";
+"Add reviewer" = "Добавить ревьюера";
+"drag to reorder: higher goes first" = "порядок — перетаскиванием, выше — раньше";
 "The review chain is not loaded." = "Цепочка ревью не загружена.";
 "Review rounds per commit: %d" = "Прогонов ревью на коммит: %d";
 "Review language" = "Язык ревью";
+"A round is one run of the whole chain; the remarks of the last one are fixed without another review. The number is shared by all reviewers; a project can set its own in .revolver.json." = "Прогон — один запуск всей цепочки; замечания последнего исправляются без нового ревью. Число общее для всех ревьюеров, своё для проекта задаётся в .revolver.json.";
+"No review from a required reviewer:" = "Нет ревью от обязательного:";
 "Apply these changes?" = "Применить эти изменения?";
 "Show review limits in the popover" = "Показывать лимиты ревью в поповере";
 "Reload the chain from revo" = "Перечитать цепочку из revo";
@@ -166,14 +184,19 @@
 "Apply…" = "Применить…";
 "Built-in chain. Apply creates %@" = "Встроенная цепочка. «Применить» создаст %@";
 "Edits %@" = "Изменения пишутся в %@";
-"drag to reorder" = "порядок — перетаскиванием";
 "Choose…" = "Выбрать…";
 "Default" = "По умолчанию";
 "Known models" = "Известные модели";
 "Effort" = "Effort";
-"Review chain: %@" = "Цепочка ревью: %@";
-"%@ limit, resets %@" = "%@: лимит, сброс %@";
+"Remove reviewer" = "Удалить ревьюера";
+"A required reviewer runs on every review, in parallel with the others. A fallback reviews instead of a required one above it that gave no review." = "Обязательный запускается при каждом ревью, параллельно с остальными. Запасной делает ревью вместо обязательного выше себя, если тот ревью не дал.";
+"%@ (not installed)" = "%@ (не установлен)";
+"The CLI of this provider was not found" = "CLI этого провайдера не найден";
+"Provider" = "Провайдер";
+"%@: limit, resets %@ → %@" = "%@: лимит, сброс %@ → %@";
+"%@: limit, resets %@, no review" = "%@: лимит, сброс %@, ревью не будет";
 "Recorded by revo: %@" = "Записано revo: %@";
+"Review chain: %@" = "Цепочка ревью: %@";
 
 /* Sources/UsageWidget/SettingsWindow.swift */
 "Agents Usage Settings" = "Настройки — Agents Usage";
@@ -211,6 +234,7 @@
 "not found" = "не найден";
 "Add a service" = "Добавить сервис";
 "Remove the selected one" = "Удалить выбранный";
+"drag to reorder" = "порядок — перетаскиванием";
 "Select a service on the left" = "Выберите сервис слева";
 "Name" = "Имя";
 "Show" = "Показывать";

@@ -37,36 +37,39 @@ enum Demo {
 
     static func source(_ account: Account) -> any UsageSource { DemoSource(kind: account.kind) }
 
-    /// A made-up review chain: the demo never runs revo. Codex is on a limit for two hours.
+    /// A made-up review chain: the demo never runs revo. Two required reviewers; Codex is on a limit for two hours,
+    /// so Gemini reviews instead of it.
     static func reviewChain() -> (chain: RevoChain, engines: [RevoEngine]) {
         let until = Int(Date().timeIntervalSince1970) + 2 * 3600
         let limited = #"{"limit_until": \#(until), "active": true}"#, free = #"{"limit_until": null, "active": false}"#
         let chain = """
             {"config_path": "~/.config/revolver/chain.json", "config_rev": "demo",
              "chain": [
-               {"id": "sol", "engine": "codex", "model": "gpt-6.1-sol", "effort": "max", "on": true, "takes_over": "-"},
-               {"id": "astra", "engine": "codex", "model": "gpt-6-astra", "effort": "high", "on": false, "takes_over": "any_fail"},
-               {"id": "gemini", "engine": "agy", "model": "gemini-3.8-flash", "effort": "high", "on": true, "takes_over": "limit"},
-               {"id": "fable", "engine": "claude", "model": "claude-fable-5-1", "effort": "high", "on": true, "takes_over": "limit"}],
-             "settings": {"review_rounds": 2, "lang": null},
-             "state": {"sol": \(limited), "astra": \(limited), "gemini": \(free), "fable": \(free)}}
+               {"id": "sol", "engine": "codex", "model": "gpt-6.1-sol", "effort": "max", "on": true, "takes_over": "-",
+                "role": "required"},
+               {"id": "gemini", "engine": "agy", "model": "gemini-3.8-flash", "effort": "high", "on": true,
+                "takes_over": "limit", "role": "fallback"},
+               {"id": "opus", "engine": "claude", "model": "claude-opus-5-5", "effort": "high", "on": true,
+                "takes_over": "-", "role": "required"},
+               {"id": "fable", "engine": "claude", "model": "claude-fable-5-1", "effort": "high", "on": true,
+                "takes_over": "any_fail", "role": "fallback"},
+               {"id": "astra", "engine": "codex", "model": "gpt-6-astra", "effort": "high", "on": false,
+                "takes_over": "any_fail", "role": "fallback"}],
+             "settings": {"review_rounds": 2, "lang": null, "missing_review": "ask"},
+             "state": {"sol": \(limited), "astra": \(limited), "gemini": \(free), "opus": \(free), "fable": \(free)}}
             """
+        let pattern = #""model_pattern": "^[A-Za-z0-9._-]+$""#
         let engines = """
             [{"name": "codex", "display": "Codex", "efforts": ["low", "medium", "high", "xhigh", "max"],
-              "models": ["default", "gpt-6.1-sol", "gpt-6-astra"], "custom_model": true, "installed": true},
+              "models": ["default", "gpt-6.1-sol", "gpt-6-astra"], "custom_model": true, \(pattern), "installed": true},
              {"name": "agy", "display": "Gemini", "efforts": ["low", "medium", "high"],
-              "models": ["default", "gemini-3.8-flash", "gemini-4-argon"], "custom_model": true, "installed": true},
+              "models": ["default", "gemini-3.8-flash", "gemini-4-argon"], "custom_model": true, \(pattern), "installed": true},
              {"name": "claude", "display": "Claude", "efforts": ["low", "medium", "high", "xhigh", "max"],
-              "models": ["default", "claude-fable-5-1", "claude-opus-5-5"], "custom_model": true, "installed": true}]
+              "models": ["default", "claude-fable-5-1", "claude-opus-5-5"], "custom_model": true, \(pattern), "installed": true}]
             """
         let decoder = JSONDecoder()
         return (try! decoder.decode(RevoChain.self, from: Data(chain.utf8)),
                 try! decoder.decode([RevoEngine].self, from: Data(engines.utf8)))
-    }
-
-    static func reviewLimits() -> [String: RevoLimit] {
-        let until = Int(Date().timeIntervalSince1970) + 2 * 3600
-        return try! JSONDecoder().decode([String: RevoLimit].self, from: Data(#"{"codex": {"until": \#(until)}}"#.utf8))
     }
 }
 

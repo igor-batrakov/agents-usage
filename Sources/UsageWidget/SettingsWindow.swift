@@ -22,7 +22,7 @@ final class SettingsWindowController {
 
     func show() {
         if window == nil {
-            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 480),
+            let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 660, height: 580),
                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: true)
             w.isReleasedWhenClosed = false
             w.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, store: store,
@@ -81,7 +81,7 @@ struct SettingsView: View {
                 .tabItem { Label(L("About"), systemImage: "info.circle") }
                 .tag(3)
         }
-        .frame(width: 660, height: 480)
+        .frame(width: 660, height: 580)
         // New language: rebuild the tree, L() strings are evaluated when the view is built.
         .id(settings.language ?? "")
     }

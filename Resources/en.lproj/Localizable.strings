@@ -139,24 +139,42 @@
 "Choose the revo executable" = "Choose the revo executable";
 "No executable file at %@" = "No executable file at %@";
 "This is not revo, or a revo too old for the app. Update it: %@" = "This is not revo, or a revo too old for the app. Update it: %@";
+"default" = "default";
 "limit, resets %@" = "limit, resets %@";
 "CLI not found" = "CLI not found";
-"runs if the one above hits a limit" = "runs if the one above hits a limit";
-"runs if the one above fails" = "runs if the one above fails";
-"default" = "default";
+"invalid model name" = "invalid model name";
+"never runs: no required reviewer above it" = "never runs: no required reviewer above it";
+"no fallback below it" = "no fallback below it";
+"↳ for %@" = "↳ for %@";
 "System default" = "System default";
+"required" = "required";
+"fallback" = "fallback";
+"Remove %@" = "Remove %@";
+"Add %@: %@, %@, %@" = "Add %@: %@, %@, %@";
 "Order: %@" = "Order: %@";
 "%@: turn on" = "%@: turn on";
 "%@: turn off" = "%@: turn off";
 "%@: model %@ → %@" = "%@: model %@ → %@";
 "%@: effort %@ → %@" = "%@: effort %@ → %@";
+"%@: %@ → %@" = "%@: %@ → %@";
+"%@: steps in %@" = "%@: steps in %@";
 "Review rounds: %@ → %@" = "Review rounds: %@ → %@";
 "Review language: %@ → %@" = "Review language: %@ → %@";
+"No review from a required reviewer: %@" = "No review from a required reviewer: %@";
+"if it hits a limit" = "if it hits a limit";
+"if it gives no review" = "if it gives no review";
+"commit with a note" = "commit with a note";
+"wait for my decision" = "wait for my decision";
 
 /* Sources/UsageWidget/ReviewChainTab.swift */
+"No required reviewer is on: reviews will not start." = "No required reviewer is on: reviews will not start.";
+"Add reviewer" = "Add reviewer";
+"drag to reorder: higher goes first" = "drag to reorder: higher goes first";
 "The review chain is not loaded." = "The review chain is not loaded.";
 "Review rounds per commit: %d" = "Review rounds per commit: %d";
 "Review language" = "Review language";
+"A round is one run of the whole chain; the remarks of the last one are fixed without another review. The number is shared by all reviewers; a project can set its own in .revolver.json." = "A round is one run of the whole chain; the remarks of the last one are fixed without another review. The number is shared by all reviewers; a project can set its own in .revolver.json.";
+"No review from a required reviewer:" = "No review from a required reviewer:";
 "Apply these changes?" = "Apply these changes?";
 "Show review limits in the popover" = "Show review limits in the popover";
 "Reload the chain from revo" = "Reload the chain from revo";
@@ -166,14 +184,19 @@
 "Apply…" = "Apply…";
 "Built-in chain. Apply creates %@" = "Built-in chain. Apply creates %@";
 "Edits %@" = "Edits %@";
-"drag to reorder" = "drag to reorder";
 "Choose…" = "Choose…";
 "Default" = "Default";
 "Known models" = "Known models";
 "Effort" = "Effort";
-"Review chain: %@" = "Review chain: %@";
-"%@ limit, resets %@" = "%@ limit, resets %@";
+"Remove reviewer" = "Remove reviewer";
+"A required reviewer runs on every review, in parallel with the others. A fallback reviews instead of a required one above it that gave no review." = "A required reviewer runs on every review, in parallel with the others. A fallback reviews instead of a required one above it that gave no review.";
+"%@ (not installed)" = "%@ (not installed)";
+"The CLI of this provider was not found" = "The CLI of this provider was not found";
+"Provider" = "Provider";
+"%@: limit, resets %@ → %@" = "%@: limit, resets %@ → %@";
+"%@: limit, resets %@, no review" = "%@: limit, resets %@, no review";
 "Recorded by revo: %@" = "Recorded by revo: %@";
+"Review chain: %@" = "Review chain: %@";
 
 /* Sources/UsageWidget/SettingsWindow.swift */
 "Agents Usage Settings" = "Agents Usage Settings";
@@ -211,6 +234,7 @@
 "not found" = "not found";
 "Add a service" = "Add a service";
 "Remove the selected one" = "Remove the selected one";
+"drag to reorder" = "drag to reorder";
 "Select a service on the left" = "Select a service on the left";
 "Name" = "Name";
 "Show" = "Show";
