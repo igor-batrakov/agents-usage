@@ -1,0 +1,11 @@
+{
+ "schema": 2,
+ "ok": false,
+ "error": {
+  "code": "invalid_role",
+  "block": "gemini",
+  "field": "role",
+  "value": "boss",
+  "message": "new config: block 3 — role 'boss', allowed required, fallback"
+ }
+}

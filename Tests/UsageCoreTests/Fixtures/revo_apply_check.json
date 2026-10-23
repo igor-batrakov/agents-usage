@@ -1,72 +1,89 @@
 {
-  "schema": 1,
-  "ok": true,
-  "check": true,
-  "config_rev": "defaults",
-  "chain": [
-    {
-      "id": "agy",
-      "engine": "agy",
-      "model": "default",
-      "effort": "high",
-      "on": true,
-      "takes_over": "any_fail"
-    },
-    {
-      "id": "codex",
-      "engine": "codex",
-      "model": "default",
-      "effort": "xhigh",
-      "on": true,
-      "takes_over": "-"
-    },
-    {
-      "id": "claude",
-      "engine": "claude",
-      "model": "default",
-      "effort": "high",
-      "on": false,
-      "takes_over": "any_fail"
-    }
-  ],
-  "diff": {
-    "order": {
-      "old": [
-        "codex",
-        "claude",
-        "agy"
-      ],
-      "new": [
-        "agy",
-        "codex",
-        "claude"
-      ]
-    },
-    "changes": [
-      {
-        "id": "codex",
-        "field": "effort",
-        "old": "high",
-        "new": "xhigh"
-      },
-      {
-        "id": "claude",
-        "field": "on",
-        "old": true,
-        "new": false
-      }
-    ],
-    "settings": [
-      {
-        "field": "review_rounds",
-        "old": 2,
-        "new": 3
-      },
-      {
-        "field": "lang",
-        "old": null,
-        "new": "ru"
-      }
-    ]
+ "schema": 2,
+ "ok": true,
+ "check": true,
+ "config_rev": "ecf0c81d8ce4f805960466f59a7c707ca271970c17f404bc0df86921f5779b32",
+ "chain": [
+  {
+   "id": "sol",
+   "engine": "codex",
+   "model": "gpt-6.1-sol",
+   "effort": "max",
+   "on": true,
+   "takes_over": "-",
+   "role": "required"
+  },
+  {
+   "id": "gemini",
+   "engine": "agy",
+   "model": "gemini-3.8-flash",
+   "effort": "high",
+   "on": true,
+   "takes_over": "limit",
+   "role": "fallback"
+  },
+  {
+   "id": "fable",
+   "engine": "claude",
+   "model": "claude-fable-5-1",
+   "effort": "high",
+   "on": true,
+   "takes_over": "any_fail",
+   "role": "fallback"
+  },
+  {
+   "id": "opus",
+   "engine": "claude",
+   "model": "claude-opus-5-5",
+   "effort": "high",
+   "on": true,
+   "role": "required",
+   "takes_over": "-"
   }
+ ],
+ "diff": {
+  "order": {
+   "old": [
+    "sol",
+    "astra",
+    "gemini",
+    "fable"
+   ],
+   "new": [
+    "sol",
+    "gemini",
+    "fable",
+    "opus"
+   ]
+  },
+  "changes": [
+   {
+    "id": "fable",
+    "field": "takes_over",
+    "old": "limit",
+    "new": "any_fail"
+   }
+  ],
+  "added": [
+   {
+    "id": "opus",
+    "engine": "claude",
+    "model": "claude-opus-5-5",
+    "effort": "high",
+    "on": true,
+    "role": "required",
+    "takes_over": "-"
+   }
+  ],
+  "removed": [
+   "astra"
+  ],
+  "settings": [
+   {
+    "field": "missing_review",
+    "old": "ask",
+    "new": "note"
+   }
+  ]
+ }
 }
