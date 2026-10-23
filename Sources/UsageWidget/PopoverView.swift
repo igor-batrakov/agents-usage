@@ -6,6 +6,7 @@ struct PopoverView: View {
     let store: UsageStore
     @Bindable var settings: Settings
     let updater: Updater
+    let reviewChain: ReviewChain
     let openSettings: () -> Void
     private let height = ContentHeight()
 
@@ -13,6 +14,13 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 12) {
             UsageView(store: store, height: height, maxHeight: UsageView.screenLimit(reserve: 150),
                       showPace: settings.showPace)
+            if settings.showReviewLimits, reviewChain.isAvailable,
+               !reviewChain.activeLimits(now: Date()).isEmpty || reviewChain.limitsFailure != nil {
+                Divider()
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    ReviewLimitsRow(chain: reviewChain, now: context.date)
+                }
+            }
             if let release = updater.available {
                 Divider()
                 UpdateRow(updater: updater, release: release)

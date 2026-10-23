@@ -10,12 +10,14 @@ final class SettingsWindowController {
     private let store: UsageStore
     private let notifier: Notifier
     private let updater: Updater
+    private let reviewChain: ReviewChain
 
-    init(settings: Settings, store: UsageStore, notifier: Notifier, updater: Updater) {
+    init(settings: Settings, store: UsageStore, notifier: Notifier, updater: Updater, reviewChain: ReviewChain) {
         self.settings = settings
         self.store = store
         self.notifier = notifier
         self.updater = updater
+        self.reviewChain = reviewChain
     }
 
     func show() {
@@ -24,12 +26,19 @@ final class SettingsWindowController {
                              styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: true)
             w.isReleasedWhenClosed = false
             w.contentViewController = NSHostingController(rootView: SettingsView(settings: settings, store: store,
-                                                                                         notifier: notifier, updater: updater))
+                                                                                         notifier: notifier, updater: updater,
+                                                                                         reviewChain: reviewChain))
             w.center()
             window = w
         }
         relocalize()
         if settings.selectedAccountID == nil { settings.selectedAccountID = settings.accounts.first?.id }
+        // revo may have been installed or removed since the last opening. The tab reloads on appearing,
+        // but a window that was only hidden shows it again without that.
+        reviewChain.locate()
+        if settings.selectedTab == SettingsView.reviewTab {
+            if reviewChain.isAvailable { Task { await reviewChain.reload() } } else { settings.selectedTab = 0 }
+        }
         // The app has no Dock icon: without activation the window opens behind the others.
         NSApp.activate()
         if window?.isMiniaturized == true { window?.deminiaturize(nil) }
@@ -47,6 +56,9 @@ struct SettingsView: View {
     let store: UsageStore
     let notifier: Notifier
     let updater: Updater
+    let reviewChain: ReviewChain
+
+    static let reviewTab = 4
 
     var body: some View {
         TabView(selection: $settings.selectedTab) {
@@ -59,6 +71,11 @@ struct SettingsView: View {
             PanelTab(settings: settings)
                 .tabItem { Label(L("Panel"), systemImage: "macwindow") }
                 .tag(2)
+            if reviewChain.isAvailable {
+                ReviewChainTab(chain: reviewChain, settings: settings)
+                    .tabItem { Label(L("Review chain"), systemImage: "checklist") }
+                    .tag(Self.reviewTab)
+            }
             AboutTab(settings: settings, updater: updater)
                 .tabItem { Label(L("About"), systemImage: "info.circle") }
                 .tag(3)

@@ -26,6 +26,13 @@ import Testing
         }
     }
 
+    @Test func runStatusKeepsOutputOfFailedRun() async throws {
+        let result = try await ProcessRunner.runStatus("/bin/sh", ["-c", "printf '{\"ok\":false}'; pwd; exit 4"],
+                                                       directory: "/", timeout: 5)
+        #expect(result.status == 4)
+        #expect(String(decoding: result.output, as: UTF8.self) == "{\"ok\":false}/\n")
+    }
+
     @Test func closeInputGivesEOF() async throws {
         // Without closing stdin, cat would wait for input until the timeout.
         let start = Date()

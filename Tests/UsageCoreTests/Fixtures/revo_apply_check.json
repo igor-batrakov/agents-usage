@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "ok": true,
+  "check": true,
+  "config_rev": "defaults",
+  "chain": [
+    {
+      "id": "agy",
+      "engine": "agy",
+      "model": "default",
+      "effort": "high",
+      "on": true,
+      "takes_over": "any_fail"
+    },
+    {
+      "id": "codex",
+      "engine": "codex",
+      "model": "default",
+      "effort": "xhigh",
+      "on": true,
+      "takes_over": "-"
+    },
+    {
+      "id": "claude",
+      "engine": "claude",
+      "model": "default",
+      "effort": "high",
+      "on": false,
+      "takes_over": "any_fail"
+    }
+  ],
+  "diff": {
+    "order": {
+      "old": [
+        "codex",
+        "claude",
+        "agy"
+      ],
+      "new": [
+        "agy",
+        "codex",
+        "claude"
+      ]
+    },
+    "changes": [
+      {
+        "id": "codex",
+        "field": "effort",
+        "old": "high",
+        "new": "xhigh"
+      },
+      {
+        "id": "claude",
+        "field": "on",
+        "old": true,
+        "new": false
+      }
+    ],
+    "settings": [
+      {
+        "field": "review_rounds",
+        "old": 2,
+        "new": 3
+      },
+      {
+        "field": "lang",
+        "old": null,
+        "new": "ru"
+      }
+    ]
+  }
+}

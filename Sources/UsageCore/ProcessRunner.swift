@@ -8,6 +8,7 @@ public enum ProcessRunner {
     /// - `until` is an early exit: as soon as the accumulated output satisfies it,
     ///   the process is killed and the output returned.
     /// - On timeout the process is killed and an error is thrown.
+    /// - A nonzero exit code throws `UsageError.exit`; `runStatus` returns the output with the code instead.
     public static func run(
         _ path: String,
         _ arguments: [String],
@@ -17,6 +18,27 @@ public enum ProcessRunner {
         timeout: TimeInterval,
         until: (@Sendable (Data) -> Bool)? = nil
     ) async throws -> Data {
+        let result = try await runStatus(path, arguments, input: input, closeInput: closeInput, environment: extra,
+                                         timeout: timeout, until: until)
+        guard result.status == 0 else {
+            throw UsageError.exit(tool: (path as NSString).lastPathComponent, status: result.status)
+        }
+        return result.output
+    }
+
+    /// Like `run`, but a nonzero exit is a result, not an error: the stdout of a tool that answers
+    /// with JSON on failure too (`revo`) is not lost. A signal is a negative code; an early exit by `until` is 0.
+    /// `directory` is the working directory (otherwise the app's own).
+    public static func runStatus(
+        _ path: String,
+        _ arguments: [String],
+        input: Data? = nil,
+        closeInput: Bool = false,
+        environment extra: [String: String] = [:],
+        directory: String? = nil,
+        timeout: TimeInterval,
+        until: (@Sendable (Data) -> Bool)? = nil
+    ) async throws -> (status: Int32, output: Data) {
         guard FileManager.default.isExecutableFile(atPath: path) else {
             throw UsageError.message(L("%@ not found", path))
         }
@@ -24,6 +46,7 @@ public enum ProcessRunner {
         process.executableURL = URL(fileURLWithPath: path)
         process.arguments = arguments
         process.environment = environment.merging(extra) { _, new in new }
+        if let directory { process.currentDirectoryURL = URL(fileURLWithPath: directory) }
         let stdout = Pipe(), stdin = Pipe()
         process.standardOutput = stdout
         process.standardInput = stdin
@@ -39,12 +62,7 @@ public enum ProcessRunner {
             let complete = {
                 guard let status = state.exitStatus else { return }
                 stdout.fileHandleForReading.readabilityHandler = nil
-                if status == 0 {
-                    state.finish(.success(state.output))
-                } else {
-                    let name = (path as NSString).lastPathComponent
-                    state.finish(.failure(UsageError.exit(tool: name, status: status)))
-                }
+                state.finish(.success((status, state.output)))
             }
             stdout.fileHandleForReading.readabilityHandler = { handle in
                 let chunk = handle.availableData
@@ -54,7 +72,7 @@ public enum ProcessRunner {
                     return
                 }
                 if state.append(chunk, check: until) {
-                    state.finish(.success(state.output))
+                    state.finish(.success((0, state.output)))
                     stop(process)
                 }
             }
@@ -132,7 +150,7 @@ private final class RunState: @unchecked Sendable {
     private var matched = false
     private var eof = false
     private var status: Int32?
-    var continuation: CheckedContinuation<Data, Error>?
+    var continuation: CheckedContinuation<(status: Int32, output: Data), Error>?
 
     var output: Data { lock.withLock { buffer } }
     var exitStatus: Int32? { lock.withLock { status } }
@@ -155,8 +173,8 @@ private final class RunState: @unchecked Sendable {
 
     /// true if this very call finished the run.
     @discardableResult
-    func finish(_ result: Result<Data, Error>) -> Bool {
-        let c: CheckedContinuation<Data, Error>? = lock.withLock {
+    func finish(_ result: Result<(status: Int32, output: Data), Error>) -> Bool {
+        let c: CheckedContinuation<(status: Int32, output: Data), Error>? = lock.withLock {
             guard !done else { return nil }
             done = true
             return continuation

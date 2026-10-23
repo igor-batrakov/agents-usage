@@ -46,6 +46,8 @@ curl -fsSL https://raw.githubusercontent.com/igor-batrakov/agents-usage/main/ins
   corner anchoring, opacity and click-through.
 - **Several accounts.** A second Claude Code or Codex account through its config directory, several API keys
   for key-based services.
+- **Review chain.** If you run code reviews with Revolver (`revo`), a settings tab edits its chain of
+  reviewers, and the popover shows the review limits revo has recorded.
 
 ## Supported services
 
@@ -123,6 +125,10 @@ the release page instead. Settings → About has a manual check and a switch to 
 - **Services.** Add, remove and reorder services, hide windows you don't need, pick the window for the menu bar,
   paste API keys, set a custom usage page.
 - **Panel.** Mode, corner and margin, opacity, click-through, which services to show.
+- **Review chain.** Shown when `revo` is in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`, or at a
+  path you choose. Reorder reviewers, turn them on and off, pick a model and effort, set review rounds and the
+  review language. Apply shows what will change first. The app goes through `revo apply` and never edits
+  revo's files itself; adding and removing reviewers stays in the terminal.
 - **About.** Version, update check, links to the project.
 
 ## Languages

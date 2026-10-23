@@ -3,15 +3,16 @@ import UsageCore
 
 /// Demo mode for README screenshots:
 ///
-///     open "Agents Usage.app" --args --demo [-language ru] [--demo-settings] [--demo-panel]
+///     open "Agents Usage.app" --args --demo [-language ru] [--demo-settings] [--demo-review] [--demo-panel]
 ///
 /// Made-up data for every service and its own settings in a separate UserDefaults domain (wiped on
-/// every launch). Real accounts, keys and notification state are not touched; there are no notifications
-/// and no hotkey. `--demo-settings` opens settings on the Services tab right away,
-/// `--demo-panel` turns on the panel.
+/// every launch). Real accounts, keys and notification state are not touched; there are no notifications,
+/// no hotkey and no revo runs (a made-up review chain). `--demo-settings` opens settings on the Services tab
+/// right away, `--demo-review` on the Review chain tab, `--demo-panel` turns on the panel.
 enum Demo {
     static let isOn = CommandLine.arguments.contains("--demo")
-    static let opensSettings = CommandLine.arguments.contains("--demo-settings")
+    static let opensReview = CommandLine.arguments.contains("--demo-review")
+    static let opensSettings = CommandLine.arguments.contains("--demo-settings") || opensReview
     private static let suite = "ru.batrakov.UsageWidget.demo"
 
     /// Demo accounts, in menu bar order.
@@ -28,13 +29,45 @@ enum Demo {
         defaults.set(CommandLine.arguments.contains("--demo-panel"), forKey: "panelEnabled")
         let settings = Settings(defaults: defaults)
         if opensSettings {
-            settings.selectedTab = 1
+            settings.selectedTab = opensReview ? SettingsView.reviewTab : 1
             settings.selectedAccountID = accounts.last?.id
         }
         return settings
     }
 
     static func source(_ account: Account) -> any UsageSource { DemoSource(kind: account.kind) }
+
+    /// A made-up review chain: the demo never runs revo. Codex is on a limit for two hours.
+    static func reviewChain() -> (chain: RevoChain, engines: [RevoEngine]) {
+        let until = Int(Date().timeIntervalSince1970) + 2 * 3600
+        let limited = #"{"limit_until": \#(until), "active": true}"#, free = #"{"limit_until": null, "active": false}"#
+        let chain = """
+            {"config_path": "~/.config/revolver/chain.json", "config_rev": "demo",
+             "chain": [
+               {"id": "sol", "engine": "codex", "model": "gpt-6.1-sol", "effort": "max", "on": true, "takes_over": "-"},
+               {"id": "astra", "engine": "codex", "model": "gpt-6-astra", "effort": "high", "on": false, "takes_over": "any_fail"},
+               {"id": "gemini", "engine": "agy", "model": "gemini-3.8-flash", "effort": "high", "on": true, "takes_over": "limit"},
+               {"id": "fable", "engine": "claude", "model": "claude-fable-5-1", "effort": "high", "on": true, "takes_over": "limit"}],
+             "settings": {"review_rounds": 2, "lang": null},
+             "state": {"sol": \(limited), "astra": \(limited), "gemini": \(free), "fable": \(free)}}
+            """
+        let engines = """
+            [{"name": "codex", "display": "Codex", "efforts": ["low", "medium", "high", "xhigh", "max"],
+              "models": ["default", "gpt-6.1-sol", "gpt-6-astra"], "custom_model": true, "installed": true},
+             {"name": "agy", "display": "Gemini", "efforts": ["low", "medium", "high"],
+              "models": ["default", "gemini-3.8-flash", "gemini-4-argon"], "custom_model": true, "installed": true},
+             {"name": "claude", "display": "Claude", "efforts": ["low", "medium", "high", "xhigh", "max"],
+              "models": ["default", "claude-fable-5-1", "claude-opus-5-5"], "custom_model": true, "installed": true}]
+            """
+        let decoder = JSONDecoder()
+        return (try! decoder.decode(RevoChain.self, from: Data(chain.utf8)),
+                try! decoder.decode([RevoEngine].self, from: Data(engines.utf8)))
+    }
+
+    static func reviewLimits() -> [String: RevoLimit] {
+        let until = Int(Date().timeIntervalSince1970) + 2 * 3600
+        return try! JSONDecoder().decode([String: RevoLimit].self, from: Data(#"{"codex": {"until": \#(until)}}"#.utf8))
+    }
 }
 
 /// The report is built at poll time: reset times count from now, labels are in the selected language.

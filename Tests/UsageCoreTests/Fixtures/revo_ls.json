@@ -1,0 +1,139 @@
+{
+  "schema": 1,
+  "ok": true,
+  "config_path": "/Users/u/.config/revolver/chain.json",
+  "state_path": "/Users/u/.local/state/revolver/limits.json",
+  "config_rev": "ef203e049f3a39f2f31d259bb356012f80a47399e0e237cd1df14632aaae12e3",
+  "source": "global",
+  "env": [],
+  "repo_path": null,
+  "repo_ignored": null,
+  "chain": [
+    {
+      "id": "sol",
+      "engine": "codex",
+      "model": "gpt-6.1-sol",
+      "effort": "max",
+      "on": true,
+      "takes_over": "-"
+    },
+    {
+      "id": "astra",
+      "engine": "codex",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "on": false,
+      "takes_over": "any_fail"
+    },
+    {
+      "id": "gemini",
+      "engine": "agy",
+      "model": "gemini-3.8-flash",
+      "effort": "high",
+      "on": true,
+      "takes_over": "limit"
+    },
+    {
+      "id": "fable",
+      "engine": "claude",
+      "model": "claude-fable-5-1",
+      "effort": "high",
+      "on": true,
+      "takes_over": "limit"
+    }
+  ],
+  "effective": [
+    {
+      "id": "sol",
+      "engine": "codex",
+      "model": "gpt-6.1-sol",
+      "effort": "max",
+      "on": true,
+      "takes_over": "-"
+    },
+    {
+      "id": "astra",
+      "engine": "codex",
+      "model": "gpt-6-astra",
+      "effort": "high",
+      "on": false,
+      "takes_over": "any_fail"
+    },
+    {
+      "id": "gemini",
+      "engine": "agy",
+      "model": "gemini-3.8-flash",
+      "effort": "high",
+      "on": true,
+      "takes_over": "limit"
+    },
+    {
+      "id": "fable",
+      "engine": "claude",
+      "model": "claude-fable-5-1",
+      "effort": "high",
+      "on": true,
+      "takes_over": "limit"
+    }
+  ],
+  "settings": {
+    "review_rounds": 2,
+    "lang": "ru"
+  },
+  "effective_settings": {
+    "review_rounds": 2,
+    "lang": "ru"
+  },
+  "state": {
+    "sol": {
+      "limit_until": 1792745400,
+      "active": true,
+      "limit_source": "revo",
+      "account": null
+    },
+    "astra": {
+      "limit_until": 1792745400,
+      "active": true,
+      "limit_source": "revo",
+      "account": null
+    },
+    "gemini": {
+      "limit_until": null,
+      "active": false,
+      "limit_source": null,
+      "account": null
+    },
+    "fable": {
+      "limit_until": null,
+      "active": false,
+      "limit_source": null,
+      "account": null
+    }
+  },
+  "effective_state": {
+    "sol": {
+      "limit_until": null,
+      "active": false,
+      "limit_source": null,
+      "account": null
+    },
+    "astra": {
+      "limit_until": null,
+      "active": false,
+      "limit_source": null,
+      "account": null
+    },
+    "gemini": {
+      "limit_until": null,
+      "active": false,
+      "limit_source": null,
+      "account": null
+    },
+    "fable": {
+      "limit_until": null,
+      "active": false,
+      "limit_source": null,
+      "account": null
+    }
+  }
+}
