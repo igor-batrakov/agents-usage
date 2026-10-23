@@ -208,8 +208,10 @@ public struct RevoError: Decodable, Equatable, Sendable {
 }
 
 public enum RevoFailure: Error, Equatable, Sendable {
-    /// revo does not speak schema 2 (too old, or a future incompatible one).
+    /// revo does not speak schema 2: too old, or not revo at all.
     case outdated
+    /// revo speaks only schemas newer than 2: the app is the one to update.
+    case newer
     /// revo answered with an error object; `status` is the exit code (4 is config_changed, 5 is busy).
     case failed(RevoError, status: Int32)
     /// Not the JSON of the contract (a crash before the output, a different program).
@@ -226,6 +228,7 @@ public enum RevoFailure: Error, Equatable, Sendable {
     public var text: String {
         switch self {
         case .outdated: L("This revo is too old for the app. Update it: %@", Revo.upgradeCommand)
+        case .newer: L("This revo is newer than the app. Update Agents Usage: Settings → About.")
         case .unreadable(let status): L("revo returned an unexpected response (exit code %d)", Int(status))
         case .run(let text): text
         case .failed(let e, _):
@@ -534,7 +537,9 @@ public enum Revo {
         let result = try await run(path, ["version", "--json"])
         struct Version: Decodable { let schemas: [Int]? }
         guard result.status == 0, let v = try? JSONDecoder().decode(Version.self, from: result.output),
-              v.schemas?.contains(schema) == true else { throw RevoFailure.outdated }
+              let schemas = v.schemas else { throw RevoFailure.outdated }
+        if schemas.contains(schema) { return }
+        throw schemas.allSatisfy { $0 > schema } ? RevoFailure.newer : RevoFailure.outdated
     }
 
     public static func list(_ path: String) async throws -> RevoChain {
@@ -569,6 +574,7 @@ public enum Revo {
         guard let envelope = try? JSONDecoder().decode(Envelope.self, from: result.output) else {
             throw RevoFailure.unreadable(status: result.status)
         }
+        if let other = envelope.schema, other > schema { throw RevoFailure.newer }
         guard envelope.schema == schema else { throw RevoFailure.outdated }
         if envelope.ok != true {
             guard let error = envelope.error else { throw RevoFailure.unreadable(status: result.status) }

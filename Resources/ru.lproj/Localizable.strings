@@ -58,6 +58,7 @@
 
 /* Sources/UsageCore/Revolver.swift */
 "This revo is too old for the app. Update it: %@" = "Эта версия revo слишком старая для приложения. Обновите её: %@";
+"This revo is newer than the app. Update Agents Usage: Settings → About." = "Эта версия revo новее приложения. Обновите Agents Usage: Настройки → О программе.";
 "revo returned an unexpected response (exit code %d)" = "revo вернул неожиданный ответ (код %d)";
 "The review chain is being changed by another process. Try again." = "Цепочку ревью сейчас меняет другой процесс. Повторите попытку.";
 "The review chain was changed outside the app and has been reloaded. Check your edits and apply again." = "Цепочку изменили вне приложения, она перечитана. Проверьте свои правки и примените их снова.";

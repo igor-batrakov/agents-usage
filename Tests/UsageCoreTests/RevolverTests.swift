@@ -123,6 +123,24 @@ import Testing
         }
     }
 
+    @Test func aNewerSchemaAsksToUpdateTheApp() async throws {
+        #expect(throws: RevoFailure.newer) {
+            let _: RevoChain = try decode(#"{"schema": 3, "ok": true}"#)
+        }
+        // `version --json` of a revo that speaks only schema 3, and of one that speaks both.
+        func revo(_ schemas: String) throws -> String {
+            let path = FileManager.default.temporaryDirectory.appendingPathComponent("revo-\(UUID().uuidString)").path
+            try "#!/bin/sh\necho '{\"schema\": 3, \"ok\": true, \"schemas\": \(schemas)}'\n"
+                .write(toFile: path, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+            return path
+        }
+        let failure = await #expect(throws: RevoFailure.newer) { try await Revo.checkVersion(try revo("[3]")) }
+        #expect(failure?.text == "This revo is newer than the app. Update Agents Usage: Settings → About.")
+        try await Revo.checkVersion(try revo("[2, 3]"))
+        await #expect(throws: RevoFailure.outdated) { try await Revo.checkVersion(try revo("[1]")) }
+    }
+
     @Test func notJSONOrFailedSuccessIsUnreadable() {
         #expect(throws: RevoFailure.unreadable(status: 1)) {
             let _: RevoChain = try decode("Traceback (most recent call last):", status: 1)
