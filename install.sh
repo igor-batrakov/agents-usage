@@ -5,7 +5,7 @@
 #
 # Files downloaded with curl carry no quarantine flag, so macOS opens the app without the
 # "unidentified developer" dialog (the app is ad-hoc signed, not notarized).
-# AGENTS_USAGE_VERSION=v0.1.1 installs a specific release instead of the latest one.
+# AGENTS_USAGE_VERSION=v0.2.0 installs a specific release instead of the latest one.
 set -euo pipefail
 
 REPO="igor-batrakov/agents-usage"
