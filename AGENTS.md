@@ -15,9 +15,9 @@ and reset time for each window, amounts as a balance line.
 - Release: `tools/release.sh v1.2.0`: universal build, `dist/Agents-Usage.zip` and `.dmg` (names without a version,
   `install.sh` downloads them from `releases/latest/download/`), `SHA256SUMS`, a GitHub release with notes from
   `docs/release-notes/<tag>.md`. There is no Developer ID signature: `install.sh` downloads with curl (no quarantine).
-- Demo for the README screenshots: `open "Agents Usage.app" --args --demo [-language ru] [--demo-settings]`
-  (`Demo.swift`): its own UserDefaults domain and made-up data; real settings, keys and notification state are
-  left alone.
+- Demo for the README screenshots: `open "Agents Usage.app" --args --demo [-language ru] [--demo-settings]
+  [--demo-review]` (`Demo.swift`): its own UserDefaults domain and made-up data, a made-up review chain;
+  real settings, keys and notification state are left alone, revo is never run.
 - The icon is `Resources/AppIcon.icns`, drawn by `tools/make-icon.swift`; rebuild it with `tools/make-icon.sh`.
   Do not change the bundle ID `ru.batrakov.UsageWidget` or the binary name `UsageWidget`: settings, accounts and
   the notification permission are tied to them.
@@ -30,11 +30,14 @@ and reset time for each window, amounts as a balance line.
   with its own settings), the catalog (`Catalog`), response parsers (`Parsers`), sources (`Sources.swift`),
   subprocess launching (`ProcessRunner`), `UsageStore` (parallel polling of enabled accounts, timer),
   `Alerts` (when to notify), `PollPolicy` (low-power polling), `KeyStore` (API keys in the Keychain),
-  `Updates` (latest GitHub release, version comparison).
+  `Updates` (latest GitHub release, version comparison), `Revolver` (the `revo` JSON contract, edits as
+  `apply` operations).
 - `Sources/UsageWidget` is AppKit (`NSStatusItem`, `NSPopover`, `NSPanel`, settings window) plus SwiftUI content.
   `Settings` holds all settings and the account list (JSON in UserDefaults, key `accounts`). `Notifier` delivers
   notifications, `HotKey` is the global shortcut (Carbon), `SystemState` reports lock, display sleep and battery.
   `Updater` checks for a new release and installs it; `About.swift` is the About tab and the popover update row.
+  `ReviewChain` runs revo and holds the edited chain; `ReviewChainTab.swift` is the Review chain tab and the
+  popover line with review limits.
 - Translations live in `Resources/<code>.lproj/Localizable.strings`, the key is the English text. `Localization`
   (UsageCore) loads the selected language itself, not through `Bundle`, so the language switches in settings without
   a restart. The language list comes from the `*.lproj` directories found; `build.sh` fills `CFBundleLocalizations`.
@@ -56,6 +59,7 @@ and reset time for each window, amounts as a balance line.
 | OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
 | Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
 | Updates | `GET api.github.com/repos/igor-batrakov/agents-usage/releases/latest` → `tag_name`, `html_url` (public API, no token) |
+| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or the path chosen in settings (`revoPath`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 1), `ls --json`, `engines --json`, `status --json`, `apply [--check]` with operations on stdin. Schema 1, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
 
 ## Invariants (reviewers check these)
 
@@ -97,3 +101,9 @@ and reset time for each window, amounts as a balance line.
     no script is downloaded. The automatic check runs at most once a day after a successful
     one (launch, settings change, popover opening; no timer of its own), can be turned off, and never runs in demo
     mode. `install.sh` quits the app with `pkill -a`: the app is the script's ancestor, and plain `pkill` skips it.
+16. **The Revolver config changes only through `revo apply` after an explicit Apply**, preceded by
+    `apply --check` whose diff the user confirms; the write sends the `config_rev` that was checked. The app
+    never reads or writes revo's files and sends only edits by id (order, `on`/`model`/`effort`, settings), so
+    fields it does not know survive. revo runs only on demand: tab opening, Apply, popover opening (at most
+    every 15 s); from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
+    keeps the previous chain and limits and only shows the error.

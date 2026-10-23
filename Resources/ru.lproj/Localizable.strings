@@ -56,6 +56,15 @@
 "can't start %@: %@" = "не запустить %@: %@";
 "timed out after %d s" = "таймаут %d с";
 
+/* Sources/UsageCore/Revolver.swift */
+"This revo is too old for the app. Update it: %@" = "Эта версия revo слишком старая для приложения. Обновите её: %@";
+"revo returned an unexpected response (exit code %d)" = "revo вернул неожиданный ответ (код %d)";
+"The review chain is being changed by another process. Try again." = "Цепочку ревью сейчас меняет другой процесс. Повторите попытку.";
+"The review chain was changed outside the app and has been reloaded. Check your edits and apply again." = "Цепочку изменили вне приложения, она перечитана. Проверьте свои правки и примените их снова.";
+"%@: effort %@ is not supported" = "%@: effort %@ не поддерживается";
+"%@: invalid model name %@" = "%@: недопустимое имя модели %@";
+"revo failed with an internal error. Run it in Terminal to see the details." = "Внутренняя ошибка revo. Подробности покажет запуск в Терминале.";
+
 /* Sources/UsageCore/Sources.swift */
 "not signed in to Claude Code" = "нет входа в Claude Code";
 "not signed in to Claude Code for this directory" = "нет входа в Claude Code для этого каталога";
@@ -126,11 +135,50 @@
 "Settings (⌘,)" = "Настройки (⌘,)";
 "Quit (⌘Q)" = "Выйти (⌘Q)";
 
+/* Sources/UsageWidget/ReviewChain.swift */
+"Choose the revo executable" = "Выберите исполняемый файл revo";
+"limit, resets %@" = "лимит, сброс %@";
+"CLI not found" = "CLI не найден";
+"runs if the one above hits a limit" = "вступает, если у предыдущего лимит";
+"runs if the one above fails" = "вступает, если предыдущий не справился";
+"default" = "по умолчанию";
+"System default" = "Как в системе";
+"Order: %@" = "Порядок: %@";
+"%@: turn on" = "%@: включить";
+"%@: turn off" = "%@: выключить";
+"%@: model %@ → %@" = "%@: модель %@ → %@";
+"%@: effort %@ → %@" = "%@: effort %@ → %@";
+"Review rounds: %@ → %@" = "Прогонов ревью: %@ → %@";
+"Review language: %@ → %@" = "Язык ревью: %@ → %@";
+
+/* Sources/UsageWidget/ReviewChainTab.swift */
+"The review chain is not loaded." = "Цепочка ревью не загружена.";
+"Review rounds per commit: %d" = "Прогонов ревью на коммит: %d";
+"Review language" = "Язык ревью";
+"Apply these changes?" = "Применить эти изменения?";
+"Show review limits in the popover" = "Показывать лимиты ревью в поповере";
+"Reload the chain from revo" = "Перечитать цепочку из revo";
+"Cancel" = "Отменить";
+"Apply" = "Применить";
+"Revert" = "Вернуть как было";
+"Apply…" = "Применить…";
+"Built-in chain. Apply creates %@" = "Встроенная цепочка. «Применить» создаст %@";
+"Edits %@" = "Изменения пишутся в %@";
+"drag to reorder" = "порядок — перетаскиванием";
+"Choose…" = "Выбрать…";
+"Default" = "По умолчанию";
+"Known models" = "Известные модели";
+"Effort" = "Effort";
+"Review chain: %@" = "Цепочка ревью: %@";
+"%@ limit, resets %@" = "%@: лимит, сброс %@";
+"Recorded by revo: %@" = "Записано revo: %@";
+
 /* Sources/UsageWidget/SettingsWindow.swift */
 "Agents Usage Settings" = "Настройки — Agents Usage";
 "General" = "Общие";
 "Services" = "Сервисы";
 "Panel" = "Панель";
+"Review chain" = "Цепочка ревью";
 "About" = "О программе";
 "Data refresh" = "Обновление";
 "Auto-refresh" = "Автообновление";
@@ -153,19 +201,17 @@
 "The tick shows how much of the window has passed. Fill past it means the limit is being used faster than it would last until the reset." = "Чёрточка — сколько времени окна уже прошло. Заливка правее неё — расход быстрее, чем нужно, чтобы лимита хватило до сброса.";
 "System" = "Система";
 "Language" = "Язык";
-"System default" = "Как в системе";
 "Launch at login" = "Запускать при входе";
 "Open popover" = "Открыть поповер";
+"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab." = "revo из Revolver не найден в ~/.local/bin, /opt/homebrew/bin и /usr/local/bin. Укажите его, и появится вкладка «Цепочка ревью».";
 "API key" = "API-ключ";
 "not found" = "не найден";
 "Add a service" = "Добавить сервис";
 "Remove the selected one" = "Удалить выбранный";
-"drag to reorder" = "порядок — перетаскиванием";
 "Select a service on the left" = "Выберите сервис слева";
 "Name" = "Имя";
 "Show" = "Показывать";
 "On panel" = "На панели";
-"default" = "по умолчанию";
 "Configuration directory of a second account, e.g. ~/.claude-work. Empty means the main one." = "Каталог конфигурации второго аккаунта, например ~/.claude-work. Пусто — основной.";
 "Windows" = "Окна";
 "No limit windows, only a balance." = "Окон лимита нет — только баланс.";

@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "ok": false,
+  "error": {
+    "code": "invalid_effort",
+    "block": "agy",
+    "field": "effort",
+    "value": "max",
+    "message": "new config: block 3 — effort 'max' for agy: allowed low/medium/high"
+  }
+}

@@ -10,7 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let popover = NSPopover()
     private var panel: FloatingPanel?
     private lazy var settingsWindow = SettingsWindowController(settings: settings, store: store, notifier: notifier,
-                                                               updater: updater)
+                                                               updater: updater, reviewChain: reviewChain)
+    private lazy var reviewChain = ReviewChain(settings: settings)
     private let notifier = Notifier()
     private let updater = Updater()
     private let hotKey = HotKey()
@@ -23,7 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.button?.target = self
         statusItem.button?.action = #selector(togglePopover)
 
-        let host = NSHostingController(rootView: PopoverView(store: store, settings: settings, updater: updater) { [weak self] in
+        let host = NSHostingController(rootView: PopoverView(store: store, settings: settings, updater: updater,
+                                                             reviewChain: reviewChain) { [weak self] in
             self?.popover.performClose(nil)
             self?.settingsWindow.show()
         })
@@ -210,5 +212,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.contentViewController?.view.window?.makeKey()
         if settings.autoRefresh { Task { await store.refreshIfStale(olderThan: 60) } }
         updater.checkIfDue(enabled: settings.checkUpdates)
+        reviewChain.refreshLimits()
     }
 }

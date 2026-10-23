@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "ok": true,
+  "engines": [
+    {
+      "name": "codex",
+      "display": "Codex",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "models": [
+        "default",
+        "gpt-6.1-sol",
+        "gpt-6-astra"
+      ],
+      "custom_model": true,
+      "model_pattern": "^[A-Za-z0-9._-]+$",
+      "hard": true,
+      "installed": true,
+      "path": "/opt/homebrew/bin/codex"
+    },
+    {
+      "name": "agy",
+      "display": "Gemini",
+      "efforts": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "models": [
+        "default",
+        "gemini-3.8-flash",
+        "gemini-4-argon"
+      ],
+      "custom_model": true,
+      "model_pattern": "^[A-Za-z0-9._-]+$",
+      "hard": false,
+      "installed": true,
+      "path": "/Users/u/.local/bin/agy"
+    },
+    {
+      "name": "claude",
+      "display": "Claude",
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "models": [
+        "default",
+        "claude-fable-5-1",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "claude-haiku-5-5"
+      ],
+      "custom_model": true,
+      "model_pattern": "^[A-Za-z0-9._-]+$",
+      "hard": true,
+      "installed": true,
+      "path": "/Users/u/.local/bin/claude"
+    }
+  ],
+  "takes_over": [
+    "-",
+    "limit",
+    "any_fail"
+  ]
+}
