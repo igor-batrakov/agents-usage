@@ -59,7 +59,7 @@ and reset time for each window, amounts as a balance line.
 | OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
 | Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
 | Updates | `GET api.github.com/repos/igor-batrakov/agents-usage/releases/latest` → `tag_name`, `html_url` (public API, no token) |
-| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or the path chosen in settings (`revoPath`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 1), `ls --json`, `engines --json`, `status --json`, `apply [--check]` with operations on stdin. Schema 1, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
+| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `revoPath` (chosen in settings, or found once by the login shell's `command -v revo`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 1), `ls --json`, `engines --json`, `status --json`, `apply [--check]` with operations on stdin. Schema 1, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
 
 ## Invariants (reviewers check these)
 
@@ -106,4 +106,6 @@ and reset time for each window, amounts as a balance line.
     never reads or writes revo's files and sends only edits by id (order, `on`/`model`/`effort`, settings), so
     fields it does not know survive. revo runs only on demand: tab opening, Apply, popover opening (at most
     every 15 s); from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
-    keeps the previous chain and limits and only shows the error.
+    keeps the previous chain and limits and only shows the error. A path is kept as `revoPath` only after
+    `version --json` passes. The one exception to invariant 7: while revo is not found, the settings window
+    asks the login shell (`$SHELL -l -i -c 'command -v revo'`, stdin closed, 5 s timeout) once per launch.

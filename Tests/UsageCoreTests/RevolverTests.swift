@@ -188,6 +188,38 @@ import Testing
         #expect(failure?.text == "The review chain is being changed by another process. Try again.")
     }
 
+    @Test func shellPathSkipsProfileNoise() {
+        #expect(Revo.shellPath("Welcome back!\n\u{1b}[0m\n  /Users/me/bin/revo  \n\n") == "/Users/me/bin/revo")
+        #expect(Revo.shellPath("/usr/local/share/motd\n/Users/me/My Tools/revo\n") == "/Users/me/My Tools/revo")
+        #expect(Revo.shellPath("alias revo='python3 -m revolver'\n") == nil)
+        #expect(Revo.shellPath("") == nil)
+    }
+
+    /// A stand-in shell that prints profile noise, then the answer, and exits with `status`.
+    private func fakeShell(status: Int) throws -> String {
+        let path = FileManager.default.temporaryDirectory.appendingPathComponent("fake-shell-\(UUID().uuidString)").path
+        let script = "#!/bin/sh\necho 'zsh profile says hi'\necho /opt/tools/revo\nexit \(status)\n"
+        try script.write(toFile: path, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: path)
+        return path
+    }
+
+    @Test func fromShellTakesTheLastPath() async throws {
+        #expect(await Revo.fromShell(try fakeShell(status: 0)) == "/opt/tools/revo")
+    }
+
+    @Test func fromShellIgnoresAFailedLookup() async throws {
+        #expect(await Revo.fromShell(try fakeShell(status: 1)) == nil)
+    }
+
+    /// The real login shell, only on request: `REVO_SHELL=1 ./test.sh --filter liveShell`. Runs your shell profile.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["REVO_SHELL"] != nil))
+    func liveShell() async throws {
+        let found = try #require(await Revo.fromShell())
+        print("login shell revo:", found)
+        try await Revo.checkVersion(found)
+    }
+
     /// Against a real revo, only on request: `REVO_LIVE=<revo> ./test.sh --filter liveRevo`. It writes, so point it
     /// at a wrapper that sets a temp `XDG_CONFIG_HOME`, never at the revo of your real chain.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["REVO_LIVE"] != nil))

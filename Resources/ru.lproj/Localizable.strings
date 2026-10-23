@@ -137,6 +137,8 @@
 
 /* Sources/UsageWidget/ReviewChain.swift */
 "Choose the revo executable" = "Выберите исполняемый файл revo";
+"No executable file at %@" = "По пути %@ нет исполняемого файла";
+"This is not revo, or a revo too old for the app. Update it: %@" = "Это не revo или слишком старая для приложения версия. Обновите её: %@";
 "limit, resets %@" = "лимит, сброс %@";
 "CLI not found" = "CLI не найден";
 "runs if the one above hits a limit" = "вступает, если у предыдущего лимит";
@@ -203,7 +205,8 @@
 "Language" = "Язык";
 "Launch at login" = "Запускать при входе";
 "Open popover" = "Открыть поповер";
-"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab." = "revo из Revolver не найден в ~/.local/bin, /opt/homebrew/bin и /usr/local/bin. Укажите его, и появится вкладка «Цепочка ревью».";
+"Looking for revo…" = "Ищу revo…";
+"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin or your shell's PATH. Paste its path and press Return, drop the file onto the field, or choose it." = "revo из Revolver не найден ни в ~/.local/bin, /opt/homebrew/bin, /usr/local/bin, ни в PATH вашего shell. Вставьте путь к нему и нажмите Return, перетащите файл в поле или выберите его кнопкой.";
 "API key" = "API-ключ";
 "not found" = "не найден";
 "Add a service" = "Добавить сервис";

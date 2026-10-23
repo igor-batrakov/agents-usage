@@ -108,7 +108,7 @@ struct ReviewChainTab: View {
             if !Demo.isOn, let path = chain.path {
                 HStack(spacing: 6) {
                     Text(verbatim: "revo: " + (path as NSString).abbreviatingWithTildeInPath)
-                    Button(L("Choose…")) { chain.choosePath() }.buttonStyle(.link)
+                    Button(L("Choose…")) { Task { await chain.choosePath() } }.buttonStyle(.link)
                     if settings.revoPath != nil {
                         Button(L("Default")) {
                             settings.revoPath = nil
@@ -116,6 +116,11 @@ struct ReviewChainTab: View {
                         }
                         .buttonStyle(.link)
                     }
+                }
+                // A pending check would overwrite a newer choice.
+                .disabled(chain.searching)
+                if let error = chain.pathError {
+                    Text(error).foregroundStyle(Color(nsColor: Theme.amber))
                 }
             }
         }

@@ -36,6 +36,7 @@ final class SettingsWindowController {
         // revo may have been installed or removed since the last opening. The tab reloads on appearing,
         // but a window that was only hidden shows it again without that.
         reviewChain.locate()
+        Task { await reviewChain.discover() }
         if settings.selectedTab == SettingsView.reviewTab {
             if reviewChain.isAvailable { Task { await reviewChain.reload() } } else { settings.selectedTab = 0 }
         }
@@ -148,17 +149,50 @@ private struct GeneralTab: View {
                 }
                 // The Review chain tab, which also holds the path, is hidden until revo is found.
                 if !reviewChain.isAvailable {
-                    LabeledContent(L("Review chain")) {
-                        Button(L("Choose…")) {
-                            if reviewChain.choosePath(), reviewChain.isAvailable { settings.selectedTab = SettingsView.reviewTab }
-                        }
-                    }
-                    Text(L("Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab."))
-                        .font(.caption).foregroundStyle(.secondary)
+                    RevoPathRow(chain: reviewChain, settings: settings)
                 }
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Where revo is, while the app has not found it: a path to paste (or a file to drop) and the file panel.
+private struct RevoPathRow: View {
+    let chain: ReviewChain
+    let settings: Settings
+
+    var body: some View {
+        LabeledContent(L("Review chain")) {
+            HStack(spacing: 6) {
+                if chain.searching { ProgressView().controlSize(.small) }
+                TextField("", text: Binding(get: { chain.pathInput }, set: { chain.pathInput = $0 }),
+                          prompt: Text(verbatim: "~/bin/revo"))
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 200)
+                    .onSubmit { take { await chain.use(chain.pathInput) } }
+                    .dropDestination(for: URL.self) { urls, _ in
+                        guard let url = urls.first else { return false }
+                        chain.pathInput = url.path
+                        take { await chain.use(url.path) }
+                        return true
+                    }
+                Button(L("Choose…")) { take { await chain.choosePath() } }
+            }
+            .disabled(chain.searching)
+        }
+        Text(chain.searching ? L("Looking for revo…") : chain.pathError
+             ?? L("Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin or your shell's PATH. Paste its path and press Return, drop the file onto the field, or choose it."))
+            .font(.caption)
+            .foregroundStyle(chain.pathError != nil && !chain.searching ? Color(nsColor: Theme.amber) : .secondary)
+            .textSelection(.enabled)
+    }
+
+    /// Once revo is taken, its tab appears: go there.
+    private func take(_ action: @escaping @MainActor () async -> Bool) {
+        Task {
+            if await action(), chain.isAvailable { settings.selectedTab = SettingsView.reviewTab }
+        }
     }
 }
 

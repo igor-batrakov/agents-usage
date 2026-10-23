@@ -137,6 +137,8 @@
 
 /* Sources/UsageWidget/ReviewChain.swift */
 "Choose the revo executable" = "Choose the revo executable";
+"No executable file at %@" = "No executable file at %@";
+"This is not revo, or a revo too old for the app. Update it: %@" = "This is not revo, or a revo too old for the app. Update it: %@";
 "limit, resets %@" = "limit, resets %@";
 "CLI not found" = "CLI not found";
 "runs if the one above hits a limit" = "runs if the one above hits a limit";
@@ -203,7 +205,8 @@
 "Language" = "Language";
 "Launch at login" = "Launch at login";
 "Open popover" = "Open popover";
-"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab." = "Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab.";
+"Looking for revo…" = "Looking for revo…";
+"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin or your shell's PATH. Paste its path and press Return, drop the file onto the field, or choose it." = "Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin, /usr/local/bin or your shell's PATH. Paste its path and press Return, drop the file onto the field, or choose it.";
 "API key" = "API key";
 "not found" = "not found";
 "Add a service" = "Add a service";
