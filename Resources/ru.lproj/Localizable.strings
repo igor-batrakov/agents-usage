@@ -136,6 +136,7 @@
 "Quit (⌘Q)" = "Выйти (⌘Q)";
 
 /* Sources/UsageWidget/ReviewChain.swift */
+"Choose the revo executable" = "Выберите исполняемый файл revo";
 "limit, resets %@" = "лимит, сброс %@";
 "CLI not found" = "CLI не найден";
 "runs if the one above hits a limit" = "вступает, если у предыдущего лимит";
@@ -163,9 +164,9 @@
 "Apply…" = "Применить…";
 "Built-in chain. Apply creates %@" = "Встроенная цепочка. «Применить» создаст %@";
 "Edits %@" = "Изменения пишутся в %@";
+"drag to reorder" = "порядок — перетаскиванием";
 "Choose…" = "Выбрать…";
 "Default" = "По умолчанию";
-"Choose the revo executable" = "Выберите исполняемый файл revo";
 "Known models" = "Известные модели";
 "Effort" = "Effort";
 "Review chain: %@" = "Цепочка ревью: %@";
@@ -202,11 +203,11 @@
 "Language" = "Язык";
 "Launch at login" = "Запускать при входе";
 "Open popover" = "Открыть поповер";
+"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab." = "revo из Revolver не найден в ~/.local/bin, /opt/homebrew/bin и /usr/local/bin. Укажите его, и появится вкладка «Цепочка ревью».";
 "API key" = "API-ключ";
 "not found" = "не найден";
 "Add a service" = "Добавить сервис";
 "Remove the selected one" = "Удалить выбранный";
-"drag to reorder" = "порядок — перетаскиванием";
 "Select a service on the left" = "Выберите сервис слева";
 "Name" = "Имя";
 "Show" = "Показывать";

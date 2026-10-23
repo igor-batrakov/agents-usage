@@ -136,6 +136,7 @@
 "Quit (⌘Q)" = "Quit (⌘Q)";
 
 /* Sources/UsageWidget/ReviewChain.swift */
+"Choose the revo executable" = "Choose the revo executable";
 "limit, resets %@" = "limit, resets %@";
 "CLI not found" = "CLI not found";
 "runs if the one above hits a limit" = "runs if the one above hits a limit";
@@ -163,9 +164,9 @@
 "Apply…" = "Apply…";
 "Built-in chain. Apply creates %@" = "Built-in chain. Apply creates %@";
 "Edits %@" = "Edits %@";
+"drag to reorder" = "drag to reorder";
 "Choose…" = "Choose…";
 "Default" = "Default";
-"Choose the revo executable" = "Choose the revo executable";
 "Known models" = "Known models";
 "Effort" = "Effort";
 "Review chain: %@" = "Review chain: %@";
@@ -202,11 +203,11 @@
 "Language" = "Language";
 "Launch at login" = "Launch at login";
 "Open popover" = "Open popover";
+"Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab." = "Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab.";
 "API key" = "API key";
 "not found" = "not found";
 "Add a service" = "Add a service";
 "Remove the selected one" = "Remove the selected one";
-"drag to reorder" = "drag to reorder";
 "Select a service on the left" = "Select a service on the left";
 "Name" = "Name";
 "Show" = "Show";

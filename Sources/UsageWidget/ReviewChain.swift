@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 import SwiftUI  // Array.move(fromOffsets:toOffset:) is a SwiftUI extension
 import UsageCore
@@ -27,6 +27,8 @@ final class ReviewChain {
     /// The path whose schema was checked (`revo version`): once per path, not on every reload.
     @ObservationIgnored private var verified: String?
     @ObservationIgnored private var limitsAt: Date?
+    /// The edits `preview` describes. Confirm writes these, not the current ones: editing goes on while the check runs.
+    @ObservationIgnored private var checked = RevoOps()
 
     init(settings: Settings) {
         self.settings = settings
@@ -45,6 +47,22 @@ final class ReviewChain {
     /// Cheap (a few file checks): repeated on settings and popover opening, revo may have been installed meanwhile.
     func locate() {
         path = Demo.isOn ? "demo" : Revo.locate(custom: settings.revoPath)
+    }
+
+    /// revo outside the fixed places, e.g. a symlink in a directory of your own. True when one was chosen.
+    @discardableResult
+    func choosePath() -> Bool {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.showsHiddenFiles = true
+        panel.message = L("Choose the revo executable")
+        guard panel.runModal() == .OK, let url = panel.url,
+              FileManager.default.isExecutableFile(atPath: url.path) else { return false }
+        settings.revoPath = url.path
+        locate()
+        Task { await reload() }
+        return true
     }
 
     func reload() async {
@@ -124,8 +142,10 @@ final class ReviewChain {
         }
         busy = true
         defer { busy = false }
+        let ops = edits
         do {
-            preview = try await Revo.apply(path, edits, base: loaded.configRev, check: true)
+            preview = try await Revo.apply(path, ops, base: loaded.configRev, check: true)
+            checked = ops
             failure = nil
         } catch {
             await fail(error)
@@ -138,7 +158,7 @@ final class ReviewChain {
         busy = true
         defer { busy = false }
         do {
-            _ = try await Revo.apply(path, edits, base: preview.configRev, check: false)
+            _ = try await Revo.apply(path, checked, base: preview.configRev, check: false)
             self.preview = nil
             try await fetch()
             failure = nil
@@ -219,8 +239,10 @@ final class ReviewChain {
 
     /// The line under a block's name and whether it is a warning.
     func note(_ block: RevoBlock, now: Date) -> (text: String, warning: Bool)? {
-        if let state = loaded?.state[block.id], state.active, let until = state.limitUntil {
-            return (L("limit, resets %@", Format.resetIn(Date(timeIntervalSince1970: TimeInterval(until)), now: now)), true)
+        // `active` is as of the last reload; the tab may stay open past the reset.
+        if let state = loaded?.state[block.id], state.active, let until = state.limitUntil.map({ Date(timeIntervalSince1970: TimeInterval($0)) }),
+           until > now {
+            return (L("limit, resets %@", Format.resetIn(until, now: now)), true)
         }
         if engines[block.engine]?.installed == false { return (L("CLI not found"), true) }
         switch block.takesOver {

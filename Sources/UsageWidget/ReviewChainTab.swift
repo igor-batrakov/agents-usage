@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 import UsageCore
 
@@ -49,9 +48,17 @@ struct ReviewChainTab: View {
                 .disabled(chain.preview != nil)
             }
             if let preview = chain.preview {
+                let lines = chain.describe(preview.diff)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(L("Apply these changes?")).fontWeight(.semibold)
-                    ForEach(chain.describe(preview.diff), id: \.self) { Text("• " + $0) }
+                    // The window does not resize: a long diff scrolls, a short one takes only its own height.
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 3) {
+                            ForEach(lines, id: \.self) { Text("• " + $0) }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(height: min(CGFloat(lines.count) * 19, 133))
                 }
                 .font(.callout)
             }
@@ -101,7 +108,7 @@ struct ReviewChainTab: View {
             if !Demo.isOn, let path = chain.path {
                 HStack(spacing: 6) {
                     Text(verbatim: "revo: " + (path as NSString).abbreviatingWithTildeInPath)
-                    Button(L("Choose…")) { choose() }.buttonStyle(.link)
+                    Button(L("Choose…")) { chain.choosePath() }.buttonStyle(.link)
                     if settings.revoPath != nil {
                         Button(L("Default")) {
                             settings.revoPath = nil
@@ -116,19 +123,6 @@ struct ReviewChainTab: View {
         .foregroundStyle(.secondary)
         .lineLimit(1)
         .truncationMode(.middle)
-    }
-
-    /// revo outside the fixed places, e.g. a symlink in a directory of your own.
-    private func choose() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = true
-        panel.canChooseDirectories = false
-        panel.showsHiddenFiles = true
-        panel.message = L("Choose the revo executable")
-        guard panel.runModal() == .OK, let url = panel.url,
-              FileManager.default.isExecutableFile(atPath: url.path) else { return }
-        settings.revoPath = url.path
-        Task { await chain.reload() }
     }
 }
 

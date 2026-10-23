@@ -62,7 +62,7 @@ struct SettingsView: View {
 
     var body: some View {
         TabView(selection: $settings.selectedTab) {
-            GeneralTab(settings: settings, notifier: notifier)
+            GeneralTab(settings: settings, notifier: notifier, reviewChain: reviewChain)
                 .tabItem { Label(L("General"), systemImage: "gearshape") }
                 .tag(0)
             ServicesTab(settings: settings, store: store)
@@ -91,6 +91,7 @@ struct SettingsView: View {
 private struct GeneralTab: View {
     @Bindable var settings: Settings
     let notifier: Notifier
+    let reviewChain: ReviewChain
 
     var body: some View {
         Form {
@@ -144,6 +145,16 @@ private struct GeneralTab: View {
                 Toggle(L("Launch at login"), isOn: $settings.launchAtLogin)
                 Picker(L("Open popover"), selection: $settings.hotKey) {
                     ForEach(HotKeyChoice.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+                // The Review chain tab, which also holds the path, is hidden until revo is found.
+                if !reviewChain.isAvailable {
+                    LabeledContent(L("Review chain")) {
+                        Button(L("Choose…")) {
+                            if reviewChain.choosePath(), reviewChain.isAvailable { settings.selectedTab = SettingsView.reviewTab }
+                        }
+                    }
+                    Text(L("Revolver's revo was not found in ~/.local/bin, /opt/homebrew/bin or /usr/local/bin. Choose it to get the Review chain tab."))
+                        .font(.caption).foregroundStyle(.secondary)
                 }
             }
         }

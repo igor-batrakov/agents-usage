@@ -126,7 +126,7 @@ the release page instead. Settings → About has a manual check and a switch to 
   paste API keys, set a custom usage page.
 - **Panel.** Mode, corner and margin, opacity, click-through, which services to show.
 - **Review chain.** Shown when `revo` is in `~/.local/bin`, `/opt/homebrew/bin` or `/usr/local/bin`, or at a
-  path you choose. Reorder reviewers, turn them on and off, pick a model and effort, set review rounds and the
+  path you choose in General. Reorder reviewers, turn them on and off, pick a model and effort, set review rounds and the
   review language. Apply shows what will change first. The app goes through `revo apply` and never edits
   revo's files itself; adding and removing reviewers stays in the terminal.
 - **About.** Version, update check, links to the project.
