@@ -353,8 +353,12 @@ final class ReviewChain {
 
     /// "Codex · sol"; just "Codex" when the id is the engine's name (the built-in chain).
     func blockName(_ id: String) -> String {
-        let blocks = (draft?.blocks ?? []) + (loaded?.chain ?? []) + (latest?.chain ?? []) + (preview?.diff.added ?? [])
-        return blocks.first { $0.id == id }.map(name) ?? id
+        // Separate lists: one long `+` of optionals is too slow to type-check for older compilers (CI).
+        let lists: [[RevoBlock]?] = [draft?.blocks, loaded?.chain, latest?.chain, preview?.diff.added]
+        for list in lists {
+            if let block = list?.first(where: { $0.id == id }) { return name(block) }
+        }
+        return id
     }
 
     /// A block not applied yet has no id of its own: "Claude · claude-opus-5-5".

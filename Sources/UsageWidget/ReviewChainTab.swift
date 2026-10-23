@@ -278,9 +278,13 @@ struct ReviewLimitsRow: View {
                 Label {
                     VStack(alignment: .leading, spacing: 1) {
                         ForEach(Array(items.enumerated()), id: \.offset) { _, item in
-                            let reset = Format.resetIn(item.until, now: now)
-                            Text(item.by.map { L("%@: limit, resets %@ → %@", chain.name(item.required), reset, chain.name($0)) }
-                                 ?? L("%@: limit, resets %@, no review", chain.name(item.required), reset))
+                            let reset: String = Format.resetIn(item.until, now: now)
+                            let who: String = chain.name(item.required)
+                            if let by = item.by {
+                                Text(L("%@: limit, resets %@ → %@", who, reset, chain.name(by)))
+                            } else {
+                                Text(L("%@: limit, resets %@, no review", who, reset))
+                            }
                         }
                     }
                 } icon: { Image(systemName: "checklist") }
