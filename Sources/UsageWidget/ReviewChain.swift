@@ -22,6 +22,12 @@ final class ReviewChain {
     /// Active limits by engine, for the popover. A failed call keeps them and only sets `limitsFailure`.
     private(set) var limits: [String: RevoLimit] = [:]
     private(set) var limitsFailure: RevoFailure?
+    /// The revo path typed, pasted or dropped in settings, before it is checked.
+    var pathInput = ""
+    /// Why the path given by hand was not taken.
+    private(set) var pathError: String?
+    /// The login shell or a path given by hand is being checked.
+    private(set) var searching = false
 
     @ObservationIgnored private let settings: Settings
     /// The path whose schema was checked (`revo version`): once per path, not on every reload.
@@ -29,6 +35,8 @@ final class ReviewChain {
     @ObservationIgnored private var limitsAt: Date?
     /// The edits `preview` describes. Confirm writes these, not the current ones: editing goes on while the check runs.
     @ObservationIgnored private var checked = RevoOps()
+    /// The login shell is asked at most once per launch: that runs the user's shell profile.
+    @ObservationIgnored private var askedShell = false
 
     init(settings: Settings) {
         self.settings = settings
@@ -49,20 +57,71 @@ final class ReviewChain {
         path = Demo.isOn ? "demo" : Revo.locate(custom: settings.revoPath)
     }
 
-    /// revo outside the fixed places, e.g. a symlink in a directory of your own. True when one was chosen.
+    /// revo outside the fixed places: the login shell's `command -v revo`, kept as the chosen path if it checks out.
+    /// Only while revo is not found, once per launch, on settings opening; never in demo mode.
+    func discover() async {
+        guard path == nil, !askedShell, !searching, !Demo.isOn else { return }
+        askedShell = true
+        searching = true
+        defer { searching = false }
+        guard let found = await Revo.fromShell(), await Self.verify(found) == nil else { return }
+        keep(found)
+    }
+
+    /// revo outside the fixed places, e.g. a symlink in a directory of your own. True when one was taken.
     @discardableResult
-    func choosePath() -> Bool {
+    func choosePath() async -> Bool {
+        guard !searching else { return false }
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
         panel.showsHiddenFiles = true
+        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory())
         panel.message = L("Choose the revo executable")
-        guard panel.runModal() == .OK, let url = panel.url,
-              FileManager.default.isExecutableFile(atPath: url.path) else { return false }
-        settings.revoPath = url.path
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        return await use(url.path)
+    }
+
+    /// A path typed, pasted or dropped (`~` is expanded); taken only if it is revo speaking schema 1.
+    @discardableResult
+    func use(_ raw: String) async -> Bool {
+        let path = (raw.trimmingCharacters(in: .whitespacesAndNewlines) as NSString).expandingTildeInPath
+        guard !path.isEmpty, !searching else { return false }
+        searching = true
+        defer { searching = false }
+        if let error = await Self.verify(path) {
+            pathError = error
+            return false
+        }
+        keep(path)
+        return true
+    }
+
+    private func keep(_ path: String) {
+        pathError = nil
+        pathInput = ""
+        settings.revoPath = path
+        verified = path
         locate()
         Task { await reload() }
-        return true
+    }
+
+    /// Why `path` is not a usable revo, or nil.
+    private static func verify(_ path: String) async -> String? {
+        var directory: ObjCBool = false
+        guard path.hasPrefix("/"), FileManager.default.fileExists(atPath: path, isDirectory: &directory), !directory.boolValue,
+              FileManager.default.isExecutableFile(atPath: path) else {
+            return L("No executable file at %@", (path as NSString).abbreviatingWithTildeInPath)
+        }
+        do {
+            try await Revo.checkVersion(path)
+            return nil
+        } catch RevoFailure.outdated {
+            // Any other program fails the version check the same way.
+            return L("This is not revo, or a revo too old for the app. Update it: %@", Revo.upgradeCommand)
+        } catch {
+            return failure(error).text
+        }
     }
 
     func reload() async {

@@ -299,6 +299,30 @@ public enum Revo {
         ProcessRunner.locate((custom.map { [$0] } ?? []) + candidates)
     }
 
+    /// The revo the user's login shell finds (`command -v revo`), for an install outside the fixed places.
+    /// An exception to looking binaries up at explicit paths: it runs the shell profile, so the caller asks only
+    /// when revo is not found otherwise, at most once per launch. stdin is closed: a profile that waits for
+    /// input gets EOF, a hung one is killed by the timeout.
+    public static func fromShell(_ shell: String? = nil) async -> String? {
+        let env = ProcessInfo.processInfo.environment["SHELL"] ?? ""
+        let account = getpwuid(getuid()).map { String(cString: $0.pointee.pw_shell) } ?? ""
+        let shell = shell ?? [env, account].first { !$0.isEmpty } ?? "/bin/zsh"
+        let user = NSUserName()
+        guard let result = try? await ProcessRunner.runStatus(
+            shell, ["-l", "-i", "-c", "command -v revo"], closeInput: true,
+            environment: ["USER": user, "LOGNAME": user, "SHELL": shell, "TERM": "dumb"],
+            directory: NSHomeDirectory(), timeout: 5),
+            result.status == 0 else { return nil }
+        return shellPath(String(decoding: result.output, as: UTF8.self))
+    }
+
+    /// The last line that is an absolute path: a shell profile may print anything before it.
+    static func shellPath(_ output: String) -> String? {
+        output.split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .last { $0.hasPrefix("/") }
+    }
+
     /// revo speaks English and Russian; any other app language gets English messages.
     static var language: String { Localization.shared.code == "ru" ? "ru" : "en" }
 
