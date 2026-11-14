@@ -172,6 +172,11 @@
 "Add reviewer" = "Add reviewer";
 "drag to reorder: higher goes first" = "drag to reorder: higher goes first";
 "The review chain is not loaded." = "The review chain is not loaded.";
+"Model lists updated %@" = "Model lists updated %@";
+"Model lists not fetched yet" = "Model lists not fetched yet";
+"Update model lists" = "Update model lists";
+"Asks the providers which models they offer. No model is run and nothing is spent; it can take half a minute." = "Asks the providers which models they offer. No model is run and nothing is spent; it can take half a minute.";
+"Model lists: %@" = "Model lists: %@";
 "Review rounds per commit: %d" = "Review rounds per commit: %d";
 "Review language" = "Review language";
 "A round is one run of the whole chain; the remarks of the last one are fixed without another review. The number is shared by all reviewers; a project can set its own in .revolver.json." = "A round is one run of the whole chain; the remarks of the last one are fixed without another review. The number is shared by all reviewers; a project can set its own in .revolver.json.";
@@ -187,6 +192,7 @@
 "Edits %@" = "Edits %@";
 "Choose…" = "Choose…";
 "Default" = "Default";
+"%@ (new, no reviews yet)" = "%@ (new, no reviews yet)";
 "Known models" = "Known models";
 "Effort" = "Effort";
 "Remove reviewer" = "Remove reviewer";

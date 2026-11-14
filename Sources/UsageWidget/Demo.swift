@@ -59,13 +59,17 @@ enum Demo {
              "state": {"sol": \(limited), "astra": \(limited), "gemini": \(free), "opus": \(free), "fable": \(free)}}
             """
         let pattern = #""model_pattern": "^[A-Za-z0-9._-]+$""#
+        let fetched = Int(Date().timeIntervalSince1970) - 3 * 3600
         let engines = """
-            [{"name": "codex", "display": "Codex", "efforts": ["low", "medium", "high", "xhigh", "max"],
-              "models": ["default", "gpt-6.1-sol", "gpt-6-astra"], "custom_model": true, \(pattern), "installed": true},
-             {"name": "agy", "display": "Gemini", "efforts": ["low", "medium", "high"],
+            [{"name": "codex", "display": "Codex", "vendor": "Codex", "efforts": ["low", "medium", "high", "xhigh", "max"],
+              "models": ["default", "gpt-6.1-sol", "gpt-6-astra", "gpt-6.1-terra"], "discovered": ["gpt-6.1-terra"],
+              "model_efforts": {"gpt-6.1-terra": ["low", "medium", "high"]}, "models_fetched_at": \(fetched),
+              "custom_model": true, \(pattern), "installed": true},
+             {"name": "agy", "display": "Gemini", "vendor": "Gemini", "efforts": ["low", "medium", "high"],
               "models": ["default", "gemini-3.8-flash", "gemini-4-argon"], "custom_model": true, \(pattern), "installed": true},
-             {"name": "claude", "display": "Claude", "efforts": ["low", "medium", "high", "xhigh", "max"],
-              "models": ["default", "claude-fable-5-1", "claude-opus-5-5"], "custom_model": true, \(pattern), "installed": true}]
+             {"name": "claude", "display": "Claude", "vendor": "Claude Code", "efforts": ["low", "medium", "high", "xhigh", "max"],
+              "models": ["default", "claude-fable-5-2", "claude-opus-5-5", "claude-fable-5-1", "opus"],
+              "custom_model": true, \(pattern), "installed": true}]
             """
         let decoder = JSONDecoder()
         return (try! decoder.decode(RevoChain.self, from: Data(chain.utf8)),

@@ -59,7 +59,7 @@ and reset time for each window, amounts as a balance line.
 | OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
 | Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
 | Updates | `GET api.github.com/repos/igor-batrakov/agents-usage/releases/latest` → `tag_name`, `html_url` (public API, no token) |
-| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `revoPath` (chosen in settings, or found once by the login shell's `command -v revo`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 2), `ls --json` (blocks with `role`, limits in `state`; also for the popover), `engines --json`, `apply [--check]` with operations on stdin (`remove`, `add`, `order`, `set`, `settings`). Schema 2, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
+| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `revoPath` (chosen in settings, or found once by the login shell's `command -v revo`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 2), `ls --json` (blocks with `role`, limits in `state`; also for the popover), `engines --json` (`vendor` is the name shown, `display` only tells engines apart; `discovered`, `model_efforts`, `models_fetched_at`), `models [--refresh] --json` (fetches model lists from the providers, no model is called, up to tens of seconds; `usage` from an older revo hides the button), `apply [--check]` with operations on stdin (`remove`, `add`, `order`, `set`, `settings`). Schema 2, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
 
 ## Invariants (reviewers check these)
 
@@ -108,7 +108,8 @@ and reset time for each window, amounts as a balance line.
     `on`/`model`/`effort`/`role`/`takes_over`, settings), so fields it does not know survive; with any edit it
     sends every block's role, so revo writes derived roles into the file. A chain revo accepts is never
     blocked: missing required reviewers and fallbacks that never run are warnings. revo runs only on demand: tab opening, Apply, popover opening (at most
-    every 15 s); from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
+    every 15 s), the Update model lists button (tab opening runs `models` without `--refresh`: only lists older
+    than a day; it never blocks editing and never touches the draft); from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
     keeps the previous chain and limits and only shows the error. A path is kept as `revoPath` only after
     `version --json` passes. The one exception to invariant 7: while revo is not found, the settings window
     asks the login shell (`$SHELL -l -i -c 'command -v revo'`, stdin closed, 5 s timeout) once per launch.

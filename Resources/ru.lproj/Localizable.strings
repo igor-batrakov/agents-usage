@@ -172,6 +172,11 @@
 "Add reviewer" = "Добавить ревьюера";
 "drag to reorder: higher goes first" = "порядок — перетаскиванием, выше — раньше";
 "The review chain is not loaded." = "Цепочка ревью не загружена.";
+"Model lists updated %@" = "Списки моделей обновлены %@";
+"Model lists not fetched yet" = "Списки моделей ещё не загружались";
+"Update model lists" = "Обновить списки моделей";
+"Asks the providers which models they offer. No model is run and nothing is spent; it can take half a minute." = "Спрашивает у провайдеров, какие модели они дают. Модели не запускаются, лимиты и деньги не тратятся; может занять полминуты.";
+"Model lists: %@" = "Списки моделей: %@";
 "Review rounds per commit: %d" = "Прогонов ревью на коммит: %d";
 "Review language" = "Язык ревью";
 "A round is one run of the whole chain; the remarks of the last one are fixed without another review. The number is shared by all reviewers; a project can set its own in .revolver.json." = "Прогон — один запуск всей цепочки; замечания последнего исправляются без нового ревью. Число общее для всех ревьюеров, своё для проекта задаётся в .revolver.json.";
@@ -187,6 +192,7 @@
 "Edits %@" = "Изменения пишутся в %@";
 "Choose…" = "Выбрать…";
 "Default" = "По умолчанию";
+"%@ (new, no reviews yet)" = "%@ (новая, ревью с ней ещё не было)";
 "Known models" = "Известные модели";
 "Effort" = "Effort";
 "Remove reviewer" = "Удалить ревьюера";

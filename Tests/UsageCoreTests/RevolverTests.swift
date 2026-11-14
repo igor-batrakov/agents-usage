@@ -65,6 +65,53 @@ import Testing
         #expect(!agy.accepts("gemini 5"))
         #expect(!agy.accepts(""))
         #expect(agy.defaultEffort == "high")
+        // A revo older than `revo models`: no vendor, no fetched lists.
+        #expect(agy.vendor == nil && agy.title == "Gemini")
+        #expect(agy.discovered.isEmpty && agy.modelEfforts.isEmpty && agy.modelsFetchedAt == nil)
+        #expect(agy.efforts(for: "gemini-4-argon") == agy.efforts)
+    }
+
+    @Test func parsesEnginesWithFetchedModelLists() throws {
+        struct Answer: Decodable { let engines: [RevoEngine] }
+        let engines = try (Revo.decode((0, fixture("revo_engines_models"))) as Answer).engines
+        let byName = Dictionary(uniqueKeysWithValues: engines.map { ($0.name, $0) })
+        #expect(byName["claude"]?.title == "Claude Code")
+        #expect(byName["claude"]?.display == "Claude")
+        #expect(byName["vertex"]?.title == "Gemini")
+        #expect(byName["vertex"]?.display == "Gemini Vertex")
+        let codex = try #require(byName["codex"])
+        #expect(codex.title == "Codex")
+        #expect(codex.discovered.contains("gpt-6-luna"))
+        #expect(codex.discovered.allSatisfy(codex.models.contains))
+        #expect(codex.modelsFetchedAt == 1794681672)
+        #expect(byName["claude"]?.modelsFetchedAt == nil)
+        // A narrower list for one model; a model the provider did not report takes the engine's efforts.
+        #expect(codex.efforts(for: "gpt-6-luna") == ["low", "medium", "high"])
+        #expect(codex.efforts(for: "gpt-6.1-sol") == codex.efforts)
+        #expect(codex.efforts(for: "default") == codex.efforts)
+        #expect(codex.effort("max", for: "gpt-6-luna") == "high")
+        #expect(codex.effort("low", for: "gpt-6-luna") == "low")
+        #expect(codex.effort("max", for: "gpt-6.1-sol") == "max")
+    }
+
+    @Test func parsesModelsAnswer() throws {
+        struct Answer: Decodable { let engines: [String: RevoModelList] }
+        let lists = try (Revo.decode((0, fixture("revo_models"))) as Answer).engines
+        #expect(lists["codex"]?.status == "fresh")
+        #expect(lists["codex"]?.error == nil)
+        #expect(lists["codex"]?.fetchedAt == 1794681672)
+        let gemini = try #require(lists["gemini"])
+        #expect(gemini.status == RevoModelList.skipped)
+        #expect(gemini.error?.code == "not_ready")
+        #expect(gemini.error?.message.isEmpty == false)
+        #expect(gemini.fetchedAt == nil)
+        #expect(lists["claude"] == nil)
+    }
+
+    @Test func modelsWithoutTheCommandIsOutdated() {
+        let usage = #"{"schema": 2, "ok": false, "error": {"code": "usage", "block": null, "field": null, "value": null, "message": "unknown command"}}"#
+        struct Answer: Decodable { let engines: [String: RevoModelList] }
+        #expect(throws: RevoFailure.outdated) { try Revo.decode((2, Data(usage.utf8))) as Answer }
     }
 
     @Test func parsesApplyDiffWithAddedAndRemoved() throws {
@@ -420,6 +467,20 @@ import Testing
         #expect(back.add.map(\.id) == [removed.id])
         _ = try await Revo.apply(revo, back, base: after.configRev, check: false)
         #expect(RevoDraft(try await Revo.list(revo)) == RevoDraft(chain))
+    }
+
+    /// `revo models` without `--refresh` against a real revo, only on request:
+    /// `REVO_MODELS_LIVE=<revo> ./test.sh --filter liveModels`. It never touches the chain; it may go to the providers
+    /// for lists older than a day (no model is called).
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["REVO_MODELS_LIVE"] != nil))
+    func liveModels() async throws {
+        let revo = try #require(ProcessInfo.processInfo.environment["REVO_MODELS_LIVE"])
+        let lists = try await Revo.models(revo, refresh: false)
+        let engines = try await Revo.engines(revo)
+        print("models:", lists.mapValues(\.status), "vendors:", engines.map(\.title))
+        #expect(!lists.isEmpty)
+        #expect(Set(lists.keys).isSubset(of: Set(engines.map(\.name))))
+        #expect(engines.allSatisfy { $0.vendor != nil })
     }
 
     @Test func locatePrefersTheChosenPath() {

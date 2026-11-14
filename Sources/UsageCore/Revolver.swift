@@ -130,10 +130,19 @@ public struct RevoChain: Decodable, Equatable, Sendable {
 /// `revo engines --json`: what the pickers offer, nothing is hardcoded in the app.
 public struct RevoEngine: Decodable, Equatable, Sendable {
     public var name: String
+    /// The name in revo's own output ("Claude", "Gemini Vertex"): tells engines of one vendor apart.
     public var display: String
+    /// The product name ("Claude Code", "Codex", "Gemini"); nil from a revo older than `revo models`.
+    public var vendor: String?
     public var efforts: [String]
-    /// The first one is `default`: the CLI picks its own model.
+    /// The first one is `default`: the CLI picks its own model. Built-in ones first, then those `revo models` found.
     public var models: [String]
+    /// Found by `revo models`, not reviewed with yet.
+    public var discovered: [String]
+    /// The efforts the provider gives a fetched model, already within `efforts`; a model missing here takes `efforts`.
+    public var modelEfforts: [String: [String]]
+    /// When `revo models` last fetched this engine's list (epoch seconds), nil if never.
+    public var modelsFetchedAt: Int?
     public var customModel: Bool
     /// What a typed model name must match (a regular expression).
     public var modelPattern: String?
@@ -141,7 +150,40 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var installed: Bool
 
     enum CodingKeys: String, CodingKey {
-        case name, display, efforts, models, customModel = "custom_model", modelPattern = "model_pattern", installed
+        case name, display, vendor, efforts, models, discovered, modelEfforts = "model_efforts",
+             modelsFetchedAt = "models_fetched_at", customModel = "custom_model", modelPattern = "model_pattern", installed
+    }
+
+    /// The fields of `revo models` are optional: an older revo does not send them.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        display = try c.decode(String.self, forKey: .display)
+        vendor = try c.decodeIfPresent(String.self, forKey: .vendor)
+        efforts = try c.decode([String].self, forKey: .efforts)
+        models = try c.decode([String].self, forKey: .models)
+        discovered = try c.decodeIfPresent([String].self, forKey: .discovered) ?? []
+        modelEfforts = try c.decodeIfPresent([String: [String]].self, forKey: .modelEfforts) ?? [:]
+        modelsFetchedAt = try c.decodeIfPresent(Int.self, forKey: .modelsFetchedAt)
+        customModel = try c.decode(Bool.self, forKey: .customModel)
+        modelPattern = try c.decodeIfPresent(String.self, forKey: .modelPattern)
+        installed = try c.decode(Bool.self, forKey: .installed)
+    }
+
+    /// What the app calls it: the vendor, or `display` from an older revo.
+    public var title: String { vendor ?? display }
+
+    /// The efforts allowed for `model`: the provider's list when it gave one, otherwise the engine's.
+    public func efforts(for model: String) -> [String] {
+        guard let list = modelEfforts[model], !list.isEmpty else { return efforts }
+        return list
+    }
+
+    /// `current` if `model` allows it, otherwise the effort a new block would get within the model's list.
+    public func effort(_ current: String, for model: String) -> String {
+        let allowed = efforts(for: model)
+        if allowed.contains(current) { return current }
+        return allowed.contains("high") ? "high" : allowed.last ?? current
     }
 
     /// Whether revo will take this model name (`invalid_model` otherwise).
@@ -156,6 +198,21 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var defaultEffort: String {
         efforts.contains("high") ? "high" : efforts.last ?? "high"
     }
+}
+
+/// One engine in `revo models --json`. A failed fetch keeps the saved list; `skipped` means the engine is not set up
+/// (no CLI, key or gcloud). Engines with nothing to ask (`claude`, `agy`) are not listed.
+public struct RevoModelList: Decodable, Equatable, Sendable {
+    public static let failed = "failed"
+    public static let skipped = "skipped"
+
+    /// `refreshed`, `fresh` (younger than a day, not fetched), `failed` or `skipped`.
+    public var status: String
+    /// `code` and `message`; the message is already in the language of `REVO_LANG`.
+    public var error: RevoError?
+    public var fetchedAt: Int?
+
+    enum CodingKeys: String, CodingKey { case status, error, fetchedAt = "fetched_at" }
 }
 
 public struct RevoChange: Decodable, Equatable, Sendable {
@@ -552,12 +609,25 @@ public enum Revo {
         return answer.engines
     }
 
+    /// Fetches the model lists from the providers and saves them for `engines`; no model is called, nothing is billed.
+    /// Without `refresh` only lists older than a day. It goes to the network: tens of seconds (Vertex ~30 s).
+    /// A revo without this command answers `usage`, which comes out as `RevoFailure.outdated`.
+    public static func models(_ path: String, refresh: Bool) async throws -> [String: RevoModelList] {
+        struct Answer: Decodable { let engines: [String: RevoModelList] }
+        let arguments = refresh ? ["models", "--refresh", "--json"] : ["models", "--json"]
+        let answer: Answer = try decode(try await run(path, arguments, timeout: modelsTimeout))
+        return answer.engines
+    }
+
+    static let modelsTimeout: TimeInterval = 120
+
     /// `check`: the same validation and diff without writing.
     public static func apply(_ path: String, _ ops: RevoOps, base: String, check: Bool) async throws -> RevoApplyResult {
         try decode(try await run(path, check ? ["apply", "--check"] : ["apply"], input: ops.json(base: base)))
     }
 
-    private static func run(_ path: String, _ arguments: [String], input: Data? = nil) async throws -> (status: Int32, output: Data) {
+    private static func run(_ path: String, _ arguments: [String], input: Data? = nil,
+                            timeout: TimeInterval = Revo.timeout) async throws -> (status: Int32, output: Data) {
         do {
             return try await ProcessRunner.runStatus(path, arguments, input: input, closeInput: input != nil,
                                                      environment: ["REVO_LANG": language], directory: "/",

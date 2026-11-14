@@ -1,0 +1,58 @@
+{
+ "schema": 2,
+ "ok": true,
+ "engines": {
+  "codex": {
+   "status": "fresh",
+   "error": null,
+   "fetched_at": 1794681672,
+   "models": [
+    "gpt-6.1-sol",
+    "gpt-6-astra",
+    "gpt-6.1-terra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna"
+   ],
+   "discovered": [
+    "gpt-6.1-terra",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna"
+   ]
+  },
+  "gemini": {
+   "status": "skipped",
+   "error": {
+    "code": "not_ready",
+    "message": "no Gemini API key: GEMINI_API_KEY or security add-generic-password -s revolver-gemini -a api-key -w"
+   },
+   "fetched_at": null,
+   "models": [],
+   "discovered": []
+  },
+  "vertex": {
+   "status": "fresh",
+   "error": null,
+   "fetched_at": 1794681672,
+   "models": [
+    "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview",
+    "gemini-3.5-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-3.5-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-4-argon",
+    "gemini-4-carbon",
+    "gemini-4-hydrogen"
+   ],
+   "discovered": []
+  }
+ }
+}

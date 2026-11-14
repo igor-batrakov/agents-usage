@@ -36,7 +36,11 @@ struct ReviewChainTab: View {
                     Text(L("drag to reorder: higher goes first")).font(.caption).foregroundStyle(.tertiary)
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 6)
+                .padding(.top, 6)
+                modelLists
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
             } else {
                 Group {
                     if chain.busy { ProgressView() } else { Text(L("The review chain is not loaded.")).foregroundStyle(.secondary) }
@@ -46,7 +50,43 @@ struct ReviewChainTab: View {
             Divider()
             footer.padding(12)
         }
-        .onAppear { Task { await chain.reload() } }
+        .onAppear {
+            Task {
+                await chain.reload()
+                // Only lists older than a day are fetched: usually an instant answer from revo's saved lists.
+                await chain.updateModels(refresh: false)
+            }
+        }
+    }
+
+    /// When the model lists were fetched, the button that fetches them all again, and why some could not be.
+    @ViewBuilder private var modelLists: some View {
+        if chain.canFetchModels || chain.modelsFetchedAt != nil {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    if let at = chain.modelsFetchedAt {
+                        Text(L("Model lists updated %@", Format.date(at)))
+                    } else {
+                        Text(L("Model lists not fetched yet"))
+                    }
+                    if chain.canFetchModels {
+                        Button(L("Update model lists")) { Task { await chain.updateModels(refresh: true) } }
+                            .buttonStyle(.link)
+                            .disabled(chain.fetchingModels)
+                            .help(L("Asks the providers which models they offer. No model is run and nothing is spent; it can take half a minute."))
+                        if chain.fetchingModels { ProgressView().controlSize(.mini) }
+                    }
+                }
+                ForEach(chain.modelProblems, id: \.self) { Text($0).foregroundStyle(Color(nsColor: Theme.amber)) }
+                if let failure = chain.modelsFailure {
+                    Text(L("Model lists: %@", failure.text)).foregroundStyle(Color(nsColor: Theme.amber))
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .textSelection(.enabled)
+        }
     }
 
     private var footer: some View {
@@ -186,7 +226,9 @@ private struct BlockRow: View {
                         .disabled(engine?.customModel == false)
                     Menu {
                         ForEach(engine?.models ?? [], id: \.self) { model in
-                            Button(chain.modelName(model)) { chain.update(block.id) { $0.model = model } }
+                            let name = chain.modelName(model)
+                            let isNew = engine?.discovered.contains(model) == true
+                            Button(isNew ? L("%@ (new, no reviews yet)", name) : name) { chain.setModel(block.id, model) }
                         }
                     } label: { EmptyView() }
                     .menuStyle(.borderlessButton)
@@ -245,6 +287,7 @@ private struct BlockRow: View {
         if chain.isPending(block.id) {
             Picker("", selection: Binding(get: { block.engine }, set: { chain.setEngine(block.id, $0) })) {
                 ForEach(chain.engineList, id: \.name) { e in
+                    // `display`, not the vendor: the picker has to tell agy, the Gemini API and Vertex apart.
                     Text(e.installed ? e.display : L("%@ (not installed)", e.display)).tag(e.name)
                 }
             }
@@ -255,12 +298,14 @@ private struct BlockRow: View {
             Text(chain.name(block))
                 .lineLimit(1)
                 .foregroundStyle(engine?.installed == false ? .secondary : .primary)
-                .help(engine?.installed == false ? L("The CLI of this provider was not found") : chain.name(block))
+                // revo's own name in the tooltip tells engines of one vendor apart ("Gemini Vertex").
+                .help(engine?.installed == false ? L("The CLI of this provider was not found") : engine?.display ?? chain.name(block))
         }
     }
 
+    /// What the provider gives this model (the engine's list for a model it did not report).
     private func efforts(_ engine: RevoEngine?) -> [String] {
-        let known = engine?.efforts ?? []
+        let known = engine?.efforts(for: block.model) ?? []
         return known.contains(block.effort) ? known : known + [block.effort]
     }
 }
@@ -273,15 +318,16 @@ struct ReviewLimitsRow: View {
 
     var body: some View {
         let items = chain.limitedReviewers(now: now)
+        let blocks: [RevoBlock] = chain.latest?.chain ?? []
         VStack(alignment: .leading, spacing: 2) {
             if !items.isEmpty {
                 Label {
                     VStack(alignment: .leading, spacing: 1) {
                         ForEach(Array(items.enumerated()), id: \.offset) { _, item in
                             let reset: String = Format.resetIn(item.until, now: now)
-                            let who: String = chain.name(item.required)
+                            let who: String = chain.name(item.required, among: blocks)
                             if let by = item.by {
-                                Text(L("%@: limit, resets %@ → %@", who, reset, chain.name(by)))
+                                Text(L("%@: limit, resets %@ → %@", who, reset, chain.name(by, among: blocks)))
                             } else {
                                 Text(L("%@: limit, resets %@, no review", who, reset))
                             }
@@ -289,7 +335,7 @@ struct ReviewLimitsRow: View {
                     }
                 } icon: { Image(systemName: "checklist") }
                 .help(L("Recorded by revo: %@", items.map {
-                    "\(chain.name($0.required)) \(Format.date($0.until))"
+                    "\(chain.name($0.required, among: blocks)) \(Format.date($0.until))"
                 }.joined(separator: ", ")))
             }
             if let failure = chain.limitsFailure {
