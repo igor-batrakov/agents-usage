@@ -5,7 +5,8 @@ import UsageCore
 
 /// The code review chain of Revolver (`revo`): the settings tab edits it, the popover shows required reviewers on
 /// a limit. The config changes only through `revo apply` after an explicit Apply; revo's files are never read or
-/// written here. revo runs on demand only (tab opening, Apply, popover opening), with no timer and no file watching.
+/// written here. revo runs on demand only (tab opening, Apply, popover opening, the model list button), with no
+/// timer and no file watching.
 @MainActor @Observable
 final class ReviewChain {
     /// The revo in use; nil hides the tab and the popover line. In demo mode a placeholder: revo is never run.
@@ -32,6 +33,13 @@ final class ReviewChain {
     private(set) var pathError: String?
     /// The login shell or a path given by hand is being checked.
     private(set) var searching = false
+    /// The last `revo models` answer by engine name: why a list could not be fetched.
+    private(set) var modelLists: [String: RevoModelList] = [:]
+    /// `revo models` is running; editing does not wait for it.
+    private(set) var fetchingModels = false
+    private(set) var modelsFailure: RevoFailure?
+    /// The revo that has no `models` command: the update button is hidden for it.
+    private(set) var noModelsCommand: String?
 
     @ObservationIgnored private let settings: Settings
     /// The path whose schema was checked (`revo version`): once per path, not on every reload.
@@ -165,11 +173,59 @@ final class ReviewChain {
     private func adopt(_ chain: RevoChain, _ list: [RevoEngine], carry: Bool) {
         let edits = self.edits
         loaded = chain
-        engines = Dictionary(list.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
-        engineList = list
+        setEngines(list)
         // Blocks added and not applied yet come back with their final ids: `edits` holds them in `add`.
         draft = carry ? edits.applied(to: RevoDraft(chain)) : RevoDraft(chain)
         preview = nil
+    }
+
+    private func setEngines(_ list: [RevoEngine]) {
+        engines = Dictionary(list.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
+        engineList = list
+    }
+
+    /// The update button makes sense: revo is found, knows `models`, and this is not the demo.
+    var canFetchModels: Bool {
+        guard let path, !Demo.isOn else { return false }
+        return noModelsCommand != path
+    }
+
+    /// `revo models` (on tab opening without `refresh`: only lists older than a day; the button refreshes all), then
+    /// the engines again, which merge the saved lists. The draft and the edits are left alone.
+    func updateModels(refresh: Bool) async {
+        guard canFetchModels, let path, !fetchingModels else { return }
+        fetchingModels = true
+        defer { fetchingModels = false }
+        do {
+            let lists = try await Revo.models(path, refresh: refresh)
+            let list = try await Revo.engines(path)
+            // Another revo chosen meanwhile: its own reload has the right engines, these are of the old one.
+            guard self.path == path else { return }
+            modelLists = lists
+            modelsFailure = nil
+            setEngines(list)
+        } catch RevoFailure.outdated {
+            noModelsCommand = path
+            modelsFailure = nil
+        } catch {
+            if self.path == path { modelsFailure = Self.failure(error) }
+        }
+    }
+
+    /// The newest fetch among the engines, nil if no list was ever fetched.
+    var modelsFetchedAt: Date? {
+        engineList.compactMap(\.modelsFetchedAt).max().map { Date(timeIntervalSince1970: TimeInterval($0)) }
+    }
+
+    /// Why lists were not fetched: every failure, and a skipped engine only if the chain uses it (an engine that is
+    /// not set up is no news otherwise).
+    var modelProblems: [String] {
+        let used = Set((draft?.blocks ?? []).map(\.engine))
+        return engineList.compactMap { engine in
+            guard let list = modelLists[engine.name], let error = list.error else { return nil }
+            let show = list.status == RevoModelList.failed || (list.status == RevoModelList.skipped && used.contains(engine.name))
+            return show ? "\(engine.display): \(error.message)" : nil
+        }
     }
 
     /// Added in the tab and not applied yet: its engine can still change.
@@ -193,6 +249,14 @@ final class ReviewChain {
             } else if block.takesOver == RevoTakesOver.none {
                 block.takesOver = RevoTakesOver.anyFail
             }
+        }
+    }
+
+    /// A model from the list; the effort moves into what the provider gives that model, if it is outside.
+    func setModel(_ id: String, _ model: String) {
+        update(id) { block in
+            block.model = model
+            if let engine = engines[block.engine] { block.effort = engine.effort(block.effort, for: model) }
         }
     }
 
@@ -344,28 +408,36 @@ final class ReviewChain {
 
     // MARK: Texts
 
-    /// Before the tab has loaded the engines, the popover still needs names.
-    private static let knownEngines = ["codex": "Codex", "agy": "Gemini", "claude": "Claude"]
+    /// Before the tab has loaded the engines, the popover still needs names (as revo's `vendor`).
+    private static let knownEngines = ["codex": "Codex", "claude": "Claude Code", "agy": "Gemini", "gemini": "Gemini",
+                                       "vertex": "Gemini"]
 
+    /// The vendor: "Claude Code", "Codex", "Gemini".
     func engineName(_ name: String) -> String {
-        engines[name]?.display ?? Self.knownEngines[name] ?? name
+        engines[name]?.title ?? Self.knownEngines[name] ?? name
     }
 
-    /// "Codex · sol"; just "Codex" when the id is the engine's name (the built-in chain).
+    /// The vendor, told apart by the model when the chain it is in has another block of the same vendor.
     func blockName(_ id: String) -> String {
         // Separate lists: one long `+` of optionals is too slow to type-check for older compilers (CI).
         let lists: [[RevoBlock]?] = [draft?.blocks, loaded?.chain, latest?.chain, preview?.diff.added]
         for list in lists {
-            if let block = list?.first(where: { $0.id == id }) { return name(block) }
+            if let list, let block = list.first(where: { $0.id == id }) { return name(block, among: list) }
         }
         return id
     }
 
-    /// A block not applied yet has no id of its own: "Claude · claude-opus-5-5".
-    func name(_ block: RevoBlock) -> String {
-        let engine = engineName(block.engine)
-        if RevoDraft.isNew(block.id) { return "\(engine) · \(modelName(block.model))" }
-        return block.id == block.engine || block.id.lowercased() == engine.lowercased() ? engine : "\(engine) · \(block.id)"
+    /// Just the vendor ("Codex"), with no id: next to the model field it needs nothing more. In a line of text,
+    /// `among` the blocks of its chain, a second block of the same vendor adds the model ("Codex · gpt-6.1-sol"),
+    /// and one with the same model too adds the id, so the confirmation never shows two blocks alike.
+    func name(_ block: RevoBlock, among blocks: [RevoBlock] = []) -> String {
+        let vendor = engineName(block.engine)
+        let twins = blocks.filter { $0.id != block.id && engineName($0.engine) == vendor }
+        if twins.isEmpty { return vendor }
+        let model = modelName(block.model)
+        // A block not applied yet has only a temporary id: the model is all there is to show.
+        if RevoDraft.isNew(block.id) || !twins.contains(where: { $0.model == block.model }) { return "\(vendor) · \(model)" }
+        return "\(vendor) · \(model) (\(block.id))"
     }
 
     func modelName(_ model: String) -> String { model == "default" ? L("default") : model }
@@ -385,7 +457,9 @@ final class ReviewChain {
         case nil: break
         }
         if !warnings.isEmpty { return (warnings.joined(separator: " · "), true) }
-        if block.on, let covered = blocks.coveredFirst(at: index) { return (L("↳ for %@", name(covered)), false) }
+        if block.on, let covered = blocks.coveredFirst(at: index) {
+            return (L("↳ for %@", name(covered, among: blocks)), false)
+        }
         return nil
     }
 
