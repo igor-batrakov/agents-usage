@@ -197,14 +197,18 @@ final class ReviewChain {
         fetchingModels = true
         defer { fetchingModels = false }
         do {
-            modelLists = try await Revo.models(path, refresh: refresh)
+            let lists = try await Revo.models(path, refresh: refresh)
+            let list = try await Revo.engines(path)
+            // Another revo chosen meanwhile: its own reload has the right engines, these are of the old one.
+            guard self.path == path else { return }
+            modelLists = lists
             modelsFailure = nil
-            setEngines(try await Revo.engines(path))
+            setEngines(list)
         } catch RevoFailure.outdated {
             noModelsCommand = path
             modelsFailure = nil
         } catch {
-            modelsFailure = Self.failure(error)
+            if self.path == path { modelsFailure = Self.failure(error) }
         }
     }
 
@@ -424,11 +428,16 @@ final class ReviewChain {
     }
 
     /// Just the vendor ("Codex"), with no id: next to the model field it needs nothing more. In a line of text,
-    /// `among` the blocks of its chain, a second block of the same vendor adds the model: "Codex · gpt-6.1-sol".
+    /// `among` the blocks of its chain, a second block of the same vendor adds the model ("Codex · gpt-6.1-sol"),
+    /// and one with the same model too adds the id, so the confirmation never shows two blocks alike.
     func name(_ block: RevoBlock, among blocks: [RevoBlock] = []) -> String {
         let vendor = engineName(block.engine)
-        let twin = blocks.contains { $0.id != block.id && engineName($0.engine) == vendor }
-        return twin ? "\(vendor) · \(modelName(block.model))" : vendor
+        let twins = blocks.filter { $0.id != block.id && engineName($0.engine) == vendor }
+        if twins.isEmpty { return vendor }
+        let model = modelName(block.model)
+        // A block not applied yet has only a temporary id: the model is all there is to show.
+        if RevoDraft.isNew(block.id) || !twins.contains(where: { $0.model == block.model }) { return "\(vendor) · \(model)" }
+        return "\(vendor) · \(model) (\(block.id))"
     }
 
     func modelName(_ model: String) -> String { model == "default" ? L("default") : model }
