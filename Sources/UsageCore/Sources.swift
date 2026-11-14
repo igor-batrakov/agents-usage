@@ -276,7 +276,8 @@ public struct MoonshotSource: UsageSource {
 public struct AgySource: UsageSource {
     public init() {}
 
-    static let candidates = ["~/.local/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
+    /// `~/.gemini/bin/agy` is where the installer puts the binary; `~/.local/bin/agy` is its optional link on PATH.
+    static let candidates = ["~/.local/bin/agy", "~/.gemini/bin/agy", "/opt/homebrew/bin/agy", "/usr/local/bin/agy"]
 
     public func fetch() async throws -> UsageReport {
         guard let agy = ProcessRunner.locate(Self.candidates) else { throw UsageError.message(L("%@ not installed", "agy")) }
