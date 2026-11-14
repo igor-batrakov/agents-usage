@@ -12,7 +12,7 @@ public final class UsageStore {
     /// Accounts being polled right now → the generation the poll started with.
     public private(set) var inFlight: [UUID: Int] = [:]
     /// Time of the last full poll in which at least one source answered. A completely
-    /// failed poll (no network after sleep) does not move it, so the popover retries right away.
+    /// failed poll (no network after sleep) does not move it, so a wake catch-up retries it.
     /// A partial poll (`only:`, "Check" or a just-enabled account) does not move it either:
     /// the other accounts were not polled.
     public private(set) var lastRefresh: Date?
@@ -27,6 +27,9 @@ public final class UsageStore {
 
     @ObservationIgnored private let makeSource: (Account) -> any UsageSource
     @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var interval: TimeInterval?
+    /// When the timer fires next; nil with auto-refresh off.
+    @ObservationIgnored public private(set) var nextPoll: Date?
     /// The account generation grows on disable, removal and directory change: the result of a poll
     /// started in an earlier generation is not stored (even if everything was later set back).
     @ObservationIgnored private var generation: [UUID: Int] = [:]
@@ -82,13 +85,23 @@ public final class UsageStore {
         }
     }
 
-    /// Restarts the timer; nil means auto-refresh is off.
-    /// 10% tolerance lets the system coalesce wakeups.
+    /// Sets the auto-refresh interval; nil means auto-refresh is off.
+    /// The timer counts from the last full poll, whatever started it (timer, ↻, wake, a window reset),
+    /// so a manual refresh pushes the next scheduled one a whole interval away.
     public func schedule(every interval: TimeInterval?) {
+        self.interval = interval
+        armTimer(from: Date())
+    }
+
+    /// One-shot timer at `start + interval`; 10% tolerance lets the system coalesce wakeups.
+    private func armTimer(from start: Date) {
         timer?.invalidate()
         timer = nil
+        nextPoll = nil
         guard let interval else { return }
-        let t = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
+        let fire = start.addingTimeInterval(interval)
+        nextPoll = fire
+        let t = Timer(fire: fire, interval: 0, repeats: false) { [weak self] _ in
             Task { @MainActor in await self?.timerTick() }
         }
         t.tolerance = interval * 0.1
@@ -97,7 +110,10 @@ public final class UsageStore {
     }
 
     /// Scheduled poll; `timerGate` may skip it (low-power mode).
+    /// Re-armed first: a skipped tick or a poll that found every account busy still leaves a next one;
+    /// a full poll re-arms again when it ends.
     public func timerTick() async {
+        armTimer(from: Date())
         if let timerGate, !timerGate() {
             log.info("timer tick skipped")
             return
@@ -105,7 +121,7 @@ public final class UsageStore {
         await refresh()
     }
 
-    /// Refresh if the data is older than `age` seconds (popover opening).
+    /// Refresh if the data is older than `age` seconds (catch-up after wake or unlock).
     public func refreshIfStale(olderThan age: TimeInterval) async {
         if let lastRefresh, Date().timeIntervalSince(lastRefresh) < age { return }
         await refresh()
@@ -124,6 +140,7 @@ public final class UsageStore {
         var anySuccess = false
         defer {
             if anySuccess, ids == nil { lastRefresh = Date() }
+            if ids == nil { armTimer(from: Date()) }
             onChange?()
         }
         await withTaskGroup(of: (Account, Result<UsageReport, Error>).self) { group in

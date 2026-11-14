@@ -210,7 +210,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.activate()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
-        if settings.autoRefresh { Task { await store.refreshIfStale(olderThan: 60) } }
+        // Opening the popover does not poll the services: only the timer, ↻ (⌘R) and the catch-ups do.
         updater.checkIfDue(enabled: settings.checkUpdates)
         reviewChain.refreshLimits()
     }
