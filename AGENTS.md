@@ -89,7 +89,8 @@ and reset time for each window, amounts as a balance line.
 11. **At most one notification per window**, and only with permission granted (otherwise the system accepts it
     silently and the window counts as warned). The app only shows free Codex resets, it never spends them.
 12. **Low-power polling** skips only scheduled polls (the timer, the one-off poll at reset while the screen is dark);
-    manual ↻, "Check" and opening the popover always work.
+    manual ↻ (⌘R) and "Check" always work. Opening the popover does not poll the services. The timer is one-shot
+    and counts from the last full poll, whatever started it.
 13. **A balance-only service** (no limit windows) gets no bar in the menu bar; the amount goes to the tooltip.
     Money is in currency units (`Balance.amount`), cents are converted while parsing.
 14. **Every UI string goes through `L("English")`**, the key as a single literal (`tools/strings.py` looks for it).

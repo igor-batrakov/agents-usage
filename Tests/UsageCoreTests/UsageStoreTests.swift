@@ -67,6 +67,23 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         #expect(source.calls == 1)
     }
 
+    @Test func timerCountsFromLastFullPoll() async throws {
+        let a = Account(kind: .claude)
+        let store = makeStore([a.id: ScriptedSource([.success(report), .success(report)])])
+        store.setAccounts([a])
+        store.schedule(every: 300)
+        let armed = try #require(store.nextPoll)
+        try await Task.sleep(for: .milliseconds(50))
+        await store.refresh()
+        let afterFull = try #require(store.nextPoll)
+        #expect(afterFull > armed)
+        #expect(abs(afterFull.timeIntervalSinceNow - 300) < 5)
+        await store.refresh(only: [a.id])
+        #expect(store.nextPoll == afterFull)
+        store.schedule(every: nil)
+        #expect(store.nextPoll == nil)
+    }
+
     @Test func successClearsError() async {
         let a = Account(kind: .codex)
         let store = makeStore([a.id: ScriptedSource([.failure(UsageError.message("x")), .success(report)])])
