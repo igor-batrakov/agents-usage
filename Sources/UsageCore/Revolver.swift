@@ -51,12 +51,14 @@ public struct RevoBlock: Decodable, Equatable, Identifiable, Sendable {
     public var on: Bool
     public var role: String
     public var takesOver: String
+    /// The Google Cloud project a `vertex` review is billed to; nil: `REVO_VERTEX_PROJECT`, then gcloud's active one.
+    public var project: String?
 
     public var isRequired: Bool { role == RevoRole.required }
 
     /// The defaults are those of `apply`'s `add`: on, a fallback that steps in on any failure.
     public init(id: String, engine: String, model: String, effort: String, on: Bool = true,
-                role: String = RevoRole.fallback, takesOver: String = RevoTakesOver.anyFail) {
+                role: String = RevoRole.fallback, takesOver: String = RevoTakesOver.anyFail, project: String? = nil) {
         self.id = id
         self.engine = engine
         self.model = model
@@ -64,9 +66,10 @@ public struct RevoBlock: Decodable, Equatable, Identifiable, Sendable {
         self.on = on
         self.role = role
         self.takesOver = takesOver
+        self.project = project
     }
 
-    enum CodingKeys: String, CodingKey { case id, engine, model, effort, on, role, takesOver = "takes_over" }
+    enum CodingKeys: String, CodingKey { case id, engine, model, effort, on, role, takesOver = "takes_over", project }
 }
 
 public struct RevoSettings: Decodable, Equatable, Sendable {
@@ -148,10 +151,17 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var modelPattern: String?
     /// The CLI file was found (it is not run).
     public var installed: Bool
+    /// Extra block fields the engine takes: `project` for `vertex`; empty from an older revo.
+    public var blockFields: [String]
+    /// What a typed project id must match.
+    public var projectPattern: String?
+    /// The active projects of the gcloud account, as `revo models` last saved them.
+    public var projects: [RevoProject]
 
     enum CodingKeys: String, CodingKey {
         case name, display, vendor, efforts, models, discovered, modelEfforts = "model_efforts",
-             modelsFetchedAt = "models_fetched_at", customModel = "custom_model", modelPattern = "model_pattern", installed
+             modelsFetchedAt = "models_fetched_at", customModel = "custom_model", modelPattern = "model_pattern", installed,
+             blockFields = "block_fields", projectPattern = "project_pattern", projects
     }
 
     /// The fields of `revo models` are optional: an older revo does not send them.
@@ -168,6 +178,19 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
         customModel = try c.decode(Bool.self, forKey: .customModel)
         modelPattern = try c.decodeIfPresent(String.self, forKey: .modelPattern)
         installed = try c.decode(Bool.self, forKey: .installed)
+        blockFields = try c.decodeIfPresent([String].self, forKey: .blockFields) ?? []
+        projectPattern = try c.decodeIfPresent(String.self, forKey: .projectPattern)
+        projects = try c.decodeIfPresent([RevoProject].self, forKey: .projects) ?? []
+    }
+
+    /// A block of this engine can have a Google Cloud project.
+    public var takesProject: Bool { blockFields.contains("project") }
+
+    /// Whether revo will take this project id (`invalid_project` otherwise).
+    public func acceptsProject(_ id: String) -> Bool {
+        guard takesProject, !id.isEmpty else { return false }
+        guard let projectPattern else { return true }
+        return id.range(of: projectPattern, options: .regularExpression) != nil
     }
 
     /// What the app calls it: the vendor, or `display` from an older revo.
@@ -197,6 +220,21 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     /// The effort a new block starts with.
     public var defaultEffort: String {
         efforts.contains("high") ? "high" : efforts.last ?? "high"
+    }
+}
+
+/// A Google Cloud project for the picker of a `vertex` block.
+public struct RevoProject: Decodable, Equatable, Hashable, Sendable {
+    public var id: String
+    public var name: String
+
+    enum CodingKeys: String, CodingKey { case id, name }
+
+    /// A project without a name must not break the whole engine list: the id stands in for it.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = (try? c.decodeIfPresent(String.self, forKey: .name)) ?? id
     }
 }
 
@@ -295,6 +333,7 @@ public enum RevoFailure: Error, Equatable, Sendable {
                 L("The review chain was changed outside the app and has been reloaded. Check your edits and apply again.")
             case "invalid_effort": L("%@: effort %@ is not supported", e.block ?? "?", e.value?.description ?? "")
             case "invalid_model": L("%@: invalid model name %@", e.block ?? "?", e.value?.description ?? "")
+            case "invalid_project": L("%@: invalid Google Cloud project %@", e.block ?? "?", e.value?.description ?? "")
             case "internal": L("revo failed with an internal error. Run it in Terminal to see the details.")
             default: e.message
             }
@@ -355,14 +394,17 @@ public struct RevoOps: Equatable, Sendable {
         public var effort: String?
         public var role: String?
         public var takesOver: String?
+        /// nil: unchanged; `.some(nil)`: remove it, the project comes from the environment or gcloud again.
+        public var project: String??
 
         public init(on: Bool? = nil, model: String? = nil, effort: String? = nil, role: String? = nil,
-                    takesOver: String? = nil) {
+                    takesOver: String? = nil, project: String?? = nil) {
             self.on = on
             self.model = model
             self.effort = effort
             self.role = role
             self.takesOver = takesOver
+            self.project = project
         }
     }
 
@@ -426,6 +468,7 @@ public struct RevoOps: Equatable, Sendable {
             if block.effort != was.effort { edit.effort = block.effort }
             if block.role != was.role { edit.role = block.role }
             if block.takesOver != was.takesOver { edit.takesOver = block.takesOver }
+            if block.project != was.project { edit.project = .some(block.project) }
             if edit != BlockEdit() { ops.set[block.id] = edit }
         }
         if let a = old.settings, let b = new.settings {
@@ -472,6 +515,7 @@ public struct RevoOps: Equatable, Sendable {
             if let effort = edit.effort { result.blocks[i].effort = effort }
             if let role = edit.role { result.blocks[i].role = role }
             if let takesOver = edit.takesOver { result.blocks[i].takesOver = takesOver }
+            if let project = edit.project { result.blocks[i].project = project }
         }
         if result.settings != nil {
             if let reviewRounds { result.settings?.reviewRounds = reviewRounds }
@@ -487,8 +531,10 @@ public struct RevoOps: Equatable, Sendable {
         if !remove.isEmpty { root["remove"] = remove }
         if !add.isEmpty {
             root["add"] = add.map { b -> [String: Any] in
-                ["id": b.id, "engine": b.engine, "model": b.model, "effort": b.effort, "on": b.on, "role": b.role,
-                 "takes_over": b.takesOver]
+                var fields: [String: Any] = ["id": b.id, "engine": b.engine, "model": b.model, "effort": b.effort,
+                                             "on": b.on, "role": b.role, "takes_over": b.takesOver]
+                if let project = b.project { fields["project"] = project }
+                return fields
             }
         }
         if let order { root["order"] = order }
@@ -502,6 +548,7 @@ public struct RevoOps: Equatable, Sendable {
                 if let effort = edit.effort { fields["effort"] = effort }
                 if let role = edit.role { fields["role"] = role }
                 if let takesOver = edit.takesOver { fields["takes_over"] = takesOver }
+                if let project = edit.project { fields["project"] = project ?? NSNull() }
                 return fields
             }
         }

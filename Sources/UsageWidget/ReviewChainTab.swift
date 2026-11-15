@@ -277,6 +277,7 @@ private struct BlockRow: View {
             }
             .controlSize(.small)
             .padding(.leading, 24)
+            if let engine, engine.takesProject { project(engine) }
         }
         .padding(.leading, block.isRequired ? 0 : 20)
         .padding(.vertical, 3)
@@ -301,6 +302,35 @@ private struct BlockRow: View {
                 // revo's own name in the tooltip tells engines of one vendor apart ("Gemini Vertex").
                 .help(engine?.installed == false ? L("The CLI of this provider was not found") : engine?.display ?? chain.name(block))
         }
+    }
+
+    /// The Google Cloud project a Vertex review is billed to: typed, or picked from the gcloud account's projects
+    /// (`revo models` saves them). Empty is the default: `REVO_VERTEX_PROJECT`, then gcloud's active project.
+    private func project(_ engine: RevoEngine) -> some View {
+        HStack(spacing: 4) {
+            Text(L("Google Cloud project:"))
+            TextField(L("default (gcloud)"), text: Binding(get: { block.project ?? "" }, set: { chain.setProject(block.id, $0) }))
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 230)
+            Menu {
+                Button(L("default (gcloud)")) { chain.setProject(block.id, nil) }
+                Divider()
+                ForEach(engine.projects, id: \.id) { p in
+                    Button(chain.projectName(p.id, engine: engine.name)) { chain.setProject(block.id, p.id) }
+                }
+            } label: { EmptyView() }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .help(L("Projects of your gcloud account"))
+            // The field holds the id; the account's name for it, when the list has one, goes next to it.
+            if let name = engine.projects.first(where: { $0.id == block.project })?.name, name != block.project {
+                Text(name).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .controlSize(.small)
+        .padding(.leading, 24)
+        .help(L("Vertex reviews are billed to this project. By default it follows the project gcloud is switched to."))
     }
 
     /// What the provider gives this model (the engine's list for a model it did not report).

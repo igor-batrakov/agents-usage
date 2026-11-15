@@ -59,7 +59,7 @@ and reset time for each window, amounts as a balance line.
 | OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
 | Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
 | Updates | `GET api.github.com/repos/igor-batrakov/agents-usage/releases/latest` → `tag_name`, `html_url` (public API, no token) |
-| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `revoPath` (chosen in settings, or found once by the login shell's `command -v revo`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 2), `ls --json` (blocks with `role`, limits in `state`; also for the popover), `engines --json` (`vendor` is the name shown, `display` only tells engines apart; `discovered`, `model_efforts`, `models_fetched_at`), `models [--refresh] --json` (fetches model lists from the providers, no model is called, up to tens of seconds; `usage` from an older revo hides the button), `apply [--check]` with operations on stdin (`remove`, `add`, `order`, `set`, `settings`). Schema 2, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
+| Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `revoPath` (chosen in settings, or found once by the login shell's `command -v revo`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 2), `ls --json` (blocks with `role`, limits in `state`; also for the popover), `engines --json` (`vendor` is the name shown, `display` only tells engines apart; `discovered`, `model_efforts`, `models_fetched_at`; `block_fields` with `project` gives a block a Google Cloud project picker from `projects`, checked by `project_pattern`, `null` in `set` removes it), `models [--refresh] --json` (fetches model lists from the providers, no model is called, up to tens of seconds; `usage` from an older revo hides the button), `apply [--check]` with operations on stdin (`remove`, `add`, `order`, `set`, `settings`). Schema 2, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
 
 ## Invariants (reviewers check these)
 
@@ -105,7 +105,7 @@ and reset time for each window, amounts as a balance line.
 16. **The Revolver config changes only through `revo apply` after an explicit Apply**, preceded by
     `apply --check` whose diff the user confirms; the write sends the `config_rev` that was checked. The app
     never reads or writes revo's files and sends only edits by id (removed and added blocks, order,
-    `on`/`model`/`effort`/`role`/`takes_over`, settings), so fields it does not know survive; with any edit it
+    `on`/`model`/`effort`/`role`/`takes_over`/`project`, settings), so fields it does not know survive; with any edit it
     sends every block's role, so revo writes derived roles into the file. A chain revo accepts is never
     blocked: missing required reviewers and fallbacks that never run are warnings. revo runs only on demand: tab opening, Apply, popover opening (at most
     every 15 s), the Update model lists button (tab opening runs `models` without `--refresh`: only lists older
