@@ -345,14 +345,15 @@ public struct CloudBillingSource: UsageSource {
         guard !token.isEmpty else { throw UsageError.message(L("gcloud has no signed-in account. Run gcloud auth login")) }
 
         let headers = ["Authorization": "Bearer \(token)", "Accept": "application/json"]
-        let base = "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)/queries"
-        let body = Self.query(project: project, dataset: dataset, filter: billing.project, start: start, end: end)
-        var (data, status) = try await HTTP.request(base, headers: headers, body: body, timeout: 30)
-        // Not finished in `timeoutMs`: the job keeps running on the server, so wait for its result instead of
-        // starting (and paying for) another one.
-        for _ in 0..<3 {
+        let base = "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)"
+        let body = Self.query(project: project, dataset: dataset, filter: billing.project, start: start, end: end,
+                              result: Self.resultTable(billing))
+        // jobs.insert, then jobs.getQueryResults: the job keeps running on the server, so its result is awaited
+        // instead of starting (and paying for) another one.
+        var (data, status) = try await HTTP.request(base + "/jobs", headers: headers, body: body, timeout: 30)
+        for _ in 0..<4 {
             guard status == 200, let job = Self.pendingJob(data) else { break }
-            (data, status) = try await HTTP.request(base + "/" + job, headers: headers, timeout: 30)
+            (data, status) = try await HTTP.request(base + "/queries/" + job, headers: headers, timeout: 30)
         }
         guard status == 200 else { throw Self.failure(data, status, dataset: billing.dataset) }
         if Self.pendingJob(data) != nil {
@@ -361,9 +362,10 @@ public struct CloudBillingSource: UsageSource {
         return data
     }
 
-    /// The path and query of `jobs.getQueryResults` for an answer with `jobComplete: false`, nil otherwise.
+    /// The path and query of `jobs.getQueryResults` for a job not known to be complete (the jobs.insert answer, or
+    /// a results answer with `jobComplete: false`), nil for finished results.
     static func pendingJob(_ data: Data) -> String? {
-        guard let root = try? Parsers.object(data), root["jobComplete"] as? Bool == false,
+        guard let root = try? Parsers.object(data), root["jobComplete"] as? Bool != true,
               let ref = root["jobReference"] as? [String: Any], let id = ref["jobId"] as? String,
               id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil else { return nil }
         var items = [URLQueryItem(name: "timeoutMs", value: "10000")]
@@ -382,10 +384,19 @@ public struct CloudBillingSource: UsageSource {
         return (String(parts[0]), String(parts[1]))
     }
 
+    /// The one-row result goes to a table of its own in the export's dataset, one per settings (two accounts never
+    /// read each other's), overwritten by every query. Without a destination BigQuery makes an anonymous dataset
+    /// owned by the user, and an organization that limits IAM members to its own domain (`iam.allowedPolicyMemberDomains`)
+    /// refuses that for a personal account; the export's dataset is shared with project roles only.
+    static func resultTable(_ billing: CloudBilling) -> String {
+        let digest = SHA256.hash(data: Data(billing.tag.utf8)).prefix(6).map { String(format: "%02x", $0) }.joined()
+        return "agents_usage_" + digest
+    }
+
     /// The cost and credits of the period, and the currencies and newest export of the same project scope (all time,
     /// so an empty period still has a currency). Several currencies (exports of billing accounts in different
-    /// currencies in one dataset) are reported, not added up.
-    static func query(project: String, dataset: String, filter: String?, start: Date, end: Date) -> Data {
+    /// currencies in one dataset) are reported, not added up. A jobs.insert body writing to `result`.
+    static func query(project: String, dataset: String, filter: String?, start: Date, end: Date, result: String) -> Data {
         let table = "`\(project).\(dataset).gcp_billing_export_v1_*`"
         let sql = """
             SELECT
@@ -398,15 +409,18 @@ public struct CloudBillingSource: UsageSource {
         func parameter(_ name: String, _ type: String, _ value: String) -> [String: Any] {
             ["name": name, "parameterType": ["type": type], "parameterValue": ["value": value]]
         }
-        let root: [String: Any] = [
-            "query": sql, "useLegacySql": false, "parameterMode": "NAMED", "timeoutMs": 20000,
+        let query: [String: Any] = [
+            "query": sql, "useLegacySql": false, "parameterMode": "NAMED",
             "maximumBytesBilled": String(maxBytesBilled),
+            "destinationTable": ["projectId": project, "datasetId": dataset, "tableId": result],
+            "writeDisposition": "WRITE_TRUNCATE",
             "queryParameters": [
                 parameter("start", "INT64", String(Int(start.timeIntervalSince1970))),
                 parameter("end", "INT64", String(Int(end.timeIntervalSince1970))),
                 parameter("project", "STRING", filter?.trimmingCharacters(in: .whitespaces) ?? ""),
             ],
         ]
+        let root: [String: Any] = ["configuration": ["query": query]]
         return (try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])) ?? Data()
     }
 

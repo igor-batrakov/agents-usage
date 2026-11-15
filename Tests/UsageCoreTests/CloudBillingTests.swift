@@ -68,6 +68,14 @@ import Testing
         let odd = #"{"jobComplete": false, "jobReference": {"jobId": "../x?y"}}"#
         #expect(CloudBillingSource.pendingJob(Data(odd.utf8)) == nil)
         #expect(CloudBillingSource.pendingJob(answer("1", "0", "EUR", nil)) == nil)
+        // The jobs.insert answer has no jobComplete: its results are fetched.
+        let inserted = #"{"kind": "bigquery#job", "jobReference": {"projectId": "p", "jobId": "job_9", "location": "EU"}, "status": {"state": "RUNNING"}}"#
+        #expect(CloudBillingSource.pendingJob(Data(inserted.utf8)) == "job_9?timeoutMs=10000&location=EU")
+        // One result table per settings, a valid table id.
+        let a = CloudBilling(dataset: "p-12345.d"), b = CloudBilling(dataset: "p-12345.d", project: "x-12345")
+        #expect(CloudBillingSource.resultTable(a) != CloudBillingSource.resultTable(b))
+        #expect(CloudBillingSource.resultTable(a) == CloudBillingSource.resultTable(a))
+        #expect(CloudBillingSource.resultTable(a).range(of: #"^agents_usage_[0-9a-f]{12}$"#, options: .regularExpression) != nil)
     }
 
     actor Counter {
@@ -128,8 +136,14 @@ import Testing
 
     @Test func queryReadsTheExportByPrefixWithParameters() throws {
         let body = CloudBillingSource.query(project: "my-project-123", dataset: "billing_export", filter: " app-prod-1 ",
-                                            start: Date(timeIntervalSince1970: 100), end: Date(timeIntervalSince1970: 200))
-        let root = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+                                            start: Date(timeIntervalSince1970: 100), end: Date(timeIntervalSince1970: 200),
+                                            result: "agents_usage_abc")
+        let job = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let root = try #require((job["configuration"] as? [String: Any])?["query"] as? [String: Any])
+        // An explicit result table: no anonymous dataset, which a domain-restricted organization refuses.
+        let destination = try #require(root["destinationTable"] as? [String: String])
+        #expect(destination == ["projectId": "my-project-123", "datasetId": "billing_export", "tableId": "agents_usage_abc"])
+        #expect(root["writeDisposition"] as? String == "WRITE_TRUNCATE")
         let sql = try #require(root["query"] as? String)
         #expect(sql.contains("`my-project-123.billing_export.gcp_billing_export_v1_*`"))
         #expect(!sql.contains("app-prod-1"))
