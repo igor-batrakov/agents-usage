@@ -279,17 +279,26 @@ public struct MoonshotSource: UsageSource {
 
 // MARK: Google Cloud billing
 
-/// The last report per billing settings and period: BigQuery is asked at most every `CloudBillingSource.minInterval`.
+/// The last BigQuery answer per billing settings and period: BigQuery is asked at most every
+/// `CloudBillingSource.minInterval`. The raw answer is kept, not the report, so every poll parses it again in the
+/// current language. A query already running for the key is shared: two accounts with the same settings, or an
+/// account turned off and on during a poll, wait for it instead of starting another billed one.
 actor CloudBillingCache {
     static let shared = CloudBillingCache()
-    private var entries: [String: (at: Date, report: UsageReport)] = [:]
+    private var entries: [String: (at: Date, data: Data)] = [:]
+    private var running: [String: Task<Data, Error>] = [:]
 
-    func report(_ key: String, newerThan age: TimeInterval, now: Date) -> UsageReport? {
-        guard let entry = entries[key], now.timeIntervalSince(entry.at) < age else { return nil }
-        return entry.report
+    func data(_ key: String, newerThan age: TimeInterval, now: Date,
+              fetch: @escaping @Sendable () async throws -> Data) async throws -> Data {
+        if let entry = entries[key], now.timeIntervalSince(entry.at) < age { return entry.data }
+        if let task = running[key] { return try await task.value }
+        let task = Task { try await fetch() }
+        running[key] = task
+        defer { running[key] = nil }
+        let data = try await task.value
+        entries[key] = (now, data)
+        return data
     }
-
-    func store(_ key: String, _ report: UsageReport, at: Date) { entries[key] = (at, report) }
 }
 
 /// Spending from the billing export to BigQuery (Standard usage cost). The export changes a few times a day, so a
@@ -315,13 +324,14 @@ public struct CloudBillingSource: UsageSource {
         let now = Date()
         let (start, end) = CloudBilling.bounds(billing.period, now: now)
         let key = billing.tag + "@" + String(Int(start.timeIntervalSince1970))
-        if let cached = await CloudBillingCache.shared.report(key, newerThan: Self.minInterval, now: now) { return cached }
-        let report = try await query(billing, project: project, dataset: dataset, start: start, end: end)
-        await CloudBillingCache.shared.store(key, report, at: now)
-        return report
+        let data = try await CloudBillingCache.shared.data(key, newerThan: Self.minInterval, now: now) {
+            try await Self.query(billing, project: project, dataset: dataset, start: start, end: end)
+        }
+        return try Parsers.cloudBilling(data, billing: billing, start: start, end: end)
     }
 
-    private func query(_ billing: CloudBilling, project: String, dataset: String, start: Date, end: Date) async throws -> UsageReport {
+    /// The jobs.query answer of a finished job; anything else throws and is not cached.
+    private static func query(_ billing: CloudBilling, project: String, dataset: String, start: Date, end: Date) async throws -> Data {
         guard let gcloud = ProcessRunner.locate(Self.candidates) else {
             throw UsageError.message(L("%@ not installed", "gcloud"))
         }
@@ -345,7 +355,10 @@ public struct CloudBillingSource: UsageSource {
             (data, status) = try await HTTP.request(base + "/" + job, headers: headers, timeout: 30)
         }
         guard status == 200 else { throw Self.failure(data, status, dataset: billing.dataset) }
-        return try Parsers.cloudBilling(data, billing: billing, start: start, end: end)
+        if Self.pendingJob(data) != nil {
+            throw UsageError.message(L("BigQuery has not finished the query; the next poll will try again"))
+        }
+        return data
     }
 
     /// The path and query of `jobs.getQueryResults` for an answer with `jobComplete: false`, nil otherwise.

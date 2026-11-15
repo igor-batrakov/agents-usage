@@ -70,14 +70,36 @@ import Testing
         #expect(CloudBillingSource.pendingJob(answer("1", "0", "EUR", nil)) == nil)
     }
 
-    @Test func cacheAnswersWithinTheInterval() async {
+    actor Counter {
+        var n = 0
+        func next() -> Int { n += 1; return n }
+    }
+
+    @Test func cacheAnswersWithinTheIntervalAndSharesARunningQuery() async throws {
         let cache = CloudBillingCache()
-        let report = UsageReport(windows: [], plan: nil)
+        let calls = Counter()
+        let fetch: @Sendable () async throws -> Data = {
+            let n = await calls.next()
+            try await Task.sleep(for: .milliseconds(100))
+            return Data("\(n)".utf8)
+        }
         let t = Date(timeIntervalSince1970: 1000)
-        await cache.store("k", report, at: t)
-        #expect(await cache.report("k", newerThan: 900, now: t.addingTimeInterval(899)) == report)
-        #expect(await cache.report("k", newerThan: 900, now: t.addingTimeInterval(900)) == nil)
-        #expect(await cache.report("other", newerThan: 900, now: t) == nil)
+        // Two polls at once: one query, both get its answer.
+        async let a = cache.data("k", newerThan: 900, now: t, fetch: fetch)
+        async let b = cache.data("k", newerThan: 900, now: t, fetch: fetch)
+        let (x, y) = try await (a, b)
+        #expect(x == Data("1".utf8) && y == x)
+        #expect(await calls.n == 1)
+        // Within the interval the saved answer; after it, another query; another key never shares.
+        #expect(try await cache.data("k", newerThan: 900, now: t.addingTimeInterval(899), fetch: fetch) == Data("1".utf8))
+        #expect(try await cache.data("k", newerThan: 900, now: t.addingTimeInterval(900), fetch: fetch) == Data("2".utf8))
+        #expect(try await cache.data("other", newerThan: 900, now: t, fetch: fetch) == Data("3".utf8))
+        // A failed query is not saved.
+        struct Boom: Error {}
+        await #expect(throws: Boom.self) {
+            try await cache.data("bad", newerThan: 900, now: t) { throw Boom() }
+        }
+        #expect(try await cache.data("bad", newerThan: 900, now: t, fetch: fetch) == Data("4".utf8))
     }
 
     @Test func periodBoundsFollowTheLocalCalendar() throws {
