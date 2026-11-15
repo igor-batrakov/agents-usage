@@ -279,9 +279,25 @@ public struct MoonshotSource: UsageSource {
 
 // MARK: Google Cloud billing
 
-/// Spending from the billing export to BigQuery (Standard usage cost): one query per poll, at least 10 MB billed,
-/// well inside the free tier. The token comes from `gcloud auth print-access-token`: gcloud keeps and refreshes its
-/// own credentials (not single-use), the token lives in memory for this poll only.
+/// The last report per billing settings and period: BigQuery is asked at most every `CloudBillingSource.minInterval`.
+actor CloudBillingCache {
+    static let shared = CloudBillingCache()
+    private var entries: [String: (at: Date, report: UsageReport)] = [:]
+
+    func report(_ key: String, newerThan age: TimeInterval, now: Date) -> UsageReport? {
+        guard let entry = entries[key], now.timeIntervalSince(entry.at) < age else { return nil }
+        return entry.report
+    }
+
+    func store(_ key: String, _ report: UsageReport, at: Date) { entries[key] = (at, report) }
+}
+
+/// Spending from the billing export to BigQuery (Standard usage cost). The export changes a few times a day, so a
+/// query runs at most every 15 minutes per settings (polls in between get the last answer), and each one is capped
+/// by `maximumBytesBilled`: a query over the cap fails unbilled instead of scanning a large export. Worst case,
+/// 100 MB × 4 an hour is about 290 GB a month, inside BigQuery's free terabyte. The token comes from
+/// `gcloud auth print-access-token`: gcloud keeps and refreshes its own credentials (not single-use), the token
+/// lives in memory for this poll only.
 public struct CloudBillingSource: UsageSource {
     let billing: CloudBilling?
     public init(billing: CloudBilling?) { self.billing = billing }
@@ -289,10 +305,23 @@ public struct CloudBillingSource: UsageSource {
     static let candidates = ["/opt/homebrew/bin/gcloud", "/usr/local/bin/gcloud", "~/google-cloud-sdk/bin/gcloud",
                              "/opt/homebrew/share/google-cloud-sdk/bin/gcloud"]
 
+    static let minInterval: TimeInterval = 15 * 60
+    static let maxBytesBilled = 100_000_000
+
     public func fetch() async throws -> UsageReport {
         guard let billing, let (project, dataset) = Self.split(billing.dataset) else {
             throw UsageError.message(L("set the billing export dataset in Settings"))
         }
+        let now = Date()
+        let (start, end) = CloudBilling.bounds(billing.period, now: now)
+        let key = billing.tag + "@" + String(Int(start.timeIntervalSince1970))
+        if let cached = await CloudBillingCache.shared.report(key, newerThan: Self.minInterval, now: now) { return cached }
+        let report = try await query(billing, project: project, dataset: dataset, start: start, end: end)
+        await CloudBillingCache.shared.store(key, report, at: now)
+        return report
+    }
+
+    private func query(_ billing: CloudBilling, project: String, dataset: String, start: Date, end: Date) async throws -> UsageReport {
         guard let gcloud = ProcessRunner.locate(Self.candidates) else {
             throw UsageError.message(L("%@ not installed", "gcloud"))
         }
@@ -305,13 +334,30 @@ public struct CloudBillingSource: UsageSource {
         }
         guard !token.isEmpty else { throw UsageError.message(L("gcloud has no signed-in account. Run gcloud auth login")) }
 
-        let (start, end) = CloudBilling.bounds(billing.period, now: Date())
+        let headers = ["Authorization": "Bearer \(token)", "Accept": "application/json"]
+        let base = "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)/queries"
         let body = Self.query(project: project, dataset: dataset, filter: billing.project, start: start, end: end)
-        let (data, status) = try await HTTP.request(
-            "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)/queries",
-            headers: ["Authorization": "Bearer \(token)", "Accept": "application/json"], body: body, timeout: 30)
+        var (data, status) = try await HTTP.request(base, headers: headers, body: body, timeout: 30)
+        // Not finished in `timeoutMs`: the job keeps running on the server, so wait for its result instead of
+        // starting (and paying for) another one.
+        for _ in 0..<3 {
+            guard status == 200, let job = Self.pendingJob(data) else { break }
+            (data, status) = try await HTTP.request(base + "/" + job, headers: headers, timeout: 30)
+        }
         guard status == 200 else { throw Self.failure(data, status, dataset: billing.dataset) }
         return try Parsers.cloudBilling(data, billing: billing, start: start, end: end)
+    }
+
+    /// The path and query of `jobs.getQueryResults` for an answer with `jobComplete: false`, nil otherwise.
+    static func pendingJob(_ data: Data) -> String? {
+        guard let root = try? Parsers.object(data), root["jobComplete"] as? Bool == false,
+              let ref = root["jobReference"] as? [String: Any], let id = ref["jobId"] as? String,
+              id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil else { return nil }
+        var items = [URLQueryItem(name: "timeoutMs", value: "10000")]
+        if let location = ref["location"] as? String { items.append(URLQueryItem(name: "location", value: location)) }
+        var components = URLComponents()
+        components.queryItems = items
+        return id + "?" + (components.percentEncodedQuery ?? "")
     }
 
     /// `project.dataset`, both checked: they go into the query text, not as parameters (BigQuery has none for tables).
@@ -323,22 +369,25 @@ public struct CloudBillingSource: UsageSource {
         return (String(parts[0]), String(parts[1]))
     }
 
-    /// The cost and credits of the period (and of one project, if set), plus the currency and the time of the newest
-    /// export over the whole table: an empty period still has them.
+    /// The cost and credits of the period, and the currencies and newest export of the same project scope (all time,
+    /// so an empty period still has a currency). Several currencies (exports of billing accounts in different
+    /// currencies in one dataset) are reported, not added up.
     static func query(project: String, dataset: String, filter: String?, start: Date, end: Date) -> Data {
         let table = "`\(project).\(dataset).gcp_billing_export_v1_*`"
         let sql = """
             SELECT
+              (SELECT COUNT(DISTINCT currency) FROM \(table) WHERE \(projectScope)) AS currencies,
+              (SELECT ANY_VALUE(currency) FROM \(table) WHERE \(projectScope)) AS currency,
               (SELECT SUM(cost) FROM \(table) WHERE \(scope)) AS cost,
               (SELECT SUM((SELECT IFNULL(SUM(c.amount), 0) FROM UNNEST(credits) AS c)) FROM \(table) WHERE \(scope)) AS credits,
-              (SELECT ANY_VALUE(currency) FROM \(table)) AS currency,
-              (SELECT UNIX_SECONDS(MAX(export_time)) FROM \(table)) AS exported
+              (SELECT UNIX_SECONDS(MAX(export_time)) FROM \(table) WHERE \(projectScope)) AS exported
             """
         func parameter(_ name: String, _ type: String, _ value: String) -> [String: Any] {
             ["name": name, "parameterType": ["type": type], "parameterValue": ["value": value]]
         }
         let root: [String: Any] = [
             "query": sql, "useLegacySql": false, "parameterMode": "NAMED", "timeoutMs": 20000,
+            "maximumBytesBilled": String(maxBytesBilled),
             "queryParameters": [
                 parameter("start", "INT64", String(Int(start.timeIntervalSince1970))),
                 parameter("end", "INT64", String(Int(end.timeIntervalSince1970))),
@@ -348,9 +397,10 @@ public struct CloudBillingSource: UsageSource {
         return (try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])) ?? Data()
     }
 
+    private static let projectScope = "(@project = '' OR project.id = @project)"
     private static let scope = """
         usage_start_time >= TIMESTAMP_SECONDS(@start) AND usage_start_time < TIMESTAMP_SECONDS(@end) \
-        AND (@project = '' OR project.id = @project)
+        AND \(projectScope)
         """
 
     /// Google's own message (`error.message`) is the most precise one; a missing export gets a hint instead.

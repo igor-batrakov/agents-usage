@@ -50,6 +50,7 @@
 "API error: %d" = "API error: %d";
 "no balance in the response" = "no balance in the response";
 "BigQuery has not finished the query; the next poll will try again" = "BigQuery has not finished the query; the next poll will try again";
+"The export has costs in several currencies: choose one project" = "The export has costs in several currencies: choose one project";
 "The billing export has no data yet: it fills from the moment it is turned on" = "The billing export has no data yet: it fills from the moment it is turned on";
 "Spent this week" = "Spent this week";
 "Spent this month" = "Spent this month";

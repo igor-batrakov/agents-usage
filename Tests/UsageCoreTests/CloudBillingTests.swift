@@ -5,10 +5,11 @@ import Testing
 /// Google Cloud spending from the billing export: the jobs.query answer, the period, the query itself.
 /// The answers are made up in the documented jobs.query format (no real project or billing account ids).
 @Suite struct CloudBillingTests {
-    /// A jobs.query answer with one row: cost, credits, currency, newest export.
-    func answer(_ cost: String?, _ credits: String?, _ currency: String?, _ exported: String?, complete: Bool = true) -> Data {
+    /// A jobs.query answer with one row: number of currencies, currency, cost, credits, newest export.
+    func answer(_ cost: String?, _ credits: String?, _ currency: String?, _ exported: String?, complete: Bool = true,
+                currencies: String = "1") -> Data {
         func cell(_ v: String?) -> String { v.map { #"{"v": "\#($0)"}"# } ?? #"{"v": null}"# }
-        let row = [cost, credits, currency, exported].map(cell).joined(separator: ", ")
+        let row = [currencies, currency, cost, credits, exported].map(cell).joined(separator: ", ")
         return Data(#"{"kind": "bigquery#queryResponse", "jobComplete": \#(complete), "totalRows": "1", "rows": [{"f": [\#(row)]}]}"#.utf8)
     }
 
@@ -55,6 +56,28 @@ import Testing
         #expect(throws: UsageError.self) {
             try Parsers.cloudBilling(answer("1", "0", "EUR", nil, complete: false), billing: billing, start: start, end: end)
         }
+        // EUR and USD exports in one dataset are never added up.
+        #expect(throws: UsageError.self) {
+            try Parsers.cloudBilling(answer("200", "0", "EUR", nil, currencies: "2"), billing: billing, start: start, end: end)
+        }
+    }
+
+    @Test func anUnfinishedJobIsAwaitedNotRestarted() throws {
+        let pending = #"{"jobComplete": false, "jobReference": {"projectId": "my-project", "jobId": "job_Ab-1", "location": "EU"}}"#
+        #expect(CloudBillingSource.pendingJob(Data(pending.utf8)) == "job_Ab-1?timeoutMs=10000&location=EU")
+        let odd = #"{"jobComplete": false, "jobReference": {"jobId": "../x?y"}}"#
+        #expect(CloudBillingSource.pendingJob(Data(odd.utf8)) == nil)
+        #expect(CloudBillingSource.pendingJob(answer("1", "0", "EUR", nil)) == nil)
+    }
+
+    @Test func cacheAnswersWithinTheInterval() async {
+        let cache = CloudBillingCache()
+        let report = UsageReport(windows: [], plan: nil)
+        let t = Date(timeIntervalSince1970: 1000)
+        await cache.store("k", report, at: t)
+        #expect(await cache.report("k", newerThan: 900, now: t.addingTimeInterval(899)) == report)
+        #expect(await cache.report("k", newerThan: 900, now: t.addingTimeInterval(900)) == nil)
+        #expect(await cache.report("other", newerThan: 900, now: t) == nil)
     }
 
     @Test func periodBoundsFollowTheLocalCalendar() throws {
@@ -89,6 +112,7 @@ import Testing
         #expect(sql.contains("`my-project-123.billing_export.gcp_billing_export_v1_*`"))
         #expect(!sql.contains("app-prod-1"))
         #expect(root["useLegacySql"] as? Bool == false)
+        #expect(root["maximumBytesBilled"] as? String == "100000000")
         let params = try #require(root["queryParameters"] as? [[String: Any]])
         let values = Dictionary(uniqueKeysWithValues: params.map {
             ($0["name"] as! String, ($0["parameterValue"] as! [String: Any])["value"] as! String)

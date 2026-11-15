@@ -341,7 +341,7 @@ public enum Parsers {
 
     // MARK: Google Cloud — BigQuery jobs.query over the billing export
 
-    /// One row: cost, credits (negative), currency, newest export (epoch). The spending of the period is a balance
+    /// One row: number of currencies, currency, cost, credits (negative), newest export (epoch). The spending of the period is a balance
     /// line; with a limit it is also a window that resets with the period. The plan line says how fresh the export is.
     public static func cloudBilling(_ data: Data, billing: CloudBilling, start: Date, end: Date) throws -> UsageReport {
         let root = try object(data)
@@ -349,13 +349,16 @@ public enum Parsers {
             throw UsageError.message(L("BigQuery has not finished the query; the next poll will try again"))
         }
         guard let rows = root["rows"] as? [[String: Any]], let cells = rows.first?["f"] as? [[String: Any]],
-              cells.count >= 4 else { throw UsageError.message(L("no data in the response")) }
+              cells.count >= 5 else { throw UsageError.message(L("no data in the response")) }
         let values = cells.map { $0["v"] }
-        guard let currency = values[2] as? String else {
+        if let n = number(values[0]), n > 1 {
+            throw UsageError.message(L("The export has costs in several currencies: choose one project"))
+        }
+        guard let currency = values[1] as? String else {
             throw UsageError.message(L("The billing export has no data yet: it fills from the moment it is turned on"))
         }
-        let cost = number(values[0]) ?? 0
-        let credits = number(values[1]) ?? 0
+        let cost = number(values[2]) ?? 0
+        let credits = number(values[3]) ?? 0
         let spent = max(0, billing.net ? cost + credits : cost)
         let week = billing.period == .week
         var balances = [Balance(id: "gcloud-spent", title: week ? L("Spent this week") : L("Spent this month"),
@@ -369,7 +372,7 @@ public enum Parsers {
                                        used: spent / limit, resetsAt: end, isShort: false,
                                        duration: end.timeIntervalSince(start)))
         }
-        let plan = number(values[3]).map { L("data as of %@", Format.date(Date(timeIntervalSince1970: $0))) }
+        let plan = number(values[4]).map { L("data as of %@", Format.date(Date(timeIntervalSince1970: $0))) }
         return UsageReport(windows: windows, plan: plan, balances: balances)
     }
 
