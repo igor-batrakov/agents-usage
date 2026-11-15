@@ -81,10 +81,17 @@ enum HTTP {
         return try check(data, status, errors)
     }
 
-    static func request(_ url: String, headers: [String: String], timeout: TimeInterval = 10) async throws -> (Data, Int) {
+    /// `body` makes it a POST.
+    static func request(_ url: String, headers: [String: String], body: Data? = nil,
+                        timeout: TimeInterval = 10) async throws -> (Data, Int) {
         var request = URLRequest(url: URL(string: url)!, timeoutInterval: timeout)
         request.setValue("usage-widget/1.0", forHTTPHeaderField: "User-Agent")
         for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
+        if let body {
+            request.httpMethod = "POST"
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         let (data, response) = try await session.data(for: request)
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
@@ -267,6 +274,93 @@ public struct MoonshotSource: UsageSource {
         let (data, region) = try await getInRegions(["https://api.moonshot.ai/v1/users/me/balance",
                                                      "https://api.moonshot.cn/v1/users/me/balance"], key: key)
         return try Parsers.moonshot(data, currency: region == 0 ? "USD" : "CNY")
+    }
+}
+
+// MARK: Google Cloud billing
+
+/// Spending from the billing export to BigQuery (Standard usage cost): one query per poll, at least 10 MB billed,
+/// well inside the free tier. The token comes from `gcloud auth print-access-token`: gcloud keeps and refreshes its
+/// own credentials (not single-use), the token lives in memory for this poll only.
+public struct CloudBillingSource: UsageSource {
+    let billing: CloudBilling?
+    public init(billing: CloudBilling?) { self.billing = billing }
+
+    static let candidates = ["/opt/homebrew/bin/gcloud", "/usr/local/bin/gcloud", "~/google-cloud-sdk/bin/gcloud",
+                             "/opt/homebrew/share/google-cloud-sdk/bin/gcloud"]
+
+    public func fetch() async throws -> UsageReport {
+        guard let billing, let (project, dataset) = Self.split(billing.dataset) else {
+            throw UsageError.message(L("set the billing export dataset in Settings"))
+        }
+        guard let gcloud = ProcessRunner.locate(Self.candidates) else {
+            throw UsageError.message(L("%@ not installed", "gcloud"))
+        }
+        let token: String
+        do {
+            let output = try await ProcessRunner.run(gcloud, ["auth", "print-access-token"], timeout: 20)
+            token = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            throw UsageError.message(L("gcloud has no signed-in account. Run gcloud auth login"))
+        }
+        guard !token.isEmpty else { throw UsageError.message(L("gcloud has no signed-in account. Run gcloud auth login")) }
+
+        let (start, end) = CloudBilling.bounds(billing.period, now: Date())
+        let body = Self.query(project: project, dataset: dataset, filter: billing.project, start: start, end: end)
+        let (data, status) = try await HTTP.request(
+            "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)/queries",
+            headers: ["Authorization": "Bearer \(token)", "Accept": "application/json"], body: body, timeout: 30)
+        guard status == 200 else { throw Self.failure(data, status, dataset: billing.dataset) }
+        return try Parsers.cloudBilling(data, billing: billing, start: start, end: end)
+    }
+
+    /// `project.dataset`, both checked: they go into the query text, not as parameters (BigQuery has none for tables).
+    static func split(_ text: String) -> (String, String)? {
+        let parts = text.trimmingCharacters(in: .whitespaces).split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              parts[0].range(of: #"^[a-z][a-z0-9-]{4,61}[a-z0-9]$"#, options: .regularExpression) != nil,
+              parts[1].range(of: #"^[A-Za-z0-9_]{1,1024}$"#, options: .regularExpression) != nil else { return nil }
+        return (String(parts[0]), String(parts[1]))
+    }
+
+    /// The cost and credits of the period (and of one project, if set), plus the currency and the time of the newest
+    /// export over the whole table: an empty period still has them.
+    static func query(project: String, dataset: String, filter: String?, start: Date, end: Date) -> Data {
+        let table = "`\(project).\(dataset).gcp_billing_export_v1_*`"
+        let sql = """
+            SELECT
+              (SELECT SUM(cost) FROM \(table) WHERE \(scope)) AS cost,
+              (SELECT SUM((SELECT IFNULL(SUM(c.amount), 0) FROM UNNEST(credits) AS c)) FROM \(table) WHERE \(scope)) AS credits,
+              (SELECT ANY_VALUE(currency) FROM \(table)) AS currency,
+              (SELECT UNIX_SECONDS(MAX(export_time)) FROM \(table)) AS exported
+            """
+        func parameter(_ name: String, _ type: String, _ value: String) -> [String: Any] {
+            ["name": name, "parameterType": ["type": type], "parameterValue": ["value": value]]
+        }
+        let root: [String: Any] = [
+            "query": sql, "useLegacySql": false, "parameterMode": "NAMED", "timeoutMs": 20000,
+            "queryParameters": [
+                parameter("start", "INT64", String(Int(start.timeIntervalSince1970))),
+                parameter("end", "INT64", String(Int(end.timeIntervalSince1970))),
+                parameter("project", "STRING", filter?.trimmingCharacters(in: .whitespaces) ?? ""),
+            ],
+        ]
+        return (try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])) ?? Data()
+    }
+
+    private static let scope = """
+        usage_start_time >= TIMESTAMP_SECONDS(@start) AND usage_start_time < TIMESTAMP_SECONDS(@end) \
+        AND (@project = '' OR project.id = @project)
+        """
+
+    /// Google's own message (`error.message`) is the most precise one; a missing export gets a hint instead.
+    static func failure(_ data: Data, _ status: Int, dataset: String) -> UsageError {
+        let message = ((try? Parsers.object(data))?["error"] as? [String: Any])?["message"] as? String
+        switch status {
+        case 401: return .message(L("gcloud token rejected. Run gcloud auth login"))
+        case 404: return .message(L("No billing export in %@ yet. Turn it on in Billing → Billing export; the table appears within hours", dataset))
+        default: return .message(L("BigQuery: %@", message ?? "HTTP \(status)"))
+        }
     }
 }
 

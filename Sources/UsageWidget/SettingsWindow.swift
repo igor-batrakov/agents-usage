@@ -300,6 +300,7 @@ private struct AccountDetail: View {
                 }
             }
             if account.kind.usesAPIKey { keySection }
+            if account.kind == .gcloud { billingSection }
             Section(L("Windows")) {
                 if account.balanceOnly(snapshot) {
                     Text(L("No limit windows, only a balance.")).foregroundStyle(.secondary)
@@ -368,6 +369,48 @@ private struct AccountDetail: View {
                 settings.keyMessage = changed ? done : same
             } catch {
                 if settings.selectedAccountID == id { settings.keyMessage = error.localizedDescription }
+            }
+        }
+    }
+
+    /// A field of the account's billing settings; the first edit creates them.
+    private func billing<T>(_ keyPath: WritableKeyPath<CloudBilling, T>) -> Binding<T> {
+        let id = account.id, fallback = (account.billing ?? CloudBilling())[keyPath: keyPath]
+        return Binding(get: { settings.account(id)?.billing?[keyPath: keyPath] ?? fallback },
+                       set: { v in settings.update(id) { a in
+                           var b = a.billing ?? CloudBilling()
+                           b[keyPath: keyPath] = v
+                           a.billing = b
+                       } })
+    }
+
+    /// Where the billing export is, which project, period and limit, gross or net of credits.
+    private var billingSection: some View {
+        let project = billing(\.project), limit = billing(\.limit)
+        return Section(L("Billing export")) {
+            TextField(L("Dataset"), text: billing(\.dataset), prompt: Text(verbatim: "my-project.billing_export"))
+            TextField(L("Project"), text: Binding(get: { project.wrappedValue ?? "" }, set: {
+                let v = $0.trimmingCharacters(in: .whitespaces)
+                project.wrappedValue = v.isEmpty ? nil : v
+            }), prompt: Text(L("all projects")))
+            Picker(L("Period"), selection: billing(\.period)) {
+                Text(L("Month")).tag(CloudBilling.Period.month)
+                Text(L("Week")).tag(CloudBilling.Period.week)
+            }
+            // A number field commits on Return or leaving it: no poll per keystroke, and "80." stays while typing.
+            TextField(L("Limit (0: none, amount only)"), value: Binding(get: { limit.wrappedValue ?? 0 }, set: {
+                limit.wrappedValue = $0 > 0 ? $0 : nil
+            }), format: .number)
+            Toggle(L("Subtract credits: count only what the card is charged"), isOn: billing(\.net))
+            HStack(spacing: 4) {
+                Text(L("Standard usage cost export to BigQuery, as project.dataset. The data lags by a few hours; the limit is in the billing currency."))
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer()
+                Button(L("Set up export")) {
+                    if let url = URL(string: "https://console.cloud.google.com/billing/export") { NSWorkspace.shared.open(url) }
+                }
+                .buttonStyle(.link).font(.caption)
             }
         }
     }

@@ -1,0 +1,125 @@
+import Foundation
+import Testing
+@testable import UsageCore
+
+/// Google Cloud spending from the billing export: the jobs.query answer, the period, the query itself.
+/// The answers are made up in the documented jobs.query format (no real project or billing account ids).
+@Suite struct CloudBillingTests {
+    /// A jobs.query answer with one row: cost, credits, currency, newest export.
+    func answer(_ cost: String?, _ credits: String?, _ currency: String?, _ exported: String?, complete: Bool = true) -> Data {
+        func cell(_ v: String?) -> String { v.map { #"{"v": "\#($0)"}"# } ?? #"{"v": null}"# }
+        let row = [cost, credits, currency, exported].map(cell).joined(separator: ", ")
+        return Data(#"{"kind": "bigquery#queryResponse", "jobComplete": \#(complete), "totalRows": "1", "rows": [{"f": [\#(row)]}]}"#.utf8)
+    }
+
+    let start = Date(timeIntervalSince1970: 1_793_491_200)   // made-up period
+    var end: Date { start.addingTimeInterval(30 * 86400) }
+
+    @Test func grossCostWithLimitAndCredits() throws {
+        let billing = CloudBilling(dataset: "my-project.billing_export", limit: 80)
+        let r = try Parsers.cloudBilling(answer("12.5", "-10.25", "EUR", "1793600000"), billing: billing, start: start, end: end)
+        #expect(r.balances.map(\.id) == ["gcloud-spent", "gcloud-credits"])
+        #expect(r.balances[0].amount == 12.5 && r.balances[0].currency == "EUR")
+        #expect(r.balances[1].amount == 10.25)
+        let w = try #require(r.windows.first)
+        #expect(w.id == "gcloud-month" && w.title == "Month")
+        let used = 12.5 / 80
+        #expect(w.used == used)
+        #expect(w.resetsAt == end && w.duration == 30 * 86400 && !w.isShort)
+        #expect(r.plan?.isEmpty == false)
+    }
+
+    @Test func netSubtractsCreditsAndNeverGoesBelowZero() throws {
+        var billing = CloudBilling(dataset: "my-project.billing_export", period: .week, net: true)
+        var r = try Parsers.cloudBilling(answer("0.48", "-0.48", "EUR", nil), billing: billing, start: start, end: end)
+        #expect(r.balances.map(\.amount) == [0])
+        #expect(r.balances[0].title == "Spent this week")
+        #expect(r.windows.isEmpty && r.plan == nil)
+        billing.limit = 10
+        r = try Parsers.cloudBilling(answer("5", "-1", "EUR", nil), billing: billing, start: start, end: end)
+        #expect(r.balances.map(\.amount) == [4])
+        #expect(r.windows.map(\.id) == ["gcloud-week"])
+        #expect(r.windows[0].used == 0.4)
+        // Credits above the cost (a refund) do not make a negative spending.
+        r = try Parsers.cloudBilling(answer("1", "-3", "EUR", nil), billing: billing, start: start, end: end)
+        #expect(r.balances[0].amount == 0)
+    }
+
+    @Test func emptyPeriodIsZeroButAnEmptyExportIsAnError() throws {
+        let billing = CloudBilling(dataset: "my-project.billing_export")
+        let r = try Parsers.cloudBilling(answer(nil, nil, "EUR", "1793600000"), billing: billing, start: start, end: end)
+        #expect(r.balances.map(\.amount) == [0])
+        #expect(throws: UsageError.self) {
+            try Parsers.cloudBilling(answer(nil, nil, nil, nil), billing: billing, start: start, end: end)
+        }
+        #expect(throws: UsageError.self) {
+            try Parsers.cloudBilling(answer("1", "0", "EUR", nil, complete: false), billing: billing, start: start, end: end)
+        }
+    }
+
+    @Test func periodBoundsFollowTheLocalCalendar() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try #require(TimeZone(identifier: "Europe/Berlin"))
+        // Sunday 15 Nov 2026, 12:00 in Berlin.
+        let now = try #require(calendar.date(from: DateComponents(year: 2026, month: 11, day: 15, hour: 12)))
+        let month = CloudBilling.bounds(.month, now: now, calendar: calendar)
+        #expect(month.start == calendar.date(from: DateComponents(year: 2026, month: 11, day: 1)))
+        #expect(month.end == calendar.date(from: DateComponents(year: 2026, month: 12, day: 1)))
+        // The ISO week starts on Monday whatever the locale.
+        let week = CloudBilling.bounds(.week, now: now, calendar: calendar)
+        #expect(week.start == calendar.date(from: DateComponents(year: 2026, month: 11, day: 9)))
+        #expect(week.end == calendar.date(from: DateComponents(year: 2026, month: 11, day: 16)))
+    }
+
+    @Test func datasetIsCheckedBeforeItGoesIntoTheQuery() {
+        #expect(CloudBillingSource.split("my-project-123.billing_export")! == ("my-project-123", "billing_export"))
+        #expect(CloudBillingSource.split(" my-project-123.billing_export ") != nil)
+        #expect(CloudBillingSource.split("billing_export") == nil)
+        #expect(CloudBillingSource.split("my-project-123.billing.export") == nil)
+        #expect(CloudBillingSource.split("my-project-123.x` OR 1=1 --") == nil)
+        #expect(CloudBillingSource.split("My_Project.billing") == nil)
+        #expect(CloudBillingSource.split("") == nil)
+    }
+
+    @Test func queryReadsTheExportByPrefixWithParameters() throws {
+        let body = CloudBillingSource.query(project: "my-project-123", dataset: "billing_export", filter: " app-prod-1 ",
+                                            start: Date(timeIntervalSince1970: 100), end: Date(timeIntervalSince1970: 200))
+        let root = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
+        let sql = try #require(root["query"] as? String)
+        #expect(sql.contains("`my-project-123.billing_export.gcp_billing_export_v1_*`"))
+        #expect(!sql.contains("app-prod-1"))
+        #expect(root["useLegacySql"] as? Bool == false)
+        let params = try #require(root["queryParameters"] as? [[String: Any]])
+        let values = Dictionary(uniqueKeysWithValues: params.map {
+            ($0["name"] as! String, ($0["parameterValue"] as! [String: Any])["value"] as! String)
+        })
+        #expect(values == ["start": "100", "end": "200", "project": "app-prod-1"])
+    }
+
+    /// Against the real export, only on request: `CLOUD_BILLING_LIVE=project.dataset ./test.sh --filter liveCloudBilling`.
+    /// Read-only: one query (or an error before it, which is not billed). Prints the report or the error text.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CLOUD_BILLING_LIVE"] != nil))
+    func liveCloudBilling() async {
+        let dataset = ProcessInfo.processInfo.environment["CLOUD_BILLING_LIVE"] ?? ""
+        do {
+            let r = try await CloudBillingSource(billing: CloudBilling(dataset: dataset, limit: 80)).fetch()
+            print("live:", r.balances.map { "\($0.title) \(Format.money($0.amount, $0.currency))" }, r.windows.map(\.used), r.plan ?? "")
+        } catch {
+            print("live error:", error.localizedDescription)
+        }
+    }
+
+    @Test func notAddedOnFirstLaunchAndSettingsAreTheSource() {
+        #expect(!Catalog.defaultAccounts(installed: { _ in true }).contains { $0.kind == .gcloud })
+        #expect(Provider.gcloud.allowsMultipleAccounts)
+        var a = Account(kind: .gcloud)
+        let before = a
+        a.billing = CloudBilling(dataset: "my-project.billing_export", limit: 80)
+        #expect(!a.sameSource(as: before))
+        #expect(a.sourceTag != before.sourceTag)
+        var b = a
+        b.billing?.limit = 100
+        #expect(!b.sameSource(as: a) && b.sourceTag != a.sourceTag)
+        #expect(Format.money(12.5, "EUR") == "€12.50")
+    }
+}

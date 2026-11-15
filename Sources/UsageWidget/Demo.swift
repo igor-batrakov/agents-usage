@@ -16,13 +16,17 @@ enum Demo {
     private static let suite = "ru.batrakov.UsageWidget.demo"
 
     /// Demo accounts, in menu bar order.
-    private static let kinds: [Provider] = [.claude, .codex, .agy, .copilot, .cursor, .openrouter]
+    private static let kinds: [Provider] = [.claude, .codex, .agy, .copilot, .cursor, .openrouter, .gcloud]
 
     @MainActor
     static func settings() -> Settings {
         let defaults = UserDefaults(suiteName: suite)!
         defaults.removePersistentDomain(forName: suite)
-        let accounts = kinds.map { Account(kind: $0) }
+        let accounts = kinds.map { kind in
+            var account = Account(kind: kind)
+            if kind == .gcloud { account.billing = CloudBilling(dataset: "my-project.billing_export", limit: 80) }
+            return account
+        }
         defaults.set(try? JSONEncoder().encode(accounts), forKey: "accounts")
         defaults.set(false, forKey: "notify")
         defaults.set(HotKeyChoice.off.rawValue, forKey: "hotKey")
@@ -128,6 +132,11 @@ private struct DemoSource: UsageSource {
             return UsageReport(windows: [
                 LimitWindow(id: "openrouter-key", title: L("Key · month"), used: 0.23, resetsAt: nil, isShort: false),
             ], plan: nil, balances: [Balance(id: "openrouter-credits", title: L("Balance"), amount: 44, currency: "USD")])
+        case .gcloud:
+            return UsageReport(windows: [
+                w("gcloud-month", L("Month"), nil, 0.31, 16 * 24, month),
+            ], plan: L("data as of %@", Format.date(Date().addingTimeInterval(-5 * 3600))),
+               balances: [Balance(id: "gcloud-spent", title: L("Spent this month"), amount: 24.8, currency: "EUR")])
         case .kimi, .moonshot:
             return UsageReport(windows: [], plan: nil,
                                balances: [Balance(id: "demo", title: L("Balance"), amount: 12.5, currency: "USD")])

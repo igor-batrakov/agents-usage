@@ -17,6 +17,8 @@ enum Theme {
         case .kimi: NSColor(srgbRed: 0.024, green: 0.714, blue: 0.831, alpha: 1)     // #06B6D4
         case .openrouter: NSColor(srgbRed: 0.392, green: 0.404, blue: 0.949, alpha: 1)  // #6467F2
         case .moonshot: NSColor(srgbRed: 0.518, green: 0.800, blue: 0.086, alpha: 1)  // #84CC16
+        // Google's blue is agy's already, its yellow too close to amber.
+        case .gcloud: NSColor(srgbRed: 0.925, green: 0.282, blue: 0.600, alpha: 1)  // #EC4899
         }
     }
 

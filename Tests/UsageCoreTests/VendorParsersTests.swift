@@ -152,7 +152,8 @@ private let days30: TimeInterval? = 30 * 86400
         #expect(Format.money(12.345, "USD") == "$12.35")
         #expect(Format.money(5, "CNY") == "¥5.00")
         #expect(Format.money(-1.5, "USD") == "−$1.50")
-        #expect(Format.money(3, "EUR") == "3.00 EUR")
+        #expect(Format.money(3, "EUR") == "€3.00")
+        #expect(Format.money(3, "GBP") == "3.00 GBP")
         #expect(Format.money(-0.001, "USD") == "$0.00")
     }
 }

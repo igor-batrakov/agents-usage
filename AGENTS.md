@@ -3,8 +3,8 @@
 The contributor guide is [CONTRIBUTING.md](CONTRIBUTING.md); this file holds the rules for reviewers and agents.
 
 A native macOS menu bar app (Swift, SwiftPM, no Xcode). It shows subscription limits for Claude Code, Codex,
-Antigravity (agy), GitHub Copilot, Cursor and Kimi Code, plus OpenRouter and Moonshot balances: usage percentage
-and reset time for each window, amounts as a balance line.
+Antigravity (agy), GitHub Copilot, Cursor and Kimi Code, plus OpenRouter and Moonshot balances and Google Cloud
+spending: usage percentage and reset time for each window, amounts as a balance line.
 
 ## Build and test
 
@@ -58,13 +58,15 @@ and reset time for each window, amounts as a balance line.
 | Kimi Code | API key → `GET api.kimi.com/coding/v1/usages` (on 401, try `api.kimi.ai`): `usages.limit_*.used_ratio` or the `usage` counters (week) and `limits[0]` |
 | OpenRouter | API key → `GET openrouter.ai/api/v1/key` (key budget, no reset date) and `/credits` (balance, optional) |
 | Moonshot | API key → `GET api.moonshot.ai/v1/users/me/balance` (on 401, `api.moonshot.cn`, then yuan) → `data.available_balance` |
+| Google Cloud | `gcloud auth print-access-token` (the token stays in memory for one poll) → `POST bigquery.googleapis.com/bigquery/v2/projects/<project>/queries` over `` `project.dataset.gcp_billing_export_v1_*` `` (Standard usage cost export): `SUM(cost)` and `SUM(credits.amount)` for `usage_start_time` in the local month or ISO week, optionally one `project.id`, plus `currency` and `MAX(export_time)` over the whole table. `project.dataset` is checked by pattern before it goes into the query text; the rest are query parameters. Limit and net/gross are account settings (`Account.billing`) |
 | Updates | `GET api.github.com/repos/igor-batrakov/agents-usage/releases/latest` → `tag_name`, `html_url` (public API, no token) |
 | Revolver | `revo` at `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin` or `revoPath` (chosen in settings, or found once by the login shell's `command -v revo`), run from `/` with `REVO_LANG`: `version --json` (`schemas` contains 2), `ls --json` (blocks with `role`, limits in `state`; also for the popover), `engines --json` (`vendor` is the name shown, `display` only tells engines apart; `discovered`, `model_efforts`, `models_fetched_at`; `block_fields` with `project` gives a block a Google Cloud project picker from `projects`, checked by `project_pattern`, `null` in `set` removes it), `models [--refresh] --json` (fetches model lists from the providers, no model is called, up to tens of seconds; `usage` from an older revo hides the button), `apply [--check]` with operations on stdin (`remove`, `add`, `order`, `set`, `settings`). Schema 2, `docs/json.md` in the revolver repository; JSON comes on stdout with any exit code (4 config changed, 5 busy) |
 
 ## Invariants (reviewers check these)
 
 1. **We never refresh tokens ourselves.** Refresh tokens are single-use: refreshing behind a CLI's back logs out
-   Claude Code or Codex. If a token has expired, show the previous data and a hint to run the CLI.
+   Claude Code or Codex. If a token has expired, show the previous data and a hint to run the CLI. Google Cloud
+   asks `gcloud auth print-access-token`: gcloud refreshes its own (reusable) credentials, the app never sees them.
 2. **Secrets stay in memory.** A token never goes to the log, UI, files or error texts. Fixtures contain no tokens
    and no account identifiers.
 3. **Keychain only through `/usr/bin/security`**: it is in the ACL of the Claude Code item, while a direct

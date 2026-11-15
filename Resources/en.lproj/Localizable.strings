@@ -49,6 +49,12 @@
 "no OpenRouter data in the response" = "no OpenRouter data in the response";
 "API error: %d" = "API error: %d";
 "no balance in the response" = "no balance in the response";
+"BigQuery has not finished the query; the next poll will try again" = "BigQuery has not finished the query; the next poll will try again";
+"The billing export has no data yet: it fills from the moment it is turned on" = "The billing export has no data yet: it fills from the moment it is turned on";
+"Spent this week" = "Spent this week";
+"Spent this month" = "Spent this month";
+"Covered by credits" = "Covered by credits";
+"data as of %@" = "data as of %@";
 "response is not JSON" = "response is not JSON";
 
 /* Sources/UsageCore/ProcessRunner.swift */
@@ -83,6 +89,11 @@
 "no API key. Add one in Settings" = "no API key. Add one in Settings";
 "key rejected. Check it in Settings" = "key rejected. Check it in Settings";
 "no API addresses" = "no API addresses";
+"set the billing export dataset in Settings" = "set the billing export dataset in Settings";
+"gcloud has no signed-in account. Run gcloud auth login" = "gcloud has no signed-in account. Run gcloud auth login";
+"gcloud token rejected. Run gcloud auth login" = "gcloud token rejected. Run gcloud auth login";
+"No billing export in %@ yet. Turn it on in Billing → Billing export; the table appears within hours" = "No billing export in %@ yet. Turn it on in Billing → Billing export; the table appears within hours";
+"BigQuery: %@" = "BigQuery: %@";
 
 /* Sources/UsageCore/Updates.swift */
 "unexpected response from GitHub" = "unexpected response from GitHub";
@@ -267,6 +278,15 @@
 "Open" = "Open";
 "Check" = "Check";
 "working: %d windows, %@" = "working: %d windows, %@";
+"Billing export" = "Billing export";
+"Dataset" = "Dataset";
+"Project" = "Project";
+"all projects" = "all projects";
+"Period" = "Period";
+"Limit (0: none, amount only)" = "Limit (0: none, amount only)";
+"Subtract credits: count only what the card is charged" = "Subtract credits: count only what the card is charged";
+"Standard usage cost export to BigQuery, as project.dataset. The data lags by a few hours; the limit is in the billing currency." = "Standard usage cost export to BigQuery, as project.dataset. The data lags by a few hours; the limit is in the billing currency.";
+"Set up export" = "Set up export";
 "Key" = "Key";
 "Paste a key to replace the saved one" = "Paste a key to replace the saved one";
 "Save" = "Save";

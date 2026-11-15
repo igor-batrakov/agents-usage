@@ -49,6 +49,12 @@
 "no OpenRouter data in the response" = "в ответе нет данных OpenRouter";
 "API error: %d" = "ошибка API: %d";
 "no balance in the response" = "в ответе нет баланса";
+"BigQuery has not finished the query; the next poll will try again" = "BigQuery не успел выполнить запрос, следующий опрос попробует снова";
+"The billing export has no data yet: it fills from the moment it is turned on" = "В экспорте биллинга ещё нет данных: они копятся с момента его включения";
+"Spent this week" = "Потрачено за неделю";
+"Spent this month" = "Потрачено за месяц";
+"Covered by credits" = "Покрыто кредитами";
+"data as of %@" = "данные на %@";
 "response is not JSON" = "ответ не JSON";
 
 /* Sources/UsageCore/ProcessRunner.swift */
@@ -83,6 +89,11 @@
 "no API key. Add one in Settings" = "нет API-ключа — добавьте его в настройках";
 "key rejected. Check it in Settings" = "ключ отклонён — проверьте его в настройках";
 "no API addresses" = "нет адресов API";
+"set the billing export dataset in Settings" = "укажите dataset экспорта биллинга в настройках";
+"gcloud has no signed-in account. Run gcloud auth login" = "в gcloud не выполнен вход. Запустите gcloud auth login";
+"gcloud token rejected. Run gcloud auth login" = "токен gcloud отклонён. Запустите gcloud auth login";
+"No billing export in %@ yet. Turn it on in Billing → Billing export; the table appears within hours" = "В %@ пока нет экспорта биллинга. Включите его в Billing → Billing export, таблица появится в течение нескольких часов";
+"BigQuery: %@" = "BigQuery: %@";
 
 /* Sources/UsageCore/Updates.swift */
 "unexpected response from GitHub" = "непонятный ответ GitHub";
@@ -267,6 +278,15 @@
 "Open" = "Открыть";
 "Check" = "Проверить";
 "working: %d windows, %@" = "работает: окон %d, %@";
+"Billing export" = "Экспорт биллинга";
+"Dataset" = "Dataset";
+"Project" = "Проект";
+"all projects" = "все проекты";
+"Period" = "Период";
+"Limit (0: none, amount only)" = "Лимит (0 — без лимита, только сумма)";
+"Subtract credits: count only what the card is charged" = "Вычитать кредиты: считать только то, что спишется с карты";
+"Standard usage cost export to BigQuery, as project.dataset. The data lags by a few hours; the limit is in the billing currency." = "Экспорт Standard usage cost в BigQuery, в виде project.dataset. Данные запаздывают на несколько часов; лимит — в валюте платёжного аккаунта.";
+"Set up export" = "Настроить экспорт";
 "Key" = "Ключ";
 "Paste a key to replace the saved one" = "вставьте ключ";
 "Save" = "Сохранить";
