@@ -131,7 +131,8 @@ the release page instead. Settings → About has a manual check and a switch to 
   (reviews instead of a required one above it on a limit or on any failure). The model list comes from the
   providers through `revo models`: models nobody has reviewed with yet are marked, and the effort list follows
   what the provider gives the model. Lists older than a day are fetched when the tab opens; **Update model
-  lists** fetches them all (no model is run). Below: review rounds per commit,
+  lists** fetches them all (no model is run). A Vertex reviewer has its Google Cloud project, typed or picked
+  from your gcloud account; by default it follows the project gcloud is switched to. Below: review rounds per commit,
   the review language and what to do when a required reviewer gives no review. Apply shows what will change
   first. The app goes through `revo apply` and never edits revo's files itself.
 - **About.** Version, update check, links to the project.

@@ -64,6 +64,7 @@
 "The review chain was changed outside the app and has been reloaded. Check your edits and apply again." = "The review chain was changed outside the app and has been reloaded. Check your edits and apply again.";
 "%@: effort %@ is not supported" = "%@: effort %@ is not supported";
 "%@: invalid model name %@" = "%@: invalid model name %@";
+"%@: invalid Google Cloud project %@" = "%@: invalid Google Cloud project %@";
 "revo failed with an internal error. Run it in Terminal to see the details." = "revo failed with an internal error. Run it in Terminal to see the details.";
 
 /* Sources/UsageCore/Sources.swift */
@@ -140,10 +141,12 @@
 "Choose the revo executable" = "Choose the revo executable";
 "No executable file at %@" = "No executable file at %@";
 "This is not revo, or a revo too old for the app. Update it: %@" = "This is not revo, or a revo too old for the app. Update it: %@";
+"default (gcloud)" = "default (gcloud)";
 "default" = "default";
 "limit, resets %@" = "limit, resets %@";
 "CLI not found" = "CLI not found";
 "invalid model name" = "invalid model name";
+"invalid project ID" = "invalid project ID";
 "never runs: no required reviewer above it" = "never runs: no required reviewer above it";
 "no fallback below it" = "no fallback below it";
 "↳ for %@" = "↳ for %@";
@@ -152,6 +155,7 @@
 "fallback" = "fallback";
 "Remove %@" = "Remove %@";
 "Add %@: %@, %@, %@" = "Add %@: %@, %@, %@";
+"%@: Google Cloud project %@" = "%@: Google Cloud project %@";
 "Order: %@" = "Order: %@";
 "%@: turn on" = "%@: turn on";
 "%@: turn off" = "%@: turn off";
@@ -159,6 +163,7 @@
 "%@: effort %@ → %@" = "%@: effort %@ → %@";
 "%@: %@ → %@" = "%@: %@ → %@";
 "%@: steps in %@" = "%@: steps in %@";
+"%@: Google Cloud project %@ → %@" = "%@: Google Cloud project %@ → %@";
 "Review rounds: %@ → %@" = "Review rounds: %@ → %@";
 "Review language: %@ → %@" = "Review language: %@ → %@";
 "No review from a required reviewer: %@" = "No review from a required reviewer: %@";
@@ -200,6 +205,9 @@
 "%@ (not installed)" = "%@ (not installed)";
 "The CLI of this provider was not found" = "The CLI of this provider was not found";
 "Provider" = "Provider";
+"Google Cloud project:" = "Google Cloud project:";
+"Projects of your gcloud account" = "Projects of your gcloud account";
+"Vertex reviews are billed to this project. By default it follows the project gcloud is switched to." = "Vertex reviews are billed to this project. By default it follows the project gcloud is switched to.";
 "%@: limit, resets %@ → %@" = "%@: limit, resets %@ → %@";
 "%@: limit, resets %@, no review" = "%@: limit, resets %@, no review";
 "Recorded by revo: %@" = "Recorded by revo: %@";

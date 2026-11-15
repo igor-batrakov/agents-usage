@@ -47,7 +47,8 @@ enum Demo {
              "chain": [
                {"id": "sol", "engine": "codex", "model": "gpt-6.1-sol", "effort": "max", "on": true, "takes_over": "-",
                 "role": "required"},
-               {"id": "gemini", "engine": "agy", "model": "gemini-3.8-flash", "effort": "high", "on": true,
+               {"id": "vertex", "engine": "vertex", "model": "gemini-3.8-flash", "effort": "high", "on": true,
+                "project": "code-review-4821",
                 "takes_over": "limit", "role": "fallback"},
                {"id": "opus", "engine": "claude", "model": "claude-opus-5-5", "effort": "high", "on": true,
                 "takes_over": "-", "role": "required"},
@@ -56,7 +57,7 @@ enum Demo {
                {"id": "astra", "engine": "codex", "model": "gpt-6-astra", "effort": "high", "on": false,
                 "takes_over": "any_fail", "role": "fallback"}],
              "settings": {"review_rounds": 2, "lang": null, "missing_review": "ask"},
-             "state": {"sol": \(limited), "astra": \(limited), "gemini": \(free), "opus": \(free), "fable": \(free)}}
+             "state": {"sol": \(limited), "astra": \(limited), "vertex": \(free), "opus": \(free), "fable": \(free)}}
             """
         let pattern = #""model_pattern": "^[A-Za-z0-9._-]+$""#
         let fetched = Int(Date().timeIntervalSince1970) - 3 * 3600
@@ -67,6 +68,10 @@ enum Demo {
               "custom_model": true, \(pattern), "installed": true},
              {"name": "agy", "display": "Gemini", "vendor": "Gemini", "efforts": ["low", "medium", "high"],
               "models": ["default", "gemini-3.8-flash", "gemini-4-argon"], "custom_model": true, \(pattern), "installed": true},
+             {"name": "vertex", "display": "Gemini Vertex", "vendor": "Gemini", "efforts": ["low", "medium", "high"],
+              "models": ["default", "gemini-3.8-flash", "gemini-4-argon"], "custom_model": true, \(pattern), "installed": true,
+              "block_fields": ["project"], "project_pattern": "^[a-z][a-z0-9-]{4,61}[a-z0-9]$",
+              "projects": [{"id": "code-review-4821", "name": "Code review"}, {"id": "staging-7730", "name": "Staging"}]},
              {"name": "claude", "display": "Claude", "vendor": "Claude Code", "efforts": ["low", "medium", "high", "xhigh", "max"],
               "models": ["default", "claude-fable-5-2", "claude-opus-5-5", "claude-fable-5-1", "opus"],
               "custom_model": true, \(pattern), "installed": true}]

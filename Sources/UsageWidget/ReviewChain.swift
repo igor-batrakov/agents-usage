@@ -267,7 +267,21 @@ final class ReviewChain {
             block.engine = name
             block.model = engine.models.first ?? "default"
             block.effort = engine.defaultEffort
+            block.project = nil   // only `vertex` takes one, and a new block starts with the default
         }
+    }
+
+    /// The Google Cloud project of a `vertex` block; empty: the default (`REVO_VERTEX_PROJECT`, then gcloud).
+    func setProject(_ id: String, _ project: String?) {
+        let trimmed = project?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        update(id) { $0.project = trimmed.isEmpty ? nil : trimmed }
+    }
+
+    /// "My project — my-project-123" when the id is in the account's list, else the id as it is.
+    func projectName(_ id: String?, engine: String) -> String {
+        guard let id else { return L("default (gcloud)") }
+        guard let project = engines[engine]?.projects.first(where: { $0.id == id }), project.name != id else { return id }
+        return "\(project.name) — \(id)"
     }
 
     /// A new reviewer at the end: an installed engine, its default model, a fallback stepping in on any failure.
@@ -451,6 +465,9 @@ final class ReviewChain {
         if let until = loaded?.limit(block.id, now: now) { warnings.append(L("limit, resets %@", Format.resetIn(until, now: now))) }
         if engines[block.engine]?.installed == false { warnings.append(L("CLI not found")) }
         if let engine = engines[block.engine], !engine.accepts(block.model) { warnings.append(L("invalid model name")) }
+        if let project = block.project, let engine = engines[block.engine], !engine.acceptsProject(project) {
+            warnings.append(L("invalid project ID"))
+        }
         switch blocks.warning(at: index) {
         case .neverRuns?: warnings.append(L("never runs: no required reviewer above it"))
         case .noFallback?: warnings.append(L("no fallback below it"))
@@ -478,6 +495,9 @@ final class ReviewChain {
         for id in diff.removed { lines.append(L("Remove %@", blockName(id))) }
         for block in diff.added {
             lines.append(L("Add %@: %@, %@, %@", name(block), modelName(block.model), block.effort, roleText(block)))
+            if block.project != nil {
+                lines.append(L("%@: Google Cloud project %@", name(block), projectName(block.project, engine: block.engine)))
+            }
         }
         if let order = diff.order {
             lines.append(L("Order: %@", order.new.map(blockName).joined(separator: " → ")))
@@ -493,6 +513,15 @@ final class ReviewChain {
             case "takes_over" where c.new != .string(RevoTakesOver.none):
                 lines.append(L("%@: steps in %@", name, condition(c.new?.description ?? "")))
             case "takes_over": break
+            case "project":
+                // A removed project comes as null: the default again.
+                let blocks: [RevoBlock] = loaded?.chain ?? []
+                let engine: String = blocks.first(where: { $0.id == c.id })?.engine ?? "vertex"
+                func project(_ v: RevoValue?) -> String {
+                    guard case .string(let id)? = v else { return L("default (gcloud)") }
+                    return projectName(id, engine: engine)
+                }
+                lines.append(L("%@: Google Cloud project %@ → %@", name, project(c.old), project(c.new)))
             default: lines.append("\(name): \(c.field) \(value(c.old)) → \(value(c.new))")
             }
         }

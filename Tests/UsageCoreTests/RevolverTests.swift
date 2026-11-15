@@ -94,6 +94,64 @@ import Testing
         #expect(codex.effort("max", for: "gpt-6.1-sol") == "max")
     }
 
+    @Test func vertexProjectIsParsedEditedAndSent() throws {
+        let ls = #"""
+            {"schema": 2, "ok": true, "config_path": "/c.json", "config_rev": "r1",
+             "chain": [{"id": "sol", "engine": "codex", "model": "default", "effort": "high", "on": true, "role": "required", "takes_over": "-"},
+                       {"id": "vertex", "engine": "vertex", "model": "default", "effort": "high", "on": true, "role": "fallback",
+                        "takes_over": "limit", "project": "review-1234"}]}
+            """#
+        let chain: RevoChain = try Revo.decode((0, Data(ls.utf8)))
+        #expect(chain.chain[0].project == nil)
+        #expect(chain.chain[1].project == "review-1234")
+
+        let engines = #"""
+            {"schema": 2, "ok": true, "engines": [
+              {"name": "vertex", "display": "Gemini Vertex", "vendor": "Gemini", "efforts": ["high"], "models": ["default"],
+               "custom_model": true, "installed": true, "block_fields": ["project"],
+               "project_pattern": "^[a-z][a-z0-9-]{4,61}[a-z0-9]$",
+               "projects": [{"id": "review-1234", "name": "Review"}, {"id": "nameless-1"}]},
+              {"name": "codex", "display": "Codex", "efforts": ["high"], "models": ["default"], "custom_model": true,
+               "installed": true}]}
+            """#
+        struct Answer: Decodable { let engines: [RevoEngine] }
+        let list = try (Revo.decode((0, Data(engines.utf8))) as Answer).engines
+        let vertex = list[0], codex = list[1]
+        #expect(vertex.takesProject && !codex.takesProject)
+        #expect(vertex.projects.map(\.name) == ["Review", "nameless-1"])
+        #expect(vertex.acceptsProject("my-project-42"))
+        #expect(!vertex.acceptsProject("My Project"))
+        #expect(!vertex.acceptsProject(""))
+        #expect(!codex.acceptsProject("my-project-42"))
+
+        // Set, then remove: the removal goes as null.
+        var edited = RevoDraft(chain)
+        edited.blocks[1].project = "other-5678"
+        var ops = RevoOps.between(RevoDraft(chain), edited)
+        #expect(ops.set["vertex"]?.project == .some("other-5678"))
+        #expect(ops.applied(to: RevoDraft(chain)) == edited)
+        edited.blocks[1].project = nil
+        ops = RevoOps.between(RevoDraft(chain), edited)
+        #expect(ops.set["vertex"]?.project == .some(nil))
+        #expect(ops.applied(to: RevoDraft(chain)).blocks[1].project == nil)
+        let json = try #require(JSONSerialization.jsonObject(with: ops.json(base: "r1")) as? [String: Any])
+        let set = try #require(json["set"] as? [String: [String: Any]])
+        #expect(set["vertex"]?["project"] is NSNull)
+        #expect(set["sol"]?["project"] == nil)
+
+        // A new block carries its project in `add`; one without a project sends no field.
+        edited = RevoDraft(chain)
+        edited.blocks.append(RevoBlock(id: RevoDraft.newID(), engine: "vertex", model: "default", effort: "high",
+                                       project: "new-proj-1"))
+        edited.blocks.append(RevoBlock(id: RevoDraft.newID(), engine: "codex", model: "default", effort: "high"))
+        ops = RevoOps.between(RevoDraft(chain), edited)
+        let added = try #require((JSONSerialization.jsonObject(with: ops.json(base: "r1")) as? [String: Any])?["add"]
+                                 as? [[String: Any]])
+        #expect(added.count == 2)
+        #expect(added[0]["project"] as? String == "new-proj-1")
+        #expect(added[1]["project"] == nil)
+    }
+
     @Test func parsesModelsAnswer() throws {
         struct Answer: Decodable { let engines: [String: RevoModelList] }
         let lists = try (Revo.decode((0, fixture("revo_models"))) as Answer).engines
@@ -481,6 +539,17 @@ import Testing
         #expect(!lists.isEmpty)
         #expect(Set(lists.keys).isSubset(of: Set(engines.map(\.name))))
         #expect(engines.allSatisfy { $0.vendor != nil })
+
+        // A project edit on the chain's vertex block, checked only (`apply --check` never writes).
+        let chain = try await Revo.list(revo)
+        guard let vertex = engines.first(where: \.takesProject),
+              let i = chain.chain.firstIndex(where: { $0.engine == vertex.name }) else { return }
+        var edited = RevoDraft(chain)
+        edited.blocks[i].project = edited.blocks[i].project == nil ? "review-check-1" : nil
+        let check = try await Revo.apply(revo, RevoOps.between(RevoDraft(chain), edited), base: chain.configRev, check: true)
+        print("project diff:", check.diff.changes.filter { $0.field == "project" })
+        #expect(check.check)
+        #expect(check.diff.changes.contains { $0.id == chain.chain[i].id && $0.field == "project" })
     }
 
     @Test func locatePrefersTheChosenPath() {
