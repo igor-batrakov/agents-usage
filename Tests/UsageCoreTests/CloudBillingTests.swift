@@ -136,7 +136,7 @@ import Testing
 
     @Test func queryReadsTheExportByPrefixWithParameters() throws {
         let body = CloudBillingSource.query(project: "my-project-123", dataset: "billing_export", filter: " app-prod-1 ",
-                                            start: Date(timeIntervalSince1970: 100), end: Date(timeIntervalSince1970: 200),
+                                            service: "Vertex AI", start: Date(timeIntervalSince1970: 100), end: Date(timeIntervalSince1970: 200),
                                             result: "agents_usage_abc")
         let job = try #require(try JSONSerialization.jsonObject(with: body) as? [String: Any])
         let root = try #require((job["configuration"] as? [String: Any])?["query"] as? [String: Any])
@@ -153,7 +153,8 @@ import Testing
         let values = Dictionary(uniqueKeysWithValues: params.map {
             ($0["name"] as! String, ($0["parameterValue"] as! [String: Any])["value"] as! String)
         })
-        #expect(values == ["start": "100", "end": "200", "project": "app-prod-1"])
+        #expect(values == ["start": "100", "end": "200", "project": "app-prod-1", "service": "Vertex AI"])
+        #expect(sql.contains("service.description = @service") && !sql.contains("Vertex AI"))
     }
 
     /// Against the real export, only on request: `CLOUD_BILLING_LIVE=project.dataset ./test.sh --filter liveCloudBilling`.
@@ -180,6 +181,14 @@ import Testing
         var b = a
         b.billing?.limit = 100
         #expect(!b.sameSource(as: a) && b.sourceTag != a.sourceTag)
+        var c = a
+        c.billing?.service = "Vertex AI"
+        #expect(!c.sameSource(as: a))
+        #expect(CloudBillingSource.resultTable(c.billing!) != CloudBillingSource.resultTable(a.billing!))
+        // Settings saved before the service filter existed still decode.
+        let old = #"{"dataset": "p-12345.d", "period": "month", "net": false}"#
+        let decoded = try? JSONDecoder().decode(CloudBilling.self, from: Data(old.utf8))
+        #expect(decoded != nil && decoded?.service == nil)
         #expect(Format.money(12.5, "EUR") == "€12.50")
     }
 }

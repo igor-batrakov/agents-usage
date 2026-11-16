@@ -283,6 +283,8 @@
 "Dataset" = "Dataset";
 "Project" = "Project";
 "all projects" = "all projects";
+"Service" = "Service";
+"all services" = "all services";
 "Period" = "Period";
 "Limit (0: none, amount only)" = "Limit (0: none, amount only)";
 "Subtract credits: count only what the card is charged" = "Subtract credits: count only what the card is charged";

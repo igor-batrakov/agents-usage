@@ -74,16 +74,19 @@ public struct CloudBilling: Codable, Equatable, Sendable {
     public var dataset: String
     /// Only this project's costs; nil: every project of the billing account.
     public var project: String?
+    /// Only this service (`service.description` in the export, e.g. "Vertex AI"); nil: every service.
+    public var service: String?
     public var period: Period
     /// In the billing currency; nil or 0: no limit, the amount goes to a balance line.
     public var limit: Double?
     /// Subtract credits: what the card is charged. Off: the full cost, which credits hide otherwise.
     public var net: Bool
 
-    public init(dataset: String = "", project: String? = nil, period: Period = .month, limit: Double? = nil,
-                net: Bool = false) {
+    public init(dataset: String = "", project: String? = nil, service: String? = nil, period: Period = .month,
+                limit: Double? = nil, net: Bool = false) {
         self.dataset = dataset
         self.project = project
+        self.service = service
         self.period = period
         self.limit = limit
         self.net = net
@@ -91,7 +94,7 @@ public struct CloudBilling: Codable, Equatable, Sendable {
 
     /// A stable text of the settings for notification state keys.
     var tag: String {
-        [dataset, project ?? "", period.rawValue, limit.map { String($0) } ?? "", net ? "net" : "gross"].joined(separator: "|")
+        [dataset, project ?? "", service ?? "", period.rawValue, limit.map { String($0) } ?? "", net ? "net" : "gross"].joined(separator: "|")
     }
 
     /// The current period in the local calendar: from the start of this month (or ISO week, Monday) to the next.

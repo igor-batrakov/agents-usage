@@ -346,7 +346,8 @@ public struct CloudBillingSource: UsageSource {
 
         let headers = ["Authorization": "Bearer \(token)", "Accept": "application/json"]
         let base = "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)"
-        let body = Self.query(project: project, dataset: dataset, filter: billing.project, start: start, end: end,
+        let body = Self.query(project: project, dataset: dataset, filter: billing.project, service: billing.service,
+                              start: start, end: end,
                               result: Self.resultTable(billing))
         // jobs.insert, then jobs.getQueryResults: the job keeps running on the server, so its result is awaited
         // instead of starting (and paying for) another one.
@@ -396,7 +397,8 @@ public struct CloudBillingSource: UsageSource {
     /// The cost and credits of the period, and the currencies and newest export of the same project scope (all time,
     /// so an empty period still has a currency). Several currencies (exports of billing accounts in different
     /// currencies in one dataset) are reported, not added up. A jobs.insert body writing to `result`.
-    static func query(project: String, dataset: String, filter: String?, start: Date, end: Date, result: String) -> Data {
+    static func query(project: String, dataset: String, filter: String?, service: String? = nil, start: Date, end: Date,
+                      result: String) -> Data {
         let table = "`\(project).\(dataset).gcp_billing_export_v1_*`"
         let sql = """
             SELECT
@@ -418,6 +420,7 @@ public struct CloudBillingSource: UsageSource {
                 parameter("start", "INT64", String(Int(start.timeIntervalSince1970))),
                 parameter("end", "INT64", String(Int(end.timeIntervalSince1970))),
                 parameter("project", "STRING", filter?.trimmingCharacters(in: .whitespaces) ?? ""),
+                parameter("service", "STRING", service?.trimmingCharacters(in: .whitespaces) ?? ""),
             ],
         ]
         let root: [String: Any] = ["configuration": ["query": query]]
@@ -427,7 +430,7 @@ public struct CloudBillingSource: UsageSource {
     private static let projectScope = "(@project = '' OR project.id = @project)"
     private static let scope = """
         usage_start_time >= TIMESTAMP_SECONDS(@start) AND usage_start_time < TIMESTAMP_SECONDS(@end) \
-        AND \(projectScope)
+        AND \(projectScope) AND (@service = '' OR service.description = @service)
         """
 
     /// Google's own message (`error.message`) is the most precise one; a missing export gets a hint instead.

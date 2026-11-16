@@ -283,6 +283,8 @@
 "Dataset" = "Dataset";
 "Project" = "Проект";
 "all projects" = "все проекты";
+"Service" = "Сервис";
+"all services" = "все сервисы";
 "Period" = "Период";
 "Limit (0: none, amount only)" = "Лимит (0 — без лимита, только сумма)";
 "Subtract credits: count only what the card is charged" = "Вычитать кредиты: считать только то, что спишется с карты";

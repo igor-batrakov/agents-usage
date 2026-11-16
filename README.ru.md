@@ -61,7 +61,7 @@ curl -fsSL https://raw.githubusercontent.com/igor-batrakov/agents-usage/main/ins
 | Kimi Code | 5 часов, неделя или месяц | API-ключ из консоли Kimi |
 | OpenRouter | бюджет ключа и баланс счёта | API-ключ |
 | Moonshot | баланс платформы в долларах или юанях | API-ключ |
-| Google Cloud | траты за месяц или неделю против вашего лимита; один проект или все | `gcloud auth login` и экспорт биллинга в BigQuery |
+| Google Cloud | траты за месяц или неделю против вашего лимита; один проект и сервис (Vertex AI) или все | `gcloud auth login` и экспорт биллинга в BigQuery |
 
 Google Cloud читает экспорт Standard usage cost в BigQuery: включите его в Billing → Billing export и укажите
 в приложении `project.dataset`. Результат запроса (одна строка) приложение хранит в маленькой таблице этого

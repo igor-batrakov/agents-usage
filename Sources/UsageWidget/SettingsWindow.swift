@@ -386,13 +386,19 @@ private struct AccountDetail: View {
 
     /// Where the billing export is, which project, period and limit, gross or net of credits.
     private var billingSection: some View {
-        let project = billing(\.project), limit = billing(\.limit)
+        let project = billing(\.project), service = billing(\.service), limit = billing(\.limit)
         return Section(L("Billing export")) {
             TextField(L("Dataset"), text: billing(\.dataset), prompt: Text(verbatim: "my-project.billing_export"))
             TextField(L("Project"), text: Binding(get: { project.wrappedValue ?? "" }, set: {
                 let v = $0.trimmingCharacters(in: .whitespaces)
                 project.wrappedValue = v.isEmpty ? nil : v
             }), prompt: Text(L("all projects")))
+            // The name as the export has it in `service.description`; "Vertex AI" is the usual one here.
+            Picker(L("Service"), selection: Binding(get: { service.wrappedValue }, set: { service.wrappedValue = $0 })) {
+                Text(L("all services")).tag(String?.none)
+                Text(verbatim: "Vertex AI").tag(Optional("Vertex AI"))
+                if let other = service.wrappedValue, other != "Vertex AI" { Text(verbatim: other).tag(Optional(other)) }
+            }
             Picker(L("Period"), selection: billing(\.period)) {
                 Text(L("Month")).tag(CloudBilling.Period.month)
                 Text(L("Week")).tag(CloudBilling.Period.week)
