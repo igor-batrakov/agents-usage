@@ -61,6 +61,13 @@ curl -fsSL https://raw.githubusercontent.com/igor-batrakov/agents-usage/main/ins
 | Kimi Code | 5 hours, week or month | API key from the Kimi console |
 | OpenRouter | Key budget and account balance | API key |
 | Moonshot | Platform balance in USD or CNY | API key |
+| Google Cloud | Spending this month or week, against your own limit; one project and service (Vertex AI) or all | `gcloud auth login` and a billing export to BigQuery |
+
+Google Cloud reads the Standard usage cost export to BigQuery: turn it on in Billing → Billing export and give
+the app the `project.dataset`; the app keeps its one-row query result in a small table there, so your gcloud
+account needs write access to that dataset. The data lags by a few hours and starts from the day the export is turned on.
+The app queries it at most every 15 minutes, each query capped at 100 MB, which keeps it inside BigQuery's free
+monthly tier.
 
 None of these APIs are public. If a vendor changes its format, that service shows an error and the rest keep
 working.

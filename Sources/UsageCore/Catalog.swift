@@ -12,6 +12,7 @@ public enum Catalog {
         case .kimi: KimiSource(accountID: account.id)
         case .openrouter: OpenRouterSource(accountID: account.id)
         case .moonshot: MoonshotSource(accountID: account.id)
+        case .gcloud: CloudBillingSource(billing: account.billing)
         }
     }
 
@@ -27,12 +28,14 @@ public enum Catalog {
         case .copilot: ProcessRunner.locate(CopilotSource.candidates) != nil
         case .cursor: FileManager.default.fileExists(atPath: (CursorSource.database as NSString).expandingTildeInPath)
         case .kimi, .openrouter, .moonshot: false
+        case .gcloud: ProcessRunner.locate(CloudBillingSource.candidates) != nil
         }
     }
 
-    /// First launch (and migration from v1, which had no list): one account per detected service.
+    /// First launch (and migration from v1, which had no list): one account per detected service. Google Cloud
+    /// needs a billing export set up first, so having gcloud is no reason to add it.
     public static func defaultAccounts(installed: (Provider) -> Bool = isInstalled) -> [Account] {
-        Provider.allCases.filter(installed).map { Account(kind: $0) }
+        Provider.allCases.filter { $0 != .gcloud && installed($0) }.map { Account(kind: $0) }
     }
 
     /// Whether another account of this service can be added.

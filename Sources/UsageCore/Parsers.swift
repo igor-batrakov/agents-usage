@@ -339,6 +339,43 @@ public enum Parsers {
         return calendar.date(byAdding: .month, value: -1, to: end).map { end.timeIntervalSince($0) }
     }
 
+    // MARK: Google Cloud — BigQuery jobs.query over the billing export
+
+    /// One row: number of currencies, currency, cost, credits (negative), newest export (epoch). The spending of the period is a balance
+    /// line; with a limit it is also a window that resets with the period. The plan line says how fresh the export is.
+    public static func cloudBilling(_ data: Data, billing: CloudBilling, start: Date, end: Date) throws -> UsageReport {
+        let root = try object(data)
+        guard root["jobComplete"] as? Bool == true else {
+            throw UsageError.message(L("BigQuery has not finished the query; the next poll will try again"))
+        }
+        guard let rows = root["rows"] as? [[String: Any]], let cells = rows.first?["f"] as? [[String: Any]],
+              cells.count >= 5 else { throw UsageError.message(L("no data in the response")) }
+        let values = cells.map { $0["v"] }
+        if let n = number(values[0]), n > 1 {
+            throw UsageError.message(L("The export has costs in several currencies: choose one project"))
+        }
+        guard let currency = values[1] as? String else {
+            throw UsageError.message(L("The billing export has no data yet: it fills from the moment it is turned on"))
+        }
+        let cost = number(values[2]) ?? 0
+        let credits = number(values[3]) ?? 0
+        let spent = max(0, billing.net ? cost + credits : cost)
+        let week = billing.period == .week
+        var balances = [Balance(id: "gcloud-spent", title: week ? L("Spent this week") : L("Spent this month"),
+                                amount: spent, currency: currency)]
+        if !billing.net, credits < 0 {
+            balances.append(Balance(id: "gcloud-credits", title: L("Covered by credits"), amount: -credits, currency: currency))
+        }
+        var windows: [LimitWindow] = []
+        if let limit = billing.limit, limit > 0 {
+            windows.append(LimitWindow(id: "gcloud-" + billing.period.rawValue, title: week ? L("Week") : L("Month"),
+                                       used: spent / limit, resetsAt: end, isShort: false,
+                                       duration: end.timeIntervalSince(start)))
+        }
+        let plan = number(values[4]).map { L("data as of %@", Format.date(Date(timeIntervalSince1970: $0))) }
+        return UsageReport(windows: windows, plan: plan, balances: balances)
+    }
+
     static let fiveHours: TimeInterval = 5 * 3600
     static let week: TimeInterval = 7 * 86400
 

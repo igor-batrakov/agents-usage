@@ -41,6 +41,7 @@ public enum Format {
         switch currency {
         case "USD": return sign + "$" + value
         case "CNY": return sign + "¥" + value
+        case "EUR": return sign + "€" + value
         default: return "\(sign)\(value) \(currency)"
         }
     }

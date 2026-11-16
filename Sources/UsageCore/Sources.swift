@@ -81,10 +81,17 @@ enum HTTP {
         return try check(data, status, errors)
     }
 
-    static func request(_ url: String, headers: [String: String], timeout: TimeInterval = 10) async throws -> (Data, Int) {
+    /// `body` makes it a POST.
+    static func request(_ url: String, headers: [String: String], body: Data? = nil,
+                        timeout: TimeInterval = 10) async throws -> (Data, Int) {
         var request = URLRequest(url: URL(string: url)!, timeoutInterval: timeout)
         request.setValue("usage-widget/1.0", forHTTPHeaderField: "User-Agent")
         for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
+        if let body {
+            request.httpMethod = "POST"
+            request.httpBody = body
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         let (data, response) = try await session.data(for: request)
         return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
     }
@@ -267,6 +274,173 @@ public struct MoonshotSource: UsageSource {
         let (data, region) = try await getInRegions(["https://api.moonshot.ai/v1/users/me/balance",
                                                      "https://api.moonshot.cn/v1/users/me/balance"], key: key)
         return try Parsers.moonshot(data, currency: region == 0 ? "USD" : "CNY")
+    }
+}
+
+// MARK: Google Cloud billing
+
+/// The last BigQuery answer per billing settings and period: BigQuery is asked at most every
+/// `CloudBillingSource.minInterval`. The raw answer is kept, not the report, so every poll parses it again in the
+/// current language. A query already running for the key is shared: two accounts with the same settings, or an
+/// account turned off and on during a poll, wait for it instead of starting another billed one.
+actor CloudBillingCache {
+    static let shared = CloudBillingCache()
+    private var entries: [String: (at: Date, data: Data)] = [:]
+    private var running: [String: Task<Data, Error>] = [:]
+
+    func data(_ key: String, newerThan age: TimeInterval, now: Date,
+              fetch: @escaping @Sendable () async throws -> Data) async throws -> Data {
+        if let entry = entries[key], now.timeIntervalSince(entry.at) < age { return entry.data }
+        if let task = running[key] { return try await task.value }
+        let task = Task { try await fetch() }
+        running[key] = task
+        defer { running[key] = nil }
+        let data = try await task.value
+        entries[key] = (now, data)
+        return data
+    }
+}
+
+/// Spending from the billing export to BigQuery (Standard usage cost). The export changes a few times a day, so a
+/// query runs at most every 15 minutes per settings (polls in between get the last answer), and each one is capped
+/// by `maximumBytesBilled`: a query over the cap fails unbilled instead of scanning a large export. Worst case,
+/// 100 MB × 4 an hour is about 290 GB a month, inside BigQuery's free terabyte. The token comes from
+/// `gcloud auth print-access-token`: gcloud keeps and refreshes its own credentials (not single-use), the token
+/// lives in memory for this poll only.
+public struct CloudBillingSource: UsageSource {
+    let billing: CloudBilling?
+    public init(billing: CloudBilling?) { self.billing = billing }
+
+    static let candidates = ["/opt/homebrew/bin/gcloud", "/usr/local/bin/gcloud", "~/google-cloud-sdk/bin/gcloud",
+                             "/opt/homebrew/share/google-cloud-sdk/bin/gcloud"]
+
+    static let minInterval: TimeInterval = 15 * 60
+    static let maxBytesBilled = 100_000_000
+
+    public func fetch() async throws -> UsageReport {
+        guard let billing, let (project, dataset) = Self.split(billing.dataset) else {
+            throw UsageError.message(L("set the billing export dataset in Settings"))
+        }
+        let now = Date()
+        let (start, end) = CloudBilling.bounds(billing.period, now: now)
+        let key = billing.tag + "@" + String(Int(start.timeIntervalSince1970))
+        let data = try await CloudBillingCache.shared.data(key, newerThan: Self.minInterval, now: now) {
+            try await Self.query(billing, project: project, dataset: dataset, start: start, end: end)
+        }
+        return try Parsers.cloudBilling(data, billing: billing, start: start, end: end)
+    }
+
+    /// The jobs.query answer of a finished job; anything else throws and is not cached.
+    private static func query(_ billing: CloudBilling, project: String, dataset: String, start: Date, end: Date) async throws -> Data {
+        guard let gcloud = ProcessRunner.locate(Self.candidates) else {
+            throw UsageError.message(L("%@ not installed", "gcloud"))
+        }
+        let token: String
+        do {
+            let output = try await ProcessRunner.run(gcloud, ["auth", "print-access-token"], timeout: 20)
+            token = String(decoding: output, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            throw UsageError.message(L("gcloud has no signed-in account. Run gcloud auth login"))
+        }
+        guard !token.isEmpty else { throw UsageError.message(L("gcloud has no signed-in account. Run gcloud auth login")) }
+
+        let headers = ["Authorization": "Bearer \(token)", "Accept": "application/json"]
+        let base = "https://bigquery.googleapis.com/bigquery/v2/projects/\(project)"
+        let body = Self.query(project: project, dataset: dataset, filter: billing.project, service: billing.service,
+                              start: start, end: end,
+                              result: Self.resultTable(billing))
+        // jobs.insert, then jobs.getQueryResults: the job keeps running on the server, so its result is awaited
+        // instead of starting (and paying for) another one.
+        var (data, status) = try await HTTP.request(base + "/jobs", headers: headers, body: body, timeout: 30)
+        for _ in 0..<4 {
+            guard status == 200, let job = Self.pendingJob(data) else { break }
+            (data, status) = try await HTTP.request(base + "/queries/" + job, headers: headers, timeout: 30)
+        }
+        guard status == 200 else { throw Self.failure(data, status, dataset: billing.dataset) }
+        if Self.pendingJob(data) != nil {
+            throw UsageError.message(L("BigQuery has not finished the query; the next poll will try again"))
+        }
+        return data
+    }
+
+    /// The path and query of `jobs.getQueryResults` for a job not known to be complete (the jobs.insert answer, or
+    /// a results answer with `jobComplete: false`), nil for finished results.
+    static func pendingJob(_ data: Data) -> String? {
+        guard let root = try? Parsers.object(data), root["jobComplete"] as? Bool != true,
+              let ref = root["jobReference"] as? [String: Any], let id = ref["jobId"] as? String,
+              id.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil else { return nil }
+        var items = [URLQueryItem(name: "timeoutMs", value: "10000")]
+        if let location = ref["location"] as? String { items.append(URLQueryItem(name: "location", value: location)) }
+        var components = URLComponents()
+        components.queryItems = items
+        return id + "?" + (components.percentEncodedQuery ?? "")
+    }
+
+    /// `project.dataset`, both checked: they go into the query text, not as parameters (BigQuery has none for tables).
+    static func split(_ text: String) -> (String, String)? {
+        let parts = text.trimmingCharacters(in: .whitespaces).split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 2,
+              parts[0].range(of: #"^[a-z][a-z0-9-]{4,61}[a-z0-9]$"#, options: .regularExpression) != nil,
+              parts[1].range(of: #"^[A-Za-z0-9_]{1,1024}$"#, options: .regularExpression) != nil else { return nil }
+        return (String(parts[0]), String(parts[1]))
+    }
+
+    /// The one-row result goes to a table of its own in the export's dataset, one per settings (two accounts never
+    /// read each other's), overwritten by every query. Without a destination BigQuery makes an anonymous dataset
+    /// owned by the user, and an organization that limits IAM members to its own domain (`iam.allowedPolicyMemberDomains`)
+    /// refuses that for a personal account; the export's dataset is shared with project roles only.
+    static func resultTable(_ billing: CloudBilling) -> String {
+        let digest = SHA256.hash(data: Data(billing.tag.utf8)).prefix(6).map { String(format: "%02x", $0) }.joined()
+        return "agents_usage_" + digest
+    }
+
+    /// The cost and credits of the period, and the currencies and newest export of the same project scope (all time,
+    /// so an empty period still has a currency). Several currencies (exports of billing accounts in different
+    /// currencies in one dataset) are reported, not added up. A jobs.insert body writing to `result`.
+    static func query(project: String, dataset: String, filter: String?, service: String? = nil, start: Date, end: Date,
+                      result: String) -> Data {
+        let table = "`\(project).\(dataset).gcp_billing_export_v1_*`"
+        let sql = """
+            SELECT
+              (SELECT COUNT(DISTINCT currency) FROM \(table) WHERE \(projectScope)) AS currencies,
+              (SELECT ANY_VALUE(currency) FROM \(table) WHERE \(projectScope)) AS currency,
+              (SELECT SUM(cost) FROM \(table) WHERE \(scope)) AS cost,
+              (SELECT SUM((SELECT IFNULL(SUM(c.amount), 0) FROM UNNEST(credits) AS c)) FROM \(table) WHERE \(scope)) AS credits,
+              (SELECT UNIX_SECONDS(MAX(export_time)) FROM \(table) WHERE \(projectScope)) AS exported
+            """
+        func parameter(_ name: String, _ type: String, _ value: String) -> [String: Any] {
+            ["name": name, "parameterType": ["type": type], "parameterValue": ["value": value]]
+        }
+        let query: [String: Any] = [
+            "query": sql, "useLegacySql": false, "parameterMode": "NAMED",
+            "maximumBytesBilled": String(maxBytesBilled),
+            "destinationTable": ["projectId": project, "datasetId": dataset, "tableId": result],
+            "writeDisposition": "WRITE_TRUNCATE",
+            "queryParameters": [
+                parameter("start", "INT64", String(Int(start.timeIntervalSince1970))),
+                parameter("end", "INT64", String(Int(end.timeIntervalSince1970))),
+                parameter("project", "STRING", filter?.trimmingCharacters(in: .whitespaces) ?? ""),
+                parameter("service", "STRING", service?.trimmingCharacters(in: .whitespaces) ?? ""),
+            ],
+        ]
+        let root: [String: Any] = ["configuration": ["query": query]]
+        return (try? JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])) ?? Data()
+    }
+
+    private static let projectScope = "(@project = '' OR project.id = @project)"
+    private static let scope = """
+        usage_start_time >= TIMESTAMP_SECONDS(@start) AND usage_start_time < TIMESTAMP_SECONDS(@end) \
+        AND \(projectScope) AND (@service = '' OR service.description = @service)
+        """
+
+    /// Google's own message (`error.message`) is the most precise one; a missing export gets a hint instead.
+    static func failure(_ data: Data, _ status: Int, dataset: String) -> UsageError {
+        let message = ((try? Parsers.object(data))?["error"] as? [String: Any])?["message"] as? String
+        switch status {
+        case 401: return .message(L("gcloud token rejected. Run gcloud auth login"))
+        case 404: return .message(L("No billing export in %@ yet. Turn it on in Billing → Billing export; the table appears within hours", dataset))
+        default: return .message(L("BigQuery: %@", message ?? "HTTP \(status)"))
+        }
     }
 }
 

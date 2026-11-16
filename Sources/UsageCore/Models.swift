@@ -2,7 +2,7 @@ import Foundation
 
 /// Source type, a catalog entry. Each has its own polling code (`Catalog.source`).
 public enum Provider: String, CaseIterable, Codable, Sendable {
-    case claude, codex, agy, copilot, cursor, kimi, openrouter, moonshot
+    case claude, codex, agy, copilot, cursor, kimi, openrouter, moonshot, gcloud
 
     public var title: String {
         switch self {
@@ -14,6 +14,7 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         case .kimi: "Kimi Code"
         case .openrouter: "OpenRouter"
         case .moonshot: "Moonshot"
+        case .gcloud: "Google Cloud"
         }
     }
 
@@ -28,6 +29,7 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         case .kimi: URL(string: "https://www.kimi.com/code/console")
         case .openrouter: URL(string: "https://openrouter.ai/activity")
         case .moonshot: URL(string: "https://platform.moonshot.ai/console/account")
+        case .gcloud: URL(string: "https://console.cloud.google.com/billing/reports")
         }
     }
 
@@ -59,8 +61,50 @@ public enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
-    /// Multiple accounts: for services with a config directory or a key (one key per account).
-    public var allowsMultipleAccounts: Bool { configDirVariable != nil || usesAPIKey }
+    /// Multiple accounts: for services with a config directory or a key (one key per account); Google Cloud
+    /// takes one per export dataset, project filter or limit.
+    public var allowsMultipleAccounts: Bool { configDirVariable != nil || usesAPIKey || self == .gcloud }
+}
+
+/// Google Cloud spending, read from the billing export to BigQuery (Standard usage cost). The data lags by hours.
+public struct CloudBilling: Codable, Equatable, Sendable {
+    public enum Period: String, Codable, CaseIterable, Sendable { case month, week }
+
+    /// `project.dataset` holding the export; the table is found by its prefix, `gcp_billing_export_v1_*`.
+    public var dataset: String
+    /// Only this project's costs; nil: every project of the billing account.
+    public var project: String?
+    /// Only this service (`service.description` in the export, e.g. "Vertex AI"); nil: every service.
+    public var service: String?
+    public var period: Period
+    /// In the billing currency; nil or 0: no limit, the amount goes to a balance line.
+    public var limit: Double?
+    /// Subtract credits: what the card is charged. Off: the full cost, which credits hide otherwise.
+    public var net: Bool
+
+    public init(dataset: String = "", project: String? = nil, service: String? = nil, period: Period = .month,
+                limit: Double? = nil, net: Bool = false) {
+        self.dataset = dataset
+        self.project = project
+        self.service = service
+        self.period = period
+        self.limit = limit
+        self.net = net
+    }
+
+    /// A stable text of the settings for notification state keys.
+    var tag: String {
+        [dataset, project ?? "", service ?? "", period.rawValue, limit.map { String($0) } ?? "", net ? "net" : "gross"].joined(separator: "|")
+    }
+
+    /// The current period in the local calendar: from the start of this month (or ISO week, Monday) to the next.
+    public static func bounds(_ period: Period, now: Date, calendar: Calendar = .current) -> (start: Date, end: Date) {
+        var cal = period == .week ? Calendar(identifier: .iso8601) : calendar
+        cal.timeZone = calendar.timeZone
+        let unit: Calendar.Component = period == .week ? .weekOfYear : .month
+        let interval = cal.dateInterval(of: unit, for: now) ?? DateInterval(start: now, duration: 0)
+        return (interval.start, interval.end)
+    }
 }
 
 /// Account: an instance of a catalog service with its own settings. Order is the list order.
@@ -82,6 +126,8 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
     /// a source change, like a directory change: a poll with the old key is discarded. Optional so that old
     /// saved accounts without this field decode as they are.
     public var keyRevision: Int?
+    /// Google Cloud only: where the billing export is and what to count. Optional, like `keyRevision`.
+    public var billing: CloudBilling?
 
     public init(id: UUID = UUID(), kind: Provider, name: String? = nil, enabled: Bool = true,
                 configDir: String? = nil, hiddenWindows: Set<String> = [], barWindowID: String? = nil,
@@ -98,13 +144,16 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// Where the account data comes from besides its type: if it changes, it is effectively another account.
+    /// Billing settings count too: another dataset, project, period, limit or credits mode is other data
+    /// (a limit change rescales the bar, which is computed at poll time).
     public func sameSource(as other: Account) -> Bool {
-        configDir == other.configDir && keyRevision == other.keyRevision
+        configDir == other.configDir && keyRevision == other.keyRevision && billing == other.billing
     }
 
-    /// Same for notification state keys: without an API key, the old form (directory only).
+    /// Same for notification state keys: without an API key, the old form (directory only). With billing settings,
+    /// another limit or project warns again.
     public var sourceTag: String {
-        (configDir ?? "") + (keyRevision.map { "#\($0)" } ?? "")
+        (configDir ?? "") + (keyRevision.map { "#\($0)" } ?? "") + (billing.map { "$" + $0.tag } ?? "")
     }
 
     public var resolvedUsageURL: URL? {
