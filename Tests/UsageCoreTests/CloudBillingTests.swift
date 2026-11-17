@@ -76,6 +76,14 @@ import Testing
         #expect(CloudBillingSource.resultTable(a) != CloudBillingSource.resultTable(b))
         #expect(CloudBillingSource.resultTable(a) == CloudBillingSource.resultTable(a))
         #expect(CloudBillingSource.resultTable(a).range(of: #"^agents_usage_[0-9a-f]{12}$"#, options: .regularExpression) != nil)
+        // Limit and net do not change the query: same table, same cache key.
+        let limited = CloudBilling(dataset: "p-12345.d", limit: 80, net: true)
+        #expect(CloudBillingSource.resultTable(limited) == CloudBillingSource.resultTable(a))
+        #expect(limited.queryTag == a.queryTag && limited.tag != a.tag)
+        let service = CloudBilling(dataset: "p-12345.d", service: "Vertex AI"), week = CloudBilling(dataset: "p-12345.d", period: .week)
+        let other = CloudBilling(dataset: "p-12345.other")
+        let tables = Set([a, b, service, week, other].map(CloudBillingSource.resultTable))
+        #expect(tables.count == 5)
     }
 
     actor Counter {
