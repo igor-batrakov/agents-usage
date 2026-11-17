@@ -323,7 +323,7 @@ public struct CloudBillingSource: UsageSource {
         }
         let now = Date()
         let (start, end) = CloudBilling.bounds(billing.period, now: now)
-        let key = billing.tag + "@" + String(Int(start.timeIntervalSince1970))
+        let key = billing.queryTag + "@" + String(Int(start.timeIntervalSince1970))
         let data = try await CloudBillingCache.shared.data(key, newerThan: Self.minInterval, now: now) {
             try await Self.query(billing, project: project, dataset: dataset, start: start, end: end)
         }
@@ -385,12 +385,13 @@ public struct CloudBillingSource: UsageSource {
         return (String(parts[0]), String(parts[1]))
     }
 
-    /// The one-row result goes to a table of its own in the export's dataset, one per settings (two accounts never
-    /// read each other's), overwritten by every query. Without a destination BigQuery makes an anonymous dataset
+    /// The one-row result goes to a table of its own in the export's dataset, one per query settings (dataset,
+    /// project, service, period; two different queries never read each other's), overwritten by every query. A
+    /// limit or net change reuses the table instead of leaving another one behind. Without a destination BigQuery makes an anonymous dataset
     /// owned by the user, and an organization that limits IAM members to its own domain (`iam.allowedPolicyMemberDomains`)
     /// refuses that for a personal account; the export's dataset is shared with project roles only.
     static func resultTable(_ billing: CloudBilling) -> String {
-        let digest = SHA256.hash(data: Data(billing.tag.utf8)).prefix(6).map { String(format: "%02x", $0) }.joined()
+        let digest = SHA256.hash(data: Data(billing.queryTag.utf8)).prefix(6).map { String(format: "%02x", $0) }.joined()
         return "agents_usage_" + digest
     }
 

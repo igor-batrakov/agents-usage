@@ -94,7 +94,13 @@ public struct CloudBilling: Codable, Equatable, Sendable {
 
     /// A stable text of the settings for notification state keys.
     var tag: String {
-        [dataset, project ?? "", service ?? "", period.rawValue, limit.map { String($0) } ?? "", net ? "net" : "gross"].joined(separator: "|")
+        [queryTag, limit.map { String($0) } ?? "", net ? "net" : "gross"].joined(separator: "|")
+    }
+
+    /// The settings that go into the BigQuery query: its cache key and result table. Limit and net only change how
+    /// the same answer is read.
+    var queryTag: String {
+        [dataset, project ?? "", service ?? "", period.rawValue].joined(separator: "|")
     }
 
     /// The current period in the local calendar: from the start of this month (or ISO week, Monday) to the next.
