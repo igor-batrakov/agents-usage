@@ -49,6 +49,7 @@ final class ReviewChain {
     @ObservationIgnored private var checked = RevoOps()
     /// The login shell is asked at most once per launch: that runs the user's shell profile.
     @ObservationIgnored private var askedShell = false
+    @ObservationIgnored private var reloading: Task<Void, Never>?
 
     init(settings: Settings) {
         self.settings = settings
@@ -140,17 +141,24 @@ final class ReviewChain {
         }
     }
 
+    /// A reload already running is awaited, not repeated: its callers then fetch the model lists after it.
     func reload() async {
+        if let reloading { return await reloading.value }
         locate()
         guard path != nil, !busy else { return }
         busy = true
-        defer { busy = false }
-        do {
-            try await fetch()
-            failure = nil
-        } catch {
-            failure = Self.failure(error)
+        let task = Task {
+            do {
+                try await fetch()
+                failure = nil
+            } catch {
+                failure = Self.failure(error)
+            }
         }
+        reloading = task
+        await task.value
+        reloading = nil
+        busy = false
     }
 
     /// `carry`: replay the unapplied edits onto the new version; false right after our own write, which left none.
@@ -193,9 +201,7 @@ final class ReviewChain {
     /// `revo models` (on tab opening without `refresh`: only lists older than a day; the button refreshes all), then
     /// the engines again, which merge the saved lists. The draft and the edits are left alone.
     func updateModels(refresh: Bool) async {
-        // Not while a reload runs: the reload's caller fetches the lists after it (the tab appearing during the
-        // settings window's own reload returns from `reload` at once and would race it).
-        guard canFetchModels, let path, !fetchingModels, !busy else { return }
+        guard canFetchModels, let path, !fetchingModels else { return }
         fetchingModels = true
         defer { fetchingModels = false }
         do {
