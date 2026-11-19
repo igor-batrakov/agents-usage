@@ -252,8 +252,8 @@ final class ReviewChain {
         }
     }
 
-    /// A model from the list or typed; the effort moves to the nearest one the model takes, if it is outside:
-    /// revo refuses the write otherwise (`invalid_effort`).
+    /// A model from the list; the effort moves to the nearest one the model takes, if it is outside: revo refuses
+    /// the write otherwise (`invalid_effort`). A typed model is fitted at Apply (`fitEfforts`).
     func setModel(_ id: String, _ model: String) {
         update(id) { block in
             block.model = model
@@ -326,9 +326,23 @@ final class ReviewChain {
 
     // MARK: Apply
 
+    /// A typed model changes only the name while typing (a prefix may be another model); its effort is fitted to
+    /// the final model here, before the check, so the diff shows it and revo does not refuse it (`invalid_effort`).
+    private func fitEfforts(_ loaded: RevoChain) {
+        guard var blocks = draft?.blocks else { return }
+        for i in blocks.indices {
+            let block = blocks[i]
+            guard loaded.chain.first(where: { $0.id == block.id })?.model != block.model,
+                  let engine = engines[block.engine] else { continue }
+            blocks[i].effort = engine.effort(block.effort, for: block.model)
+        }
+        draft?.blocks = blocks
+    }
+
     /// Apply, step one: revo validates the edits and reports what will change; nothing is written.
     func check() async {
         guard let path, let loaded, hasEdits, !busy else { return }
+        fitEfforts(loaded)
         if Demo.isOn {
             applyInDemo()
             return

@@ -38,14 +38,7 @@ final class SettingsWindowController {
         reviewChain.locate()
         Task { await reviewChain.discover() }
         if settings.selectedTab == SettingsView.reviewTab {
-            if reviewChain.isAvailable {
-                Task {
-                    await reviewChain.reload()
-                    await reviewChain.updateModels(refresh: false)
-                }
-            } else {
-                settings.selectedTab = 0
-            }
+            if reviewChain.isAvailable { Task { await reviewChain.reload() } } else { settings.selectedTab = 0 }
         }
         // The app has no Dock icon: without activation the window opens behind the others.
         NSApp.activate()

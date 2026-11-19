@@ -224,7 +224,7 @@ private struct BlockRow: View {
                             .foregroundStyle(Color(nsColor: Theme.amber))
                             .help(L("The provider no longer lists this model: a review with it will likely fail. Choose another one."))
                     }
-                    TextField("", text: Binding(get: { block.model }, set: { v in chain.setModel(block.id, v) }))
+                    TextField("", text: Binding(get: { block.model }, set: { v in chain.update(block.id) { $0.model = v } }))
                         .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 150)
