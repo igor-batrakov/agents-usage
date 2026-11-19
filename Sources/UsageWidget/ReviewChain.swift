@@ -5,8 +5,8 @@ import UsageCore
 
 /// The code review chain of Revolver (`revo`): the settings tab edits it, the popover shows required reviewers on
 /// a limit. The config changes only through `revo apply` after an explicit Apply; revo's files are never read or
-/// written here. revo runs on demand only (tab opening, Apply, popover opening, the model list button), with no
-/// timer and no file watching.
+/// written here. revo runs on demand only (tab opening, Apply, popover opening, the model list button) and once at
+/// launch for model lists older than a day, with no timer and no file watching.
 @MainActor @Observable
 final class ReviewChain {
     /// The revo in use; nil hides the tab and the popover line. In demo mode a placeholder: revo is never run.
@@ -49,6 +49,9 @@ final class ReviewChain {
     @ObservationIgnored private var checked = RevoOps()
     /// The login shell is asked at most once per launch: that runs the user's shell profile.
     @ObservationIgnored private var askedShell = false
+    @ObservationIgnored private var reloading: Task<Void, Never>?
+    @ObservationIgnored private var enginesAsked = 0
+    @ObservationIgnored private var enginesShown = 0
 
     init(settings: Settings) {
         self.settings = settings
@@ -140,17 +143,24 @@ final class ReviewChain {
         }
     }
 
+    /// A reload already running is awaited, not repeated: its callers then fetch the model lists after it.
     func reload() async {
+        if let reloading { return await reloading.value }
         locate()
         guard path != nil, !busy else { return }
         busy = true
-        defer { busy = false }
-        do {
-            try await fetch()
-            failure = nil
-        } catch {
-            failure = Self.failure(error)
+        let task = Task {
+            do {
+                try await fetch()
+                failure = nil
+            } catch {
+                failure = Self.failure(error)
+            }
         }
+        reloading = task
+        await task.value
+        reloading = nil
+        busy = false
     }
 
     /// `carry`: replay the unapplied edits onto the new version; false right after our own write, which left none.
@@ -158,28 +168,38 @@ final class ReviewChain {
         guard let path else { return }
         if Demo.isOn {
             let demo = Demo.reviewChain()
-            adopt(loaded ?? demo.chain, demo.engines, carry: carry)
+            adopt(loaded ?? demo.chain, demo.engines, enginesTicket(), carry: carry)
             return
         }
         if verified != path {
             try await Revo.checkVersion(path)
             verified = path
         }
+        let ticket = enginesTicket()
         async let chain = Revo.list(path)
         async let engines = Revo.engines(path)
-        adopt(try await chain, try await engines, carry: carry)
+        adopt(try await chain, try await engines, ticket, carry: carry)
     }
 
-    private func adopt(_ chain: RevoChain, _ list: [RevoEngine], carry: Bool) {
+    private func adopt(_ chain: RevoChain, _ list: [RevoEngine], _ ticket: Int, carry: Bool) {
         let edits = self.edits
         loaded = chain
-        setEngines(list)
+        setEngines(list, ticket)
         // Blocks added and not applied yet come back with their final ids: `edits` holds them in `add`.
         draft = carry ? edits.applied(to: RevoDraft(chain)) : RevoDraft(chain)
         preview = nil
     }
 
-    private func setEngines(_ list: [RevoEngine]) {
+    /// Numbers `revo engines` calls in the order they start. A reload and a model list update run side by side, and
+    /// an answer asked for before `revo models` saved the lists must not replace one asked for after it.
+    private func enginesTicket() -> Int {
+        enginesAsked += 1
+        return enginesAsked
+    }
+
+    private func setEngines(_ list: [RevoEngine], _ ticket: Int) {
+        guard ticket > enginesShown else { return }
+        enginesShown = ticket
         engines = Dictionary(list.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         engineList = list
     }
@@ -198,12 +218,13 @@ final class ReviewChain {
         defer { fetchingModels = false }
         do {
             let lists = try await Revo.models(path, refresh: refresh)
+            let ticket = enginesTicket()
             let list = try await Revo.engines(path)
             // Another revo chosen meanwhile: its own reload has the right engines, these are of the old one.
             guard self.path == path else { return }
             modelLists = lists
             modelsFailure = nil
-            setEngines(list)
+            setEngines(list, ticket)
         } catch RevoFailure.outdated {
             noModelsCommand = path
             modelsFailure = nil
@@ -252,7 +273,8 @@ final class ReviewChain {
         }
     }
 
-    /// A model from the list; the effort moves into what the provider gives that model, if it is outside.
+    /// A model from the list; the effort moves to the nearest one the model takes, if it is outside: revo refuses
+    /// the write otherwise (`invalid_effort`). A typed model is fitted at Apply (`fitEfforts`).
     func setModel(_ id: String, _ model: String) {
         update(id) { block in
             block.model = model
@@ -325,9 +347,23 @@ final class ReviewChain {
 
     // MARK: Apply
 
+    /// A typed model changes only the name while typing (a prefix may be another model); its effort is fitted to
+    /// the final model here, before the check, so the diff shows it and revo does not refuse it (`invalid_effort`).
+    private func fitEfforts(_ loaded: RevoChain) {
+        guard var blocks = draft?.blocks else { return }
+        for i in blocks.indices {
+            let block = blocks[i]
+            guard loaded.chain.first(where: { $0.id == block.id })?.model != block.model,
+                  let engine = engines[block.engine] else { continue }
+            blocks[i].effort = engine.effort(block.effort, for: block.model)
+        }
+        draft?.blocks = blocks
+    }
+
     /// Apply, step one: revo validates the edits and reports what will change; nothing is written.
     func check() async {
         guard let path, let loaded, hasEdits, !busy else { return }
+        fitEfforts(loaded)
         if Demo.isOn {
             applyInDemo()
             return

@@ -92,6 +92,36 @@ import Testing
         #expect(codex.effort("max", for: "gpt-6-luna") == "high")
         #expect(codex.effort("low", for: "gpt-6-luna") == "low")
         #expect(codex.effort("max", for: "gpt-6.1-sol") == "max")
+        #expect(codex.unavailable.isEmpty)
+        // The model's own list, nearest effort on a model change, a chain model the provider dropped.
+        let vertex = try #require(byName["vertex"])
+        #expect(vertex.efforts(for: "gemini-4-hydrogen") == ["low", "medium", "high", "xhigh"])
+        #expect(vertex.efforts(for: "gemini-4-argon") == ["low", "medium", "high"])
+        #expect(vertex.effort("xhigh", for: "gemini-4-argon") == "high")
+        #expect(vertex.effort("xhigh", for: "gemini-4-hydrogen") == "xhigh")
+        #expect(vertex.unavailable == ["gemini-3-pro"])
+        // A typed model takes `default_efforts`, narrower than `efforts` for Gemini; an older revo has none.
+        #expect(vertex.efforts(for: "gemini-typed") == ["low", "medium", "high"])
+        #expect(vertex.effort("xhigh", for: "gemini-typed") == "high")
+        #expect(vertex.efforts(for: "default") == ["low", "medium", "high"])
+        #expect(codex.efforts(for: "gpt-typed") == codex.efforts)
+        #expect(byName["agy"].map { $0.defaultEfforts == $0.efforts } == true)
+        #expect(byName["agy"]?.unavailable == [])
+    }
+
+    @Test func effortMovesToTheNearestAllowed() throws {
+        let json = #"""
+            {"name": "x", "display": "X", "efforts": ["low", "medium", "high", "xhigh", "max"], "models": ["default"],
+             "model_efforts": {"mid": ["medium", "xhigh"], "top": ["max"], "odd": ["turbo"]},
+             "custom_model": true, "installed": true}
+            """#
+        let engine = try JSONDecoder().decode(RevoEngine.self, from: Data(json.utf8))
+        #expect(engine.effort("high", for: "mid") == "medium")  // a tie goes to the lower one
+        #expect(engine.effort("max", for: "mid") == "xhigh")
+        #expect(engine.effort("low", for: "mid") == "medium")
+        #expect(engine.effort("low", for: "top") == "max")
+        #expect(engine.effort("unknown", for: "mid") == "xhigh")  // off the scale: as a new block, the last one
+        #expect(engine.effort("high", for: "odd") == "turbo")  // nothing on the scale: the model's last one
     }
 
     @Test func vertexProjectIsParsedEditedAndSent() throws {

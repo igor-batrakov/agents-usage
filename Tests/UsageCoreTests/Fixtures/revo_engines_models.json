@@ -51,7 +51,15 @@
    "model_pattern": "^[A-Za-z0-9._-]+$",
    "hard": true,
    "installed": true,
-   "path": "/opt/homebrew/bin/codex"
+   "path": "/opt/homebrew/bin/codex",
+   "unavailable": [],
+   "default_efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
   },
   {
    "name": "agy",
@@ -106,7 +114,15 @@
    "model_pattern": "^[A-Za-z0-9._-]+$",
    "hard": true,
    "installed": true,
-   "path": "/Users/u/.local/bin/claude"
+   "path": "/Users/u/.local/bin/claude",
+   "unavailable": [],
+   "default_efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
   },
   {
    "name": "gemini",
@@ -129,7 +145,8 @@
    "model_pattern": "^[A-Za-z0-9._-]+$",
    "hard": true,
    "installed": false,
-   "path": null
+   "path": null,
+   "unavailable": []
   },
   {
    "name": "vertex",
@@ -138,7 +155,8 @@
    "efforts": [
     "low",
     "medium",
-    "high"
+    "high",
+    "xhigh"
    ],
    "models": [
     "default",
@@ -209,6 +227,12 @@
     "gemini-4-hydrogen": [
      "low",
      "medium",
+     "high",
+     "xhigh"
+    ],
+    "default": [
+     "low",
+     "medium",
      "high"
     ]
    },
@@ -217,7 +241,15 @@
    "model_pattern": "^[A-Za-z0-9._-]+$",
    "hard": true,
    "installed": true,
-   "path": null
+   "path": null,
+   "unavailable": [
+    "gemini-3-pro"
+   ],
+   "default_efforts": [
+    "low",
+    "medium",
+    "high"
+   ]
   }
  ],
  "takes_over": [

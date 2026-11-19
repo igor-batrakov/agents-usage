@@ -110,8 +110,11 @@ spending: usage percentage and reset time for each window, amounts as a balance 
     `on`/`model`/`effort`/`role`/`takes_over`/`project`, settings), so fields it does not know survive; with any edit it
     sends every block's role, so revo writes derived roles into the file. A chain revo accepts is never
     blocked: missing required reviewers and fallbacks that never run are warnings. revo runs only on demand: tab opening, Apply, popover opening (at most
-    every 15 s), the Update model lists button (tab opening runs `models` without `--refresh`: only lists older
-    than a day; it never blocks editing and never touches the draft); from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
+    every 15 s), the Update model lists button (app launch and tab opening run `models` without `--refresh`: only
+    lists older than a day; it never blocks editing and never touches the draft). A model change moves the effort
+    to the nearest one the model takes (`model_efforts`, else `default_efforts`; revo refuses it otherwise): a
+    model picked from the menu at once, a typed one at Apply; a model in `unavailable` is
+    marked, never replaced; from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
     keeps the previous chain and limits and only shows the error. A path is kept as `revoPath` only after
     `version --json` passes. The one exception to invariant 7: while revo is not found, the settings window
     asks the login shell (`$SHELL -l -i -c 'command -v revo'`, stdin closed, 5 s timeout) once per launch.

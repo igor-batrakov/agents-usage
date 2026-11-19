@@ -209,6 +209,7 @@
 "Edits %@" = "Edits %@";
 "Choose…" = "Choose…";
 "Default" = "Default";
+"The provider no longer lists this model: a review with it will likely fail. Choose another one." = "The provider no longer lists this model: a review with it will likely fail. Choose another one.";
 "%@ (new, no reviews yet)" = "%@ (new, no reviews yet)";
 "Known models" = "Known models";
 "Effort" = "Effort";

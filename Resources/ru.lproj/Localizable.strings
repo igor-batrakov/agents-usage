@@ -209,6 +209,7 @@
 "Edits %@" = "Изменения пишутся в %@";
 "Choose…" = "Выбрать…";
 "Default" = "По умолчанию";
+"The provider no longer lists this model: a review with it will likely fail. Choose another one." = "Провайдер больше не предлагает эту модель: ревью с ней, скорее всего, не пройдёт. Выберите другую.";
 "%@ (new, no reviews yet)" = "%@ (новая, ревью с ней ещё не было)";
 "Known models" = "Известные модели";
 "Effort" = "Effort";
