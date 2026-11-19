@@ -52,7 +52,14 @@
    "hard": true,
    "installed": true,
    "path": "/opt/homebrew/bin/codex",
-   "unavailable": []
+   "unavailable": [],
+   "default_efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
   },
   {
    "name": "agy",
@@ -108,7 +115,14 @@
    "hard": true,
    "installed": true,
    "path": "/Users/u/.local/bin/claude",
-   "unavailable": []
+   "unavailable": [],
+   "default_efforts": [
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max"
+   ]
   },
   {
    "name": "gemini",
@@ -215,6 +229,11 @@
      "medium",
      "high",
      "xhigh"
+    ],
+    "default": [
+     "low",
+     "medium",
+     "high"
     ]
    },
    "models_fetched_at": 1794681672,
@@ -225,6 +244,11 @@
    "path": null,
    "unavailable": [
     "gemini-3-pro"
+   ],
+   "default_efforts": [
+    "low",
+    "medium",
+    "high"
    ]
   }
  ],

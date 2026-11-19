@@ -100,6 +100,12 @@ import Testing
         #expect(vertex.effort("xhigh", for: "gemini-4-argon") == "high")
         #expect(vertex.effort("xhigh", for: "gemini-4-hydrogen") == "xhigh")
         #expect(vertex.unavailable == ["gemini-3-pro"])
+        // A typed model takes `default_efforts`, narrower than `efforts` for Gemini; an older revo has none.
+        #expect(vertex.efforts(for: "gemini-typed") == ["low", "medium", "high"])
+        #expect(vertex.effort("xhigh", for: "gemini-typed") == "high")
+        #expect(vertex.efforts(for: "default") == ["low", "medium", "high"])
+        #expect(codex.efforts(for: "gpt-typed") == codex.efforts)
+        #expect(byName["agy"].map { $0.defaultEfforts == $0.efforts } == true)
         #expect(byName["agy"]?.unavailable == [])
     }
 

@@ -193,7 +193,9 @@ final class ReviewChain {
     /// `revo models` (on tab opening without `refresh`: only lists older than a day; the button refreshes all), then
     /// the engines again, which merge the saved lists. The draft and the edits are left alone.
     func updateModels(refresh: Bool) async {
-        guard canFetchModels, let path, !fetchingModels else { return }
+        // Not while a reload runs: the reload's caller fetches the lists after it (the tab appearing during the
+        // settings window's own reload returns from `reload` at once and would race it).
+        guard canFetchModels, let path, !fetchingModels, !busy else { return }
         fetchingModels = true
         defer { fetchingModels = false }
         do {
