@@ -5,8 +5,8 @@ import UsageCore
 
 /// The code review chain of Revolver (`revo`): the settings tab edits it, the popover shows required reviewers on
 /// a limit. The config changes only through `revo apply` after an explicit Apply; revo's files are never read or
-/// written here. revo runs on demand only (tab opening, Apply, popover opening, the model list button), with no
-/// timer and no file watching.
+/// written here. revo runs on demand only (tab opening, Apply, popover opening, the model list button) and once at
+/// launch for model lists older than a day, with no timer and no file watching.
 @MainActor @Observable
 final class ReviewChain {
     /// The revo in use; nil hides the tab and the popover line. In demo mode a placeholder: revo is never run.
@@ -252,7 +252,8 @@ final class ReviewChain {
         }
     }
 
-    /// A model from the list; the effort moves into what the provider gives that model, if it is outside.
+    /// A model from the list or typed; the effort moves to the nearest one the model takes, if it is outside:
+    /// revo refuses the write otherwise (`invalid_effort`).
     func setModel(_ id: String, _ model: String) {
         update(id) { block in
             block.model = model

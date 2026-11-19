@@ -144,6 +144,8 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var discovered: [String]
     /// The efforts the provider gives a fetched model, already within `efforts`; a model missing here takes `efforts`.
     public var modelEfforts: [String: [String]]
+    /// Models of the chain's blocks of this engine that the provider's fetched list lacks: marked, never replaced.
+    public var unavailable: [String]
     /// When `revo models` last fetched this engine's list (epoch seconds), nil if never.
     public var modelsFetchedAt: Int?
     public var customModel: Bool
@@ -159,7 +161,7 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var projects: [RevoProject]
 
     enum CodingKeys: String, CodingKey {
-        case name, display, vendor, efforts, models, discovered, modelEfforts = "model_efforts",
+        case name, display, vendor, efforts, models, discovered, modelEfforts = "model_efforts", unavailable,
              modelsFetchedAt = "models_fetched_at", customModel = "custom_model", modelPattern = "model_pattern", installed,
              blockFields = "block_fields", projectPattern = "project_pattern", projects
     }
@@ -174,6 +176,7 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
         models = try c.decode([String].self, forKey: .models)
         discovered = try c.decodeIfPresent([String].self, forKey: .discovered) ?? []
         modelEfforts = try c.decodeIfPresent([String: [String]].self, forKey: .modelEfforts) ?? [:]
+        unavailable = try c.decodeIfPresent([String].self, forKey: .unavailable) ?? []
         modelsFetchedAt = try c.decodeIfPresent(Int.self, forKey: .modelsFetchedAt)
         customModel = try c.decode(Bool.self, forKey: .customModel)
         modelPattern = try c.decodeIfPresent(String.self, forKey: .modelPattern)
@@ -202,10 +205,17 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
         return list
     }
 
-    /// `current` if `model` allows it, otherwise the effort a new block would get within the model's list.
+    /// `current` if `model` allows it, otherwise the nearest allowed one on the engine's scale (`efforts` goes from
+    /// low to high), the lower one on a tie: xhigh becomes high. An effort off the scale gets what a new block would.
+    /// revo refuses a changed model with an effort it does not take (`invalid_effort`).
     public func effort(_ current: String, for model: String) -> String {
         let allowed = efforts(for: model)
         if allowed.contains(current) { return current }
+        if let at = efforts.firstIndex(of: current),
+           let nearest = allowed.compactMap({ e in efforts.firstIndex(of: e).map { (e, abs($0 - at), $0) } })
+               .min(by: { ($0.1, $0.2) < ($1.1, $1.2) }) {
+            return nearest.0
+        }
         return allowed.contains("high") ? "high" : allowed.last ?? current
     }
 

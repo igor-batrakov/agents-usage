@@ -219,7 +219,12 @@ private struct BlockRow: View {
                     .opacity(block.on ? 1 : 0.5)
                 Spacer(minLength: 4)
                 HStack(spacing: 2) {
-                    TextField("", text: Binding(get: { block.model }, set: { v in chain.update(block.id) { $0.model = v } }))
+                    if engine?.unavailable.contains(block.model) == true {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(Color(nsColor: Theme.amber))
+                            .help(L("The provider no longer lists this model: a review with it will likely fail. Choose another one."))
+                    }
+                    TextField("", text: Binding(get: { block.model }, set: { v in chain.setModel(block.id, v) }))
                         .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 150)

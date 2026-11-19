@@ -52,6 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.setAccounts(settings.accounts)
         applySettings()
         updateIcon()
+        // revo fetches only model lists older than a day, so the chain editor offers current models and efforts.
+        Task { await reviewChain.updateModels(refresh: false) }
 
         // After sleep the network does not come up right away, so give it a few seconds.
         NSWorkspace.shared.notificationCenter.addObserver(
