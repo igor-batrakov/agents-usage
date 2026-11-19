@@ -50,6 +50,8 @@ final class ReviewChain {
     /// The login shell is asked at most once per launch: that runs the user's shell profile.
     @ObservationIgnored private var askedShell = false
     @ObservationIgnored private var reloading: Task<Void, Never>?
+    @ObservationIgnored private var enginesAsked = 0
+    @ObservationIgnored private var enginesShown = 0
 
     init(settings: Settings) {
         self.settings = settings
@@ -166,28 +168,38 @@ final class ReviewChain {
         guard let path else { return }
         if Demo.isOn {
             let demo = Demo.reviewChain()
-            adopt(loaded ?? demo.chain, demo.engines, carry: carry)
+            adopt(loaded ?? demo.chain, demo.engines, enginesTicket(), carry: carry)
             return
         }
         if verified != path {
             try await Revo.checkVersion(path)
             verified = path
         }
+        let ticket = enginesTicket()
         async let chain = Revo.list(path)
         async let engines = Revo.engines(path)
-        adopt(try await chain, try await engines, carry: carry)
+        adopt(try await chain, try await engines, ticket, carry: carry)
     }
 
-    private func adopt(_ chain: RevoChain, _ list: [RevoEngine], carry: Bool) {
+    private func adopt(_ chain: RevoChain, _ list: [RevoEngine], _ ticket: Int, carry: Bool) {
         let edits = self.edits
         loaded = chain
-        setEngines(list)
+        setEngines(list, ticket)
         // Blocks added and not applied yet come back with their final ids: `edits` holds them in `add`.
         draft = carry ? edits.applied(to: RevoDraft(chain)) : RevoDraft(chain)
         preview = nil
     }
 
-    private func setEngines(_ list: [RevoEngine]) {
+    /// Numbers `revo engines` calls in the order they start. A reload and a model list update run side by side, and
+    /// an answer asked for before `revo models` saved the lists must not replace one asked for after it.
+    private func enginesTicket() -> Int {
+        enginesAsked += 1
+        return enginesAsked
+    }
+
+    private func setEngines(_ list: [RevoEngine], _ ticket: Int) {
+        guard ticket > enginesShown else { return }
+        enginesShown = ticket
         engines = Dictionary(list.map { ($0.name, $0) }, uniquingKeysWith: { a, _ in a })
         engineList = list
     }
@@ -206,12 +218,13 @@ final class ReviewChain {
         defer { fetchingModels = false }
         do {
             let lists = try await Revo.models(path, refresh: refresh)
+            let ticket = enginesTicket()
             let list = try await Revo.engines(path)
             // Another revo chosen meanwhile: its own reload has the right engines, these are of the old one.
             guard self.path == path else { return }
             modelLists = lists
             modelsFailure = nil
-            setEngines(list)
+            setEngines(list, ticket)
         } catch RevoFailure.outdated {
             noModelsCommand = path
             modelsFailure = nil
