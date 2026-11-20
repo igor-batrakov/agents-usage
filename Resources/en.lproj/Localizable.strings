@@ -154,9 +154,11 @@
 "No executable file at %@" = "No executable file at %@";
 "This is not revo, or a revo too old for the app. Update it: %@" = "This is not revo, or a revo too old for the app. Update it: %@";
 "default (gcloud)" = "default (gcloud)";
+"A reviewer has a model revo cannot use: choose another one." = "A reviewer has a model revo cannot use: choose another one.";
 "default" = "default";
 "limit, resets %@" = "limit, resets %@";
 "CLI not found" = "CLI not found";
+"model has no effort levels revo passes" = "model has no effort levels revo passes";
 "invalid model name" = "invalid model name";
 "invalid project ID" = "invalid project ID";
 "never runs: no required reviewer above it" = "never runs: no required reviewer above it";
@@ -209,6 +211,7 @@
 "Edits %@" = "Edits %@";
 "Choose…" = "Choose…";
 "Default" = "Default";
+"The provider gives this model no effort level revo passes: a review cannot use it. Choose another one." = "The provider gives this model no effort level revo passes: a review cannot use it. Choose another one.";
 "The provider no longer lists this model: a review with it will likely fail. Choose another one." = "The provider no longer lists this model: a review with it will likely fail. Choose another one.";
 "%@ (new, no reviews yet)" = "%@ (new, no reviews yet)";
 "Known models" = "Known models";

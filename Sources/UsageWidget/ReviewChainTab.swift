@@ -158,6 +158,7 @@ struct ReviewChainTab: View {
                         .disabled(!chain.hasEdits || chain.busy)
                     Button(L("Apply…")) { Task { await chain.check() } }
                         .disabled(!chain.hasEdits || chain.busy)
+                        .help(chain.blocksApply ? L("A reviewer has a model revo cannot use: choose another one.") : "")
                 }
             }
             paths
@@ -219,7 +220,11 @@ private struct BlockRow: View {
                     .opacity(block.on ? 1 : 0.5)
                 Spacer(minLength: 4)
                 HStack(spacing: 2) {
-                    if engine?.unavailable.contains(block.model) == true {
+                    if chain.isUnusable(block) {
+                        Image(systemName: "xmark.octagon.fill")
+                            .foregroundStyle(.red)
+                            .help(L("The provider gives this model no effort level revo passes: a review cannot use it. Choose another one."))
+                    } else if engine?.unavailable.contains(block.model) == true {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .foregroundStyle(Color(nsColor: Theme.amber))
                             .help(L("The provider no longer lists this model: a review with it will likely fail. Choose another one."))

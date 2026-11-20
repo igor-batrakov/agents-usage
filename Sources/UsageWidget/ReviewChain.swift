@@ -67,6 +67,20 @@ final class ReviewChain {
 
     var hasEdits: Bool { !edits.isEmpty }
 
+    /// The block's model has no effort revo passes (`unusable`): revo would refuse the write (`invalid_effort`).
+    func isUnusable(_ block: RevoBlock) -> Bool {
+        engines[block.engine]?.unusable.contains(block.model) == true
+    }
+
+    /// A new block or a changed model that revo would refuse holds Apply back (after the engines are read again). An applied block keeping its model is
+    /// only marked: the write does not send its model, and the user may be fixing something else first.
+    var blocksApply: Bool {
+        guard let draft else { return false }
+        return draft.blocks.contains { block in
+            isUnusable(block) && loaded?.chain.first(where: { $0.id == block.id })?.model != block.model
+        }
+    }
+
     /// Editing waits for the check and its confirmation: the draft then is exactly what gets written, and after
     /// the write the chain is taken as revo reports it.
     var editable: Bool { preview == nil && !checking }
@@ -363,16 +377,30 @@ final class ReviewChain {
     /// Apply, step one: revo validates the edits and reports what will change; nothing is written.
     func check() async {
         guard let path, let loaded, hasEdits, !busy else { return }
-        fitEfforts(loaded)
         if Demo.isOn {
+            guard !blocksApply else { return }
+            fitEfforts(loaded)
             applyInDemo()
             return
         }
         busy = true
         checking = true
         defer { busy = false; checking = false }
-        let ops = edits
         do {
+            // The list may be stale (a failed reload after `revo models`): ask revo again before holding Apply back.
+            if blocksApply {
+                let ticket = enginesTicket()
+                let list = try await Revo.engines(path)
+                guard self.path == path else { return }
+                setEngines(list, ticket)
+                // Still unusable: revo is not asked to check what it would refuse.
+                if blocksApply {
+                    failure = .run(L("A reviewer has a model revo cannot use: choose another one."))
+                    return
+                }
+            }
+            fitEfforts(loaded)
+            let ops = edits
             preview = try await Revo.apply(path, ops, base: loaded.configRev, check: true)
             checked = ops
             failure = nil
@@ -500,7 +528,11 @@ final class ReviewChain {
         // `active` is as of the last reload; the tab may stay open past the reset.
         if let until = loaded?.limit(block.id, now: now) { warnings.append(L("limit, resets %@", Format.resetIn(until, now: now))) }
         if engines[block.engine]?.installed == false { warnings.append(L("CLI not found")) }
-        if let engine = engines[block.engine], !engine.accepts(block.model) { warnings.append(L("invalid model name")) }
+        if isUnusable(block) {
+            warnings.append(L("model has no effort levels revo passes"))
+        } else if let engine = engines[block.engine], !engine.accepts(block.model) {
+            warnings.append(L("invalid model name"))
+        }
         if let project = block.project, let engine = engines[block.engine], !engine.acceptsProject(project) {
             warnings.append(L("invalid project ID"))
         }

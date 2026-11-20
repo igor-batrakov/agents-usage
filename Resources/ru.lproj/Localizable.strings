@@ -154,9 +154,11 @@
 "No executable file at %@" = "По пути %@ нет исполняемого файла";
 "This is not revo, or a revo too old for the app. Update it: %@" = "Это не revo или слишком старая для приложения версия. Обновите её: %@";
 "default (gcloud)" = "по умолчанию (gcloud)";
+"A reviewer has a model revo cannot use: choose another one." = "У одного из ревьюеров модель, которую revo не может использовать: выберите другую.";
 "default" = "по умолчанию";
 "limit, resets %@" = "лимит, сброс %@";
 "CLI not found" = "CLI не найден";
+"model has no effort levels revo passes" = "у модели нет уровней effort, которые передаёт revo";
 "invalid model name" = "недопустимое имя модели";
 "invalid project ID" = "неверный ID проекта";
 "never runs: no required reviewer above it" = "не запустится: выше нет обязательного";
@@ -209,6 +211,7 @@
 "Edits %@" = "Изменения пишутся в %@";
 "Choose…" = "Выбрать…";
 "Default" = "По умолчанию";
+"The provider gives this model no effort level revo passes: a review cannot use it. Choose another one." = "Провайдер не даёт этой модели ни одного уровня effort из тех, что передаёт revo: ревью с ней невозможно. Выберите другую.";
 "The provider no longer lists this model: a review with it will likely fail. Choose another one." = "Провайдер больше не предлагает эту модель: ревью с ней, скорее всего, не пройдёт. Выберите другую.";
 "%@ (new, no reviews yet)" = "%@ (новая, ревью с ней ещё не было)";
 "Known models" = "Известные модели";

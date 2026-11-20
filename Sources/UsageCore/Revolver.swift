@@ -149,6 +149,9 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var defaultEfforts: [String]
     /// Models of the chain's blocks of this engine that the provider's fetched list lacks: marked, never replaced.
     public var unavailable: [String]
+    /// Models the provider gives efforts for, none of them one revo passes: not in `models`, and a write with one
+    /// is refused (`invalid_effort`). Empty from an older revo.
+    public var unusable: [String]
     /// When `revo models` last fetched this engine's list (epoch seconds), nil if never.
     public var modelsFetchedAt: Int?
     public var customModel: Bool
@@ -164,7 +167,7 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     public var projects: [RevoProject]
 
     enum CodingKeys: String, CodingKey {
-        case name, display, vendor, efforts, models, discovered, modelEfforts = "model_efforts", unavailable,
+        case name, display, vendor, efforts, models, discovered, modelEfforts = "model_efforts", unavailable, unusable,
              defaultEfforts = "default_efforts",
              modelsFetchedAt = "models_fetched_at", customModel = "custom_model", modelPattern = "model_pattern", installed,
              blockFields = "block_fields", projectPattern = "project_pattern", projects
@@ -181,6 +184,7 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
         discovered = try c.decodeIfPresent([String].self, forKey: .discovered) ?? []
         modelEfforts = try c.decodeIfPresent([String: [String]].self, forKey: .modelEfforts) ?? [:]
         unavailable = try c.decodeIfPresent([String].self, forKey: .unavailable) ?? []
+        unusable = try c.decodeIfPresent([String].self, forKey: .unusable) ?? []
         let defaults = try c.decodeIfPresent([String].self, forKey: .defaultEfforts) ?? []
         defaultEfforts = defaults.isEmpty ? efforts : defaults
         modelsFetchedAt = try c.decodeIfPresent(Int.self, forKey: .modelsFetchedAt)
@@ -205,8 +209,10 @@ public struct RevoEngine: Decodable, Equatable, Sendable {
     /// What the app calls it: the vendor, or `display` from an older revo.
     public var title: String { vendor ?? display }
 
-    /// The efforts allowed for `model`: its own list when revo gave one, otherwise the engine's default ones.
+    /// The efforts allowed for `model`: its own list when revo gave one, none for an unusable one, otherwise the
+    /// engine's default ones.
     public func efforts(for model: String) -> [String] {
+        if unusable.contains(model) { return [] }
         guard let list = modelEfforts[model], !list.isEmpty else { return defaultEfforts }
         return list
     }
