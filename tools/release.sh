@@ -18,6 +18,7 @@ ditto -c -k --keepParent "$APP" dist/Agents-Usage.zip
 
 # The dmg holds the app and a shortcut to /Applications to drag it onto.
 stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
 ditto "$APP" "$stage/Agents Usage.app"
 ln -s /Applications "$stage/Applications"
 hdiutil create -quiet -volname "Agents Usage" -srcfolder "$stage" -format UDZO -ov dist/Agents-Usage.dmg

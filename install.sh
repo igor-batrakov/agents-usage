@@ -13,11 +13,11 @@ APP="Agents Usage.app"
 DEST="${AGENTS_USAGE_DIR:-$HOME/Applications}"   # AGENTS_USAGE_DIR: another install folder
 VERSION="${AGENTS_USAGE_VERSION:-latest}"
 if [ "$VERSION" = latest ]; then
-    URL="https://github.com/$REPO/releases/latest/download/Agents-Usage.zip"
+    BASE="https://github.com/$REPO/releases/latest/download"
 else
-    URL="https://github.com/$REPO/releases/download/$VERSION/Agents-Usage.zip"
+    BASE="https://github.com/$REPO/releases/download/$VERSION"
 fi
-URL="${AGENTS_USAGE_URL:-$URL}"   # AGENTS_USAGE_URL: another archive, e.g. file:// for testing
+URL="${AGENTS_USAGE_URL:-$BASE/Agents-Usage.zip}"   # AGENTS_USAGE_URL: another archive, e.g. file:// for testing
 
 fail() { echo "error: $*" >&2; exit 1; }
 
@@ -32,6 +32,14 @@ echo "Downloading Agents Usage ($VERSION)…"
 # A stalled download gives up (under 1 KB/s for 30 s) instead of hanging: the in-app updater waits for this script.
 curl -fL --progress-bar --connect-timeout 15 --speed-limit 1024 --speed-time 30 "$URL" -o "$work/Agents-Usage.zip" \
     || fail "download failed: $URL"
+# Every release carries SHA256SUMS: a truncated or damaged archive stops here. An archive of your own
+# (AGENTS_USAGE_URL) has none to check against.
+if [ -z "${AGENTS_USAGE_URL:-}" ]; then
+    curl -fsSL --connect-timeout 15 --max-time 60 "$BASE/SHA256SUMS" -o "$work/SHA256SUMS" \
+        || fail "download failed: $BASE/SHA256SUMS"
+    ( cd "$work" && grep ' Agents-Usage.zip$' SHA256SUMS | shasum -a 256 -c - >/dev/null ) \
+        || fail "the archive does not match SHA256SUMS"
+fi
 ditto -x -k "$work/Agents-Usage.zip" "$work"
 [ -d "$work/$APP" ] || fail "the archive has no $APP"
 
@@ -39,8 +47,12 @@ ditto -x -k "$work/Agents-Usage.zip" "$work"
 # script, the app is its ancestor, and pkill skips ancestors by default.
 pkill -a -x UsageWidget 2>/dev/null && sleep 1 || true
 mkdir -p "$DEST"
+# Copy next to the old app first (same volume): a failed copy leaves the installed one in place.
+new="$DEST/.$APP.new"
+rm -rf "$new"
+ditto "$work/$APP" "$new" || { rm -rf "$new"; fail "could not copy the app to $DEST"; }
 rm -rf "${DEST:?}/$APP"
-ditto "$work/$APP" "$DEST/$APP"
+mv "$new" "$DEST/$APP"
 # curl sets no quarantine flag; clear it anyway in case the zip arrived through a browser.
 xattr -dr com.apple.quarantine "$DEST/$APP" 2>/dev/null || true
 

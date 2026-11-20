@@ -6,7 +6,8 @@
 
 <p align="center">
   Usage limits of your AI coding subscriptions in the macOS menu bar.<br>
-  Claude Code, Codex, Antigravity, GitHub Copilot, Cursor, Kimi Code, plus OpenRouter and Moonshot balances.
+  Claude Code, Codex, Antigravity, GitHub Copilot, Cursor, Kimi Code, plus OpenRouter and Moonshot balances and
+  Google Cloud spending.
 </p>
 
 <p align="center">
