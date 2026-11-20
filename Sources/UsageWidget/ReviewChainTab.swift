@@ -157,7 +157,7 @@ struct ReviewChainTab: View {
                     Button(L("Revert")) { chain.revert() }
                         .disabled(!chain.hasEdits || chain.busy)
                     Button(L("Apply…")) { Task { await chain.check() } }
-                        .disabled(!chain.hasEdits || chain.blocksApply || chain.busy)
+                        .disabled(!chain.hasEdits || chain.busy)
                         .help(chain.blocksApply ? L("A reviewer has a model revo cannot use: choose another one.") : "")
                 }
             }
