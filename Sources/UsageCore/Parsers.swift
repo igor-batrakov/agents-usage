@@ -53,7 +53,7 @@ public enum Parsers {
     /// «max» + «default_claude_max_5x» → «Max 5x».
     public static func claudePlan(subscription: String?, tier: String?) -> String? {
         guard let subscription, !subscription.isEmpty else { return nil }
-        var plan = subscription.prefix(1).uppercased() + subscription.dropFirst()
+        var plan = capitalized(subscription)
         if let tier, let range = tier.range(of: #"\d+x$"#, options: .regularExpression) {
             plan += " " + tier[range]
         }
@@ -82,7 +82,7 @@ public enum Parsers {
         for (index, snap) in snapshots.enumerated() {
             let limitId = snap["limitId"] as? String ?? "codex"
             let prefix = index == 0 ? nil : (snap["limitName"] as? String ?? limitId)
-            if plan == nil, let p = snap["planType"] as? String { plan = p.prefix(1).uppercased() + p.dropFirst() }
+            if plan == nil, let p = snap["planType"] as? String { plan = capitalized(p) }
             for key in ["primary", "secondary"] {
                 guard let w = snap[key] as? [String: Any], let pct = number(w["usedPercent"]) else { continue }
                 let mins = number(w["windowDurationMins"]).map(Int.init)
@@ -132,7 +132,8 @@ public enum Parsers {
         }
         var windows: [LimitWindow] = []
         for group in groups {
-            let groupName = agyGroupTitle(group["name"] as? String ?? "")
+            let rawName = group["name"] as? String ?? ""
+            let groupName = agyGroupTitle(rawName)
             // agy returns the week before the 5 hours; other services put the short window first, so align.
             let buckets = (group["buckets"] as? [[String: Any]] ?? [])
                 .sorted { ($0["window"] as? String == "5h") && ($1["window"] as? String != "5h") }
@@ -147,7 +148,8 @@ public enum Parsers {
                 default: title = bucket["name"] as? String ?? window
                 }
                 windows.append(LimitWindow(
-                    id: "agy-\(bucket["id"] as? String ?? "\(groupName)-\(window)")",
+                    // The fallback uses the name as agy sends it: a translated one would change with the language (invariant 10).
+                    id: "agy-\(bucket["id"] as? String ?? "\(rawName)-\(window)")",
                     title: title,
                     group: groupName,
                     used: 1 - remaining,
@@ -386,12 +388,14 @@ public enum Parsers {
         return obj
     }
 
+    /// A finite number: `Double("NaN")` and `Double("inf")` parse, and `Int(_:)` of them traps when formatting.
     static func number(_ value: Any?) -> Double? {
-        switch value {
+        let parsed: Double? = switch value {
         case let n as NSNumber where !(n === kCFBooleanTrue || n === kCFBooleanFalse): n.doubleValue
         case let s as String: Double(s)
         default: nil
         }
+        return parsed.flatMap { $0.isFinite ? $0 : nil }
     }
 
     static func isoDate(_ value: Any?) -> Date? {

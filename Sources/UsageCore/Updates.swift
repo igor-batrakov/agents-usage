@@ -35,7 +35,9 @@ public enum Updates {
         guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let tag = root["tag_name"] as? String,
               tag.range(of: #"^v?[0-9]+(\.[0-9]+){0,3}$"#, options: .regularExpression) != nil,
-              let page = root["html_url"] as? String, let url = URL(string: page)
+              let page = root["html_url"] as? String, let url = URL(string: page),
+              // The page is opened with NSWorkspace: only a web page, never a file or another app's scheme.
+              url.scheme == "https"
         else { throw UsageError.message(L("unexpected response from GitHub")) }
         return Release(tag: tag, url: url)
     }

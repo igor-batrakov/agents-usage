@@ -14,6 +14,11 @@ import Testing
         // GitHub answers 404 with a message when there are no releases; any shape without a tag is an error.
         #expect(throws: UsageError.self) { try Updates.parse(Data(#"{"message":"Not Found"}"#.utf8)) }
         #expect(throws: UsageError.self) { try Updates.parse(Data("not json".utf8)) }
+        // The page is opened with NSWorkspace: only https.
+        for page in ["file:///Applications/Calculator.app", "x-other-app://open", "http://github.com/x"] {
+            let data = Data(#"{"tag_name":"v1.0.0","html_url":"\#(page)"}"#.utf8)
+            #expect(throws: UsageError.self) { try Updates.parse(data) }
+        }
     }
 
     @Test func acceptsOnlyPlainVersionTags() throws {

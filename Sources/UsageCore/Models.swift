@@ -105,7 +105,8 @@ public struct CloudBilling: Codable, Equatable, Sendable {
 
     /// The current period in the local calendar: from the start of this month (or ISO week, Monday) to the next.
     public static func bounds(_ period: Period, now: Date, calendar: Calendar = .current) -> (start: Date, end: Date) {
-        var cal = period == .week ? Calendar(identifier: .iso8601) : calendar
+        // Billing months are Gregorian whatever calendar the Mac is set to (Hebrew, Islamic months differ).
+        var cal = Calendar(identifier: period == .week ? .iso8601 : .gregorian)
         cal.timeZone = calendar.timeZone
         let unit: Calendar.Component = period == .week ? .weekOfYear : .month
         let interval = cal.dateInterval(of: unit, for: now) ?? DateInterval(start: now, duration: 0)
@@ -172,10 +173,11 @@ public struct Account: Codable, Identifiable, Equatable, Sendable {
     }
 
     /// The service has only a balance and no limit windows: its menu bar bar would always be empty.
-    /// Moonshot by type (it never has windows, neither before the first response nor on error), the rest
-    /// by response (OpenRouter without a key budget).
+    /// Moonshot and Google Cloud without a limit by settings (they never have windows, neither before the first
+    /// response nor on error), the rest by response (OpenRouter without a key budget).
     public func balanceOnly(_ snapshot: Snapshot) -> Bool {
         if kind == .moonshot { return true }
+        if kind == .gcloud, (billing?.limit ?? 0) <= 0 { return true }
         guard let report = snapshot.report else { return false }
         return report.windows.isEmpty && !report.balances.isEmpty
     }

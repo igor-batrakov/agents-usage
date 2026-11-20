@@ -175,7 +175,8 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         a.keyRevision = 1
         // New key: poll right away, and this poll is not skipped because of the one running with the old key.
         #expect(store.setAccounts([a]) == [a.id])
-        async let second: Void = store.refresh(only: [a.id])
+        let id = a.id  // `async let` must not capture the mutable `a`
+        async let second: Void = store.refresh(only: [id])
         _ = await (first, second)
         #expect(source.calls == 2)
         #expect(store.snapshot(a.id).report == report)
@@ -219,11 +220,29 @@ private func makeStore(_ sources: [UUID: ScriptedSource]) -> UsageStore {
         a.configDir = "~/.claude-work"
         #expect(store.setAccounts([a]) == [a.id])
         // The old poll is still running: the new one starts anyway instead of being skipped.
-        async let second: Void = store.refresh(only: [a.id])
+        let id = a.id  // `async let` must not capture the mutable `a`
+        async let second: Void = store.refresh(only: [id])
         _ = await (first, second)
         #expect(source.calls == 2)
         #expect(store.snapshot(a.id).report == report)
         #expect(!store.isRefreshing)
+    }
+
+    /// Invariant 12: a poll left behind by a disable or a source change does not keep ↻ and "Check" busy.
+    @Test func discardedPollIsNotInFlight() async {
+        var a = Account(kind: .claude)
+        let source = ScriptedSource([.success(report)], delay: .milliseconds(200))
+        let store = makeStore([a.id: source])
+        store.setAccounts([a])
+        async let first: Void = store.refresh()
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(store.isRefreshing)
+        a.enabled = false
+        store.setAccounts([a])
+        #expect(!store.isRefreshing)
+        #expect(store.inFlight[a.id] == nil)
+        await first
+        #expect(store.snapshots[a.id] == nil)
     }
 
     @Test func totalFailureDoesNotMarkFresh() async {
