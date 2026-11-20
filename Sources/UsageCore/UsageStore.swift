@@ -58,6 +58,8 @@ public final class UsageStore {
             if dirChanged { changedSource.insert(old.id) }
             if now == nil || (old.enabled && now?.enabled == false) || dirChanged {
                 generation[old.id, default: 0] += 1
+                // The running poll is of the earlier generation now: it must not keep ↻ and "Check" busy.
+                inFlight[old.id] = nil
             }
         }
         accounts = new

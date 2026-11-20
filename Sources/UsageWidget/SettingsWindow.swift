@@ -313,7 +313,7 @@ private struct AccountDetail: View {
                     Text(L("No limit windows, only a balance.")).foregroundStyle(.secondary)
                 } else if let windows = snapshot.report?.windows, !windows.isEmpty {
                     ForEach(windows) { w in
-                        Toggle(w.group.map { "\($0) · \(w.title)" } ?? w.title, isOn: Binding(
+                        Toggle(w.fullTitle, isOn: Binding(
                             get: { !(settings.account(account.id)?.hiddenWindows.contains(w.id) ?? false) },
                             set: { visible in settings.update(account.id) {
                                 if visible { $0.hiddenWindows.remove(w.id) } else { $0.hiddenWindows.insert(w.id) }
@@ -322,7 +322,7 @@ private struct AccountDetail: View {
                     Picker(L("In menu bar"), selection: field(\.barWindowID)) {
                         Text(L("Auto (short window)")).tag(String?.none)
                         ForEach(account.visibleWindows(snapshot)) { w in
-                            Text(w.group.map { "\($0) · \(w.title)" } ?? w.title).tag(Optional(w.id))
+                            Text(w.fullTitle).tag(Optional(w.id))
                         }
                     }
                 } else {
@@ -347,8 +347,14 @@ private struct AccountDetail: View {
                     } else if let error = snapshot.error {
                         Label(error, systemImage: "exclamationmark.triangle.fill")
                             .foregroundStyle(Color(nsColor: Theme.amber)).lineLimit(2)
-                    } else if let at = snapshot.fetchedAt, let n = snapshot.report?.windows.count {
-                        Label(L("working: %d windows, %@", n, Format.date(at, date: .omitted)),
+                    } else if let at = snapshot.fetchedAt, let report = snapshot.report {
+                        // A balance-only service has no windows to count: its amount says it works.
+                        let time = Format.date(at, date: .omitted)
+                        let balance = report.balances.first
+                        let text = report.windows.isEmpty && balance != nil
+                            ? L("working: %@, %@", Format.money(balance!.amount, balance!.currency), time)
+                            : L("working: %d windows, %@", report.windows.count, time)
+                        Label(text,
                               systemImage: "checkmark.circle.fill")
                             .foregroundStyle(Color(nsColor: Theme.nsAccent(.codex)))
                     }
@@ -441,10 +447,12 @@ private struct AccountDetail: View {
                         try await KeyStore.save(draft, for: id)
                     }
                 }
-                .disabled(settings.keyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
+                .disabled(Demo.isOn || settings.keyDraft.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button(L("Delete")) {
                     keyChange(id, submitted: nil, done: L("key deleted"), same: L("no key was saved")) { try await KeyStore.delete(id) }
                 }
+                // The demo never touches the real Keychain.
+                .disabled(Demo.isOn)
             }
             HStack(spacing: 4) {
                 Text(settings.keyMessage ?? L("Stored in the macOS Keychain, never in settings or logs."))

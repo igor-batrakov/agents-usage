@@ -18,6 +18,8 @@ final class FloatingPanel: NSPanel {
     }
 
     private static let positionKey = "panelTopLeft"
+    /// The settings domain (the demo has its own): `Settings` reads this key there too, to pick the anchor.
+    private let defaults: UserDefaults
     private var placement = Placement(anchor: .free, margin: 12)
     /// Our own moves do not count as user drags.
     private var positioning = false
@@ -29,6 +31,7 @@ final class FloatingPanel: NSPanel {
     var onUserMove: (() -> Void)?
 
     init(store: UsageStore, settings: Settings, onHide: @escaping () -> Void) {
+        defaults = settings.defaults
         super.init(contentRect: NSRect(x: 0, y: 0, width: 260, height: 300),
                    styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered, defer: true)
@@ -43,7 +46,7 @@ final class FloatingPanel: NSPanel {
         host.sizingOptions = .preferredContentSize
         contentViewController = host
 
-        place { setFrameTopLeftPoint(Self.savedTopLeft() ?? Self.defaultTopLeft()) }
+        place { setFrameTopLeftPoint(savedTopLeft() ?? Self.defaultTopLeft()) }
         // queue: nil means synchronous, inside setFrame: the positioning flag is still set, and our own
         // move is not mistaken for a user drag.
         observers.append(NotificationCenter.default.addObserver(
@@ -106,14 +109,14 @@ final class FloatingPanel: NSPanel {
             snapping = true
             setFrame(frame, display: true)
             snapping = false
-        } else if Self.savedTopLeft() == nil {
+        } else if savedTopLeft() == nil {
             // The free position was left on a disconnected monitor.
             place { setFrameTopLeftPoint(Self.defaultTopLeft()) }
         }
     }
 
     private func didMove() {
-        UserDefaults.standard.set(NSStringFromPoint(NSPoint(x: frame.minX, y: frame.maxY)), forKey: Self.positionKey)
+        defaults.set(NSStringFromPoint(NSPoint(x: frame.minX, y: frame.maxY)), forKey: Self.positionKey)
         if !positioning, placement.anchor != .free { onUserMove?() }
     }
 
@@ -129,8 +132,8 @@ final class FloatingPanel: NSPanel {
     }
 
     /// The saved point, if it is still on one of the screens (a monitor may have been disconnected).
-    private static func savedTopLeft() -> NSPoint? {
-        guard let s = UserDefaults.standard.string(forKey: positionKey) else { return nil }
+    private func savedTopLeft() -> NSPoint? {
+        guard let s = defaults.string(forKey: Self.positionKey) else { return nil }
         let p = NSPointFromString(s)
         let probe = NSPoint(x: p.x + 20, y: p.y - 20)
         return NSScreen.screens.contains { $0.visibleFrame.contains(probe) } ? p : nil

@@ -16,9 +16,14 @@ struct PopoverView: View {
                       showPace: settings.showPace)
             if settings.showReviewLimits, reviewChain.isAvailable,
                !reviewChain.limitedReviewers(now: Date()).isEmpty || reviewChain.limitsFailure != nil {
-                Divider()
+                // A limit may end while the popover is open: the divider goes along with the last line.
                 TimelineView(.periodic(from: .now, by: 30)) { context in
-                    ReviewLimitsRow(chain: reviewChain, now: context.date)
+                    if !reviewChain.limitedReviewers(now: context.date).isEmpty || reviewChain.limitsFailure != nil {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Divider()
+                            ReviewLimitsRow(chain: reviewChain, now: context.date)
+                        }
+                    }
                 }
             }
             if let release = updater.available {

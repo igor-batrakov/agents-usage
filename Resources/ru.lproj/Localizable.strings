@@ -52,6 +52,7 @@
 "BigQuery has not finished the query; the next poll will try again" = "BigQuery не успел выполнить запрос, следующий опрос попробует снова";
 "The export has costs in several currencies: choose one project" = "В экспорте расходы в нескольких валютах: выберите один проект";
 "The billing export has no data yet: it fills from the moment it is turned on" = "В экспорте биллинга ещё нет данных: они копятся с момента его включения";
+"unexpected response from BigQuery" = "непонятный ответ BigQuery";
 "Spent this week" = "Потрачено за неделю";
 "Spent this month" = "Потрачено за месяц";
 "Covered by credits" = "Покрыто кредитами";
@@ -282,6 +283,7 @@
 "this service has no web page" = "у сервиса нет веб-страницы";
 "Open" = "Открыть";
 "Check" = "Проверить";
+"working: %@, %@" = "работает: %@, %@";
 "working: %d windows, %@" = "работает: окон %d, %@";
 "Billing export" = "Экспорт биллинга";
 "Dataset" = "Dataset";

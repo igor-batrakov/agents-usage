@@ -16,7 +16,8 @@ final class Settings {
     enum PanelMode: Hashable { case off, floating, desktop }
 
     @ObservationIgnored var onChange: (() -> Void)?
-    @ObservationIgnored private let defaults: UserDefaults
+    /// The settings domain: the demo has its own, so everything stored next to settings goes here too.
+    @ObservationIgnored let defaults: UserDefaults
     @ObservationIgnored private var revertingLaunchAtLogin = false
 
     /// The account selected on the Services tab. Not saved. Lives here, not in @State:
@@ -184,7 +185,8 @@ final class Settings {
     }
 
     func remove(_ id: UUID) {
-        if account(id)?.kind.usesAPIKey == true { withKey(id) { try? await KeyStore.delete(id) } }
+        // The demo never touches the real Keychain.
+        if !Demo.isOn, account(id)?.kind.usesAPIKey == true { withKey(id) { _ = try? await KeyStore.delete(id) } }
         accounts.removeAll { $0.id == id }
         if selectedAccountID == id { selectedAccountID = accounts.first?.id }
     }

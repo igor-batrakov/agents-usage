@@ -467,10 +467,13 @@ final class ReviewChain {
         Task {
             do {
                 // `ls` is old enough to exist in every revo; another schema fails as outdated.
-                latest = try await Revo.list(path)
+                let list = try await Revo.list(path)
+                // Another revo chosen meanwhile: this answer is of the old one.
+                guard self.path == path else { return }
+                latest = list
                 limitsFailure = nil
             } catch {
-                limitsFailure = Self.failure(error)
+                if self.path == path { limitsFailure = Self.failure(error) }
             }
         }
     }

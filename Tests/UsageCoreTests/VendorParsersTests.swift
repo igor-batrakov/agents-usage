@@ -22,7 +22,11 @@ private let days30: TimeInterval? = 30 * 86400
     }
 
     @Test func unlimitedIsSkippedAndNoQuotasIsError() {
-        let json = #"{"quota_snapshots":{"chat":{"unlimited":true,"entitlement":0,"percent_remaining":100}}}"#
+        // Each quota is dropped by one rule only: `unlimited` with a real entitlement, and a zero entitlement.
+        let json = #"""
+            {"quota_snapshots":{"chat":{"unlimited":true,"entitlement":300,"percent_remaining":100},
+             "premium_interactions":{"unlimited":false,"entitlement":0,"percent_remaining":100}}}
+            """#
         #expect(throws: UsageError.self) { try Parsers.copilot(Data(json.utf8)) }
     }
 }
@@ -130,6 +134,12 @@ private let days30: TimeInterval? = 30 * 86400
         #expect(Account(kind: .openrouter).balanceOnly(Snapshot(report: r)))
         #expect(Account(kind: .moonshot).balanceOnly(Snapshot()))
         #expect(!Account(kind: .openrouter).balanceOnly(Snapshot()))
+        // Google Cloud without a limit never has a window: no bar even before the first answer.
+        var cloud = Account(kind: .gcloud)
+        cloud.billing = CloudBilling(dataset: "p.d")
+        #expect(cloud.balanceOnly(Snapshot()))
+        cloud.billing = CloudBilling(dataset: "p.d", limit: 80)
+        #expect(!cloud.balanceOnly(Snapshot()))
     }
 }
 

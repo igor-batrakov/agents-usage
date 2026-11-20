@@ -9,6 +9,16 @@ release notes in `docs/release-notes/`.
 Not planned yet: release signing with a Developer ID, a forecast of when a window runs out, new services (GLM,
 MiniMax, Windsurf).
 
+Backlog from the audit of 20.11.2026 (the fixes went into 0.4.4):
+
+- Tests for parser branches with no coverage: `Parsers.agy` skipping `disabled`; `Parsers.openRouter` without
+  `limit_remaining` (falling back to `usage_<reset>`/`usage`) and with usage above the credits; `Parsers.kimi` with
+  `TIME_UNIT_HOUR`/`TIME_UNIT_DAY` and with `remaining` but no `used`; `CloudBillingSource` failures (401, 404, a
+  BigQuery `error.message`, a body that is not JSON); `Format.resetIn` on round boundaries (`1d 0h`, `2h 0m`).
+- Move the pure logic of `ReviewChain` (`describe`, `name(_:among:)`, `note`, `limitedReviewers`) into
+  `UsageCore`, so it is covered by tests; `Sources/UsageWidget` has none.
+- API key field: Enter saves the key, and the section shows whether a key is saved (never the key itself).
+
 ## Decisions
 
 - Services are a **catalog** (source types in code) plus **accounts** (instances: several per service, for

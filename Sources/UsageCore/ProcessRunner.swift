@@ -59,7 +59,7 @@ public enum ProcessRunner {
             // A successful run finishes once there is both the process exit and stdout EOF:
             // only then is the output surely complete. If a child inherited stdout (agy's hub),
             // EOF never comes: 2 s after the exit, return whatever has accumulated.
-            let complete = {
+            let complete: @Sendable () -> Void = {
                 guard let status = state.exitStatus else { return }
                 stdout.fileHandleForReading.readabilityHandler = nil
                 state.finish(.success((status, state.output)))
@@ -72,6 +72,8 @@ public enum ProcessRunner {
                     return
                 }
                 if state.append(chunk, check: until) {
+                    // The output is taken: stop reading, a child holding stdout would keep filling the buffer.
+                    handle.readabilityHandler = nil
                     state.finish(.success((0, state.output)))
                     stop(process)
                 }
@@ -94,6 +96,7 @@ public enum ProcessRunner {
             // and only killing the process on timeout unblocks it (EPIPE).
             DispatchQueue.global().asyncAfter(deadline: .now() + timeout) {
                 if state.finish(.failure(UsageError.message(L("timed out after %d s", Int(timeout))))) {
+                    stdout.fileHandleForReading.readabilityHandler = nil
                     stop(process)
                 }
             }
@@ -161,9 +164,11 @@ private final class RunState: @unchecked Sendable {
     /// Marks the process exit (a signal as a negative code); true if EOF has already happened.
     func markExit(_ code: Int32) -> Bool { lock.withLock { status = code; return eof } }
 
-    /// Appends a chunk of output; true if `check` matched for the first time.
+    /// Appends a chunk of output; true if `check` matched for the first time. After the run finished,
+    /// nothing is kept: the answer is already returned.
     func append(_ chunk: Data, check: ((Data) -> Bool)?) -> Bool {
         lock.withLock {
+            guard !done else { return false }
             buffer.append(chunk)
             guard let check, !matched, check(buffer) else { return false }
             matched = true
@@ -177,6 +182,8 @@ private final class RunState: @unchecked Sendable {
         let c: CheckedContinuation<(status: Int32, output: Data), Error>? = lock.withLock {
             guard !done else { return nil }
             done = true
+            // `result` holds its own copy; the pending timeout closure keeps this object, not the output.
+            buffer = Data()
             return continuation
         }
         c?.resume(with: result)

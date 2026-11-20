@@ -102,6 +102,25 @@ private let wk: TimeInterval? = 7 * 86400
     @Test func missingCommandDataIsError() {
         #expect(throws: UsageError.self) { try Parsers.agy(Data(#"{"status":"ERROR"}"#.utf8)) }
     }
+
+    /// Invariant 10: without a bucket id the window id is the English title, as saved by earlier versions,
+    /// whatever the language.
+    @Test func fallbackIDIgnoresTheLanguage() throws {
+        let json = #"""
+            {"command": {"data": {"groups": [{"name": "Claude and GPT models",
+             "buckets": [{"window": "5h", "remaining_fraction": 0.5}, {"window": "weekly", "remaining_fraction": "NaN"}]}]}}}
+            """#
+        let r = try Parsers.agy(Data(json.utf8))
+        #expect(r.windows.map(\.id) == ["agy-Claude and GPT-5h"])  // "NaN" is no number: skipped
+        #expect(Parsers.agyGroupTitle("Gemini models", translated: false) == "Gemini")
+    }
+
+    @Test func nonFiniteNumbersAreNone() {
+        #expect(Parsers.number("NaN") == nil)
+        #expect(Parsers.number("inf") == nil)
+        #expect(Parsers.number(NSNumber(value: Double.infinity)) == nil)
+        #expect(Parsers.number("0.25") == 0.25)
+    }
 }
 
 @Suite struct WindowLogicTests {

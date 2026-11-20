@@ -53,7 +53,7 @@ public enum Parsers {
     /// «max» + «default_claude_max_5x» → «Max 5x».
     public static func claudePlan(subscription: String?, tier: String?) -> String? {
         guard let subscription, !subscription.isEmpty else { return nil }
-        var plan = subscription.prefix(1).uppercased() + subscription.dropFirst()
+        var plan = capitalized(subscription)
         if let tier, let range = tier.range(of: #"\d+x$"#, options: .regularExpression) {
             plan += " " + tier[range]
         }
@@ -82,7 +82,7 @@ public enum Parsers {
         for (index, snap) in snapshots.enumerated() {
             let limitId = snap["limitId"] as? String ?? "codex"
             let prefix = index == 0 ? nil : (snap["limitName"] as? String ?? limitId)
-            if plan == nil, let p = snap["planType"] as? String { plan = p.prefix(1).uppercased() + p.dropFirst() }
+            if plan == nil, let p = snap["planType"] as? String { plan = capitalized(p) }
             for key in ["primary", "secondary"] {
                 guard let w = snap[key] as? [String: Any], let pct = number(w["usedPercent"]) else { continue }
                 let mins = number(w["windowDurationMins"]).map(Int.init)
@@ -132,7 +132,11 @@ public enum Parsers {
         }
         var windows: [LimitWindow] = []
         for group in groups {
-            let groupName = agyGroupTitle(group["name"] as? String ?? "")
+            let rawName = group["name"] as? String ?? ""
+            let groupName = agyGroupTitle(rawName)
+            // The fallback id is the title as it was in English: ids saved before stay valid, and a translated
+            // title would change with the language (invariant 10).
+            let groupKey = agyGroupTitle(rawName, translated: false)
             // agy returns the week before the 5 hours; other services put the short window first, so align.
             let buckets = (group["buckets"] as? [[String: Any]] ?? [])
                 .sorted { ($0["window"] as? String == "5h") && ($1["window"] as? String != "5h") }
@@ -147,7 +151,7 @@ public enum Parsers {
                 default: title = bucket["name"] as? String ?? window
                 }
                 windows.append(LimitWindow(
-                    id: "agy-\(bucket["id"] as? String ?? "\(groupName)-\(window)")",
+                    id: "agy-\(bucket["id"] as? String ?? "\(groupKey)-\(window)")",
                     title: title,
                     group: groupName,
                     used: 1 - remaining,
@@ -160,10 +164,10 @@ public enum Parsers {
         return UsageReport(windows: windows, plan: nil)
     }
 
-    static func agyGroupTitle(_ name: String) -> String {
+    static func agyGroupTitle(_ name: String, translated: Bool = true) -> String {
         switch name.lowercased() {
         case "gemini models": "Gemini"
-        case "claude and gpt models": L("Claude and GPT")
+        case "claude and gpt models": translated ? L("Claude and GPT") : "Claude and GPT"
         case let n where n.hasPrefix("gemini 4 "): String(name.dropFirst("Gemini 4 ".count))
         default: name
         }
@@ -357,8 +361,15 @@ public enum Parsers {
         guard let currency = values[1] as? String else {
             throw UsageError.message(L("The billing export has no data yet: it fills from the moment it is turned on"))
         }
-        let cost = number(values[2]) ?? 0
-        let credits = number(values[3]) ?? 0
+        // A null sum is no costs; anything else must be a finite number, or the poll fails and keeps the last data:
+        // an unreadable amount shown as 0 would hide a spent limit.
+        func amount(_ value: Any?) throws -> Double {
+            if value == nil || value is NSNull { return 0 }
+            guard let n = number(value) else { throw UsageError.message(L("unexpected response from BigQuery")) }
+            return n
+        }
+        let cost = try amount(values[2])
+        let credits = try amount(values[3])
         let spent = max(0, billing.net ? cost + credits : cost)
         let week = billing.period == .week
         var balances = [Balance(id: "gcloud-spent", title: week ? L("Spent this week") : L("Spent this month"),
@@ -386,12 +397,14 @@ public enum Parsers {
         return obj
     }
 
+    /// A finite number: `Double("NaN")` and `Double("inf")` parse, and `Int(_:)` of them traps when formatting.
     static func number(_ value: Any?) -> Double? {
-        switch value {
+        let parsed: Double? = switch value {
         case let n as NSNumber where !(n === kCFBooleanTrue || n === kCFBooleanFalse): n.doubleValue
         case let s as String: Double(s)
         default: nil
         }
+        return parsed.flatMap { $0.isFinite ? $0 : nil }
     }
 
     static func isoDate(_ value: Any?) -> Date? {
