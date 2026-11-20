@@ -56,6 +56,12 @@ import Testing
         #expect(throws: UsageError.self) {
             try Parsers.cloudBilling(answer("1", "0", "EUR", nil, complete: false), billing: billing, start: start, end: end)
         }
+        // An amount that is no finite number fails the poll instead of reading as 0, which would hide a spent limit.
+        for bad in ["Infinity", "NaN", "abc"] {
+            #expect(throws: UsageError.self) {
+                try Parsers.cloudBilling(answer(bad, "0", "EUR", nil), billing: billing, start: start, end: end)
+            }
+        }
         // EUR and USD exports in one dataset are never added up.
         #expect(throws: UsageError.self) {
             try Parsers.cloudBilling(answer("200", "0", "EUR", nil, currencies: "2"), billing: billing, start: start, end: end)

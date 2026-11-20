@@ -106,8 +106,9 @@ spending: usage percentage and reset time for each window, amounts as a balance 
     no script is downloaded. The automatic check runs at most once a day after a successful
     one (launch, settings change, popover opening; no timer of its own), can be turned off, and never runs in demo
     mode. `install.sh` quits the app with `pkill -a`: the app is the script's ancestor, and plain `pkill` skips it.
-    It checks a GitHub archive against the release's `SHA256SUMS` and copies the new app next to the old one
-    before replacing it, so a failed download or copy leaves the installed app in place.
+    It pins the tag of `latest` first, checks a GitHub archive against that release's `SHA256SUMS`, and copies
+    the new app into a folder of its own next to the old one before replacing it, so a failed download or copy
+    leaves the installed app in place.
 16. **The Revolver config changes only through `revo apply` after an explicit Apply**, preceded by
     `apply --check` whose diff the user confirms; the write sends the `config_rev` that was checked. The app
     never reads or writes revo's files and sends only edits by id (removed and added blocks, order,

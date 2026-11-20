@@ -12,12 +12,6 @@ REPO="igor-batrakov/agents-usage"
 APP="Agents Usage.app"
 DEST="${AGENTS_USAGE_DIR:-$HOME/Applications}"   # AGENTS_USAGE_DIR: another install folder
 VERSION="${AGENTS_USAGE_VERSION:-latest}"
-if [ "$VERSION" = latest ]; then
-    BASE="https://github.com/$REPO/releases/latest/download"
-else
-    BASE="https://github.com/$REPO/releases/download/$VERSION"
-fi
-URL="${AGENTS_USAGE_URL:-$BASE/Agents-Usage.zip}"   # AGENTS_USAGE_URL: another archive, e.g. file:// for testing
 
 fail() { echo "error: $*" >&2; exit 1; }
 
@@ -25,8 +19,20 @@ fail() { echo "error: $*" >&2; exit 1; }
 os=$(sw_vers -productVersion)
 [ "${os%%.*}" -ge 15 ] || fail "Agents Usage needs macOS 15 or later, this Mac has $os."
 
+if [ -z "${AGENTS_USAGE_URL:-}" ] && [ "$VERSION" = latest ]; then
+    # Pin the tag first: the archive and SHA256SUMS then come from one release, even if a newer one
+    # is published in between. GitHub redirects releases/latest to releases/tag/<tag>.
+    page=$(curl -fsSL --connect-timeout 15 --max-time 60 -o /dev/null -w '%{url_effective}' \
+        "https://github.com/$REPO/releases/latest") || fail "could not find the latest release"
+    VERSION="${page##*/}"
+    [[ "$VERSION" =~ ^v[0-9]+(\.[0-9]+){0,3}$ ]] || fail "unexpected latest release: $page"
+fi
+BASE="https://github.com/$REPO/releases/download/$VERSION"
+URL="${AGENTS_USAGE_URL:-$BASE/Agents-Usage.zip}"   # AGENTS_USAGE_URL: another archive, e.g. file:// for testing
+
 work=$(mktemp -d)
-trap 'rm -rf "$work"' EXIT
+new=""
+trap 'rm -rf "$work"; if [ -n "$new" ]; then rm -rf "$new"; fi' EXIT
 
 echo "Downloading Agents Usage ($VERSION)…"
 # A stalled download gives up (under 1 KB/s for 30 s) instead of hanging: the in-app updater waits for this script.
@@ -47,12 +53,12 @@ ditto -x -k "$work/Agents-Usage.zip" "$work"
 # script, the app is its ancestor, and pkill skips ancestors by default.
 pkill -a -x UsageWidget 2>/dev/null && sleep 1 || true
 mkdir -p "$DEST"
-# Copy next to the old app first (same volume): a failed copy leaves the installed one in place.
-new="$DEST/.$APP.new"
-rm -rf "$new"
-ditto "$work/$APP" "$new" || { rm -rf "$new"; fail "could not copy the app to $DEST"; }
+# Copy next to the old app first (same volume, a folder of this run only): a failed copy leaves the
+# installed one in place, and a second install running at the same time has its own folder.
+new=$(mktemp -d "$DEST/.agents-usage-install.XXXXXX")
+ditto "$work/$APP" "$new/$APP" || fail "could not copy the app to $DEST"
 rm -rf "${DEST:?}/$APP"
-mv "$new" "$DEST/$APP"
+mv "$new/$APP" "$DEST/$APP"
 # curl sets no quarantine flag; clear it anyway in case the zip arrived through a browser.
 xattr -dr com.apple.quarantine "$DEST/$APP" 2>/dev/null || true
 
