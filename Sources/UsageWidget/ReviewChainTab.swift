@@ -124,7 +124,8 @@ struct ReviewChainTab: View {
                     // The window does not resize: a long diff scrolls, a short one takes only its own height.
                     ScrollView {
                         VStack(alignment: .leading, spacing: 3) {
-                            ForEach(lines, id: \.self) { Text("• " + $0) }
+                            // By position: two new reviewers alike give the same line twice.
+                            ForEach(Array(lines.enumerated()), id: \.offset) { Text("• " + $0.element) }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -179,13 +180,17 @@ struct ReviewChainTab: View {
                     if settings.revoPath != nil {
                         Button(L("Default")) {
                             settings.revoPath = nil
-                            Task { await chain.reload() }
+                            Task {
+                                await chain.reload()
+                                // No revo in the default places: the tab is gone, do not stay on it.
+                                if !chain.isAvailable { settings.selectedTab = 0 }
+                            }
                         }
                         .buttonStyle(.link)
                     }
                 }
-                // A pending check would overwrite a newer choice.
-                .disabled(chain.searching)
+                // A pending check would overwrite a newer choice; a reload, check or write runs against this revo.
+                .disabled(chain.searching || chain.busy || !chain.editable)
                 if let error = chain.pathError {
                     Text(error).foregroundStyle(Color(nsColor: Theme.amber))
                 }

@@ -282,6 +282,7 @@
 "this service has no web page" = "у сервиса нет веб-страницы";
 "Open" = "Открыть";
 "Check" = "Проверить";
+"working: %@, %@" = "работает: %@, %@";
 "working: %d windows, %@" = "работает: окон %d, %@";
 "Billing export" = "Экспорт биллинга";
 "Dataset" = "Dataset";

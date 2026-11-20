@@ -282,6 +282,7 @@
 "this service has no web page" = "this service has no web page";
 "Open" = "Open";
 "Check" = "Check";
+"working: %@, %@" = "working: %@, %@";
 "working: %d windows, %@" = "working: %d windows, %@";
 "Billing export" = "Billing export";
 "Dataset" = "Dataset";
