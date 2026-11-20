@@ -43,7 +43,8 @@ spending: usage percentage and reset time for each window, amounts as a balance 
   a restart. The language list comes from the `*.lproj` directories found; `build.sh` fills `CFBundleLocalizations`.
   `tools/strings.py` collects the `L("…")` keys from the code and rebuilds `en.lproj` (the template for a new
   language); `LocalizationTests` checks the keys and `%@`/`%d`.
-- Roadmap: [docs/plan-v2.md](docs/plan-v2.md).
+- Decisions of the v2 stages (done) and open ideas: [docs/plan-v2.md](docs/plan-v2.md). What each release changed:
+  `docs/release-notes/`.
 - Fixtures in `Tests/UsageCoreTests/Fixtures` are real API responses, anonymized (no tokens, no account ids).
 
 ## Data sources: undocumented, may change
@@ -107,16 +108,17 @@ spending: usage percentage and reset time for each window, amounts as a balance 
 16. **The Revolver config changes only through `revo apply` after an explicit Apply**, preceded by
     `apply --check` whose diff the user confirms; the write sends the `config_rev` that was checked. The app
     never reads or writes revo's files and sends only edits by id (removed and added blocks, order,
-    `on`/`model`/`effort`/`role`/`takes_over`/`project`, settings), so fields it does not know survive; with any edit it
-    sends every block's role, so revo writes derived roles into the file. A chain revo accepts is never
-    blocked: missing required reviewers and fallbacks that never run are warnings. revo runs only on demand: tab opening, Apply, popover opening (at most
-    every 15 s), the Update model lists button (app launch and tab opening run `models` without `--refresh`: only
-    lists older than a day; it never blocks editing and never touches the draft). A model change moves the effort
-    to the nearest one the model takes (`model_efforts`, else `default_efforts`; revo refuses it otherwise): a
-    model picked from the menu at once, a typed one at Apply; a model in `unavailable` is
-    marked, never replaced; a model in `unusable` (no effort revo passes, refused as `invalid_effort`) is marked,
-    takes no `default_efforts`, and as a new or changed model holds Apply back (once `engines`, read again at that
-    Apply, still lists it); from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
-    keeps the previous chain and limits and only shows the error. A path is kept as `revoPath` only after
+    `on`/`model`/`effort`/`role`/`takes_over`/`project`, settings), so fields it does not know survive; with any
+    edit it sends every block's role, so revo writes derived roles into the file. A chain revo accepts is never
+    blocked: missing required reviewers and fallbacks that never run are warnings. revo runs only on demand (tab
+    opening, Apply, popover opening at most every 15 s, the Update model lists button; app launch and tab opening
+    run `models` without `--refresh`, which fetches only lists older than a day, never blocks editing and never
+    touches the draft), from `/` so a project's `.revolver.json` does not apply, and never in demo mode.
+    A model change moves the effort to the nearest one the model takes (`model_efforts`, else `default_efforts`;
+    revo refuses it otherwise): a model picked from the menu at once, a typed one at Apply. A model in
+    `unavailable` is marked, never replaced. A model in `unusable` (no effort revo passes, refused as
+    `invalid_effort`) is marked, takes no `default_efforts`, and as a new or changed model holds Apply back once
+    `engines`, read again at that Apply, still lists it. A failed call keeps the previous chain and limits and
+    only shows the error. A path is kept as `revoPath` only after
     `version --json` passes. The one exception to invariant 7: while revo is not found, the settings window
     asks the login shell (`$SHELL -l -i -c 'command -v revo'`, stdin closed, 5 s timeout) once per launch.

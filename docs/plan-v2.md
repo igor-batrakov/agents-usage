@@ -1,6 +1,13 @@
 # Plan v2: services, settings, panel
 
-Three stages, one PR each: foundation, additions, new vendors.
+Three stages, one PR each: foundation, additions, new vendors. All three are done; this file keeps the decisions
+behind them. Later work (updates, the Review chain tab, Google Cloud spending) is described in `AGENTS.md` and the
+release notes in `docs/release-notes/`.
+
+## Open ideas
+
+Not planned yet: release signing with a Developer ID, a forecast of when a window runs out, new services (GLM,
+MiniMax, Windsurf).
 
 ## Decisions
 
