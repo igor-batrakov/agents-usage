@@ -114,7 +114,8 @@ spending: usage percentage and reset time for each window, amounts as a balance 
     lists older than a day; it never blocks editing and never touches the draft). A model change moves the effort
     to the nearest one the model takes (`model_efforts`, else `default_efforts`; revo refuses it otherwise): a
     model picked from the menu at once, a typed one at Apply; a model in `unavailable` is
-    marked, never replaced; from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
+    marked, never replaced; a model in `unusable` (no effort revo passes, refused as `invalid_effort`) is marked,
+    takes no `default_efforts`, and as a new or changed model holds Apply back; from `/`, so a project's `.revolver.json` does not apply; never in demo mode. A failed call
     keeps the previous chain and limits and only shows the error. A path is kept as `revoPath` only after
     `version --json` passes. The one exception to invariant 7: while revo is not found, the settings window
     asks the login shell (`$SHELL -l -i -c 'command -v revo'`, stdin closed, 5 s timeout) once per launch.

@@ -122,6 +122,22 @@ import Testing
         #expect(engine.effort("low", for: "top") == "max")
         #expect(engine.effort("unknown", for: "mid") == "xhigh")  // off the scale: as a new block, the last one
         #expect(engine.effort("high", for: "odd") == "turbo")  // nothing on the scale: the model's last one
+        #expect(engine.unusable.isEmpty)  // an older revo
+    }
+
+    /// A model with no effort revo passes gets no efforts, not `default_efforts`; its effort is left as it is.
+    @Test func unusableModelHasNoEfforts() throws {
+        let json = #"""
+            {"name": "codex", "display": "Codex", "efforts": ["low", "medium", "high", "xhigh", "max"],
+             "models": ["default", "gpt-a"], "model_efforts": {"gpt-a": ["low", "high"]}, "unusable": ["gpt-mini"],
+             "default_efforts": ["low", "medium", "high", "xhigh", "max"], "custom_model": true, "installed": true}
+            """#
+        let engine = try JSONDecoder().decode(RevoEngine.self, from: Data(json.utf8))
+        #expect(engine.unusable == ["gpt-mini"])
+        #expect(engine.efforts(for: "gpt-mini").isEmpty)
+        #expect(engine.effort("high", for: "gpt-mini") == "high")
+        #expect(engine.efforts(for: "gpt-typed") == engine.defaultEfforts)
+        #expect(engine.efforts(for: "gpt-a") == ["low", "high"])
     }
 
     @Test func vertexProjectIsParsedEditedAndSent() throws {

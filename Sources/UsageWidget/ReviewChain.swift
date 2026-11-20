@@ -67,6 +67,20 @@ final class ReviewChain {
 
     var hasEdits: Bool { !edits.isEmpty }
 
+    /// The block's model has no effort revo passes (`unusable`): revo would refuse the write (`invalid_effort`).
+    func isUnusable(_ block: RevoBlock) -> Bool {
+        engines[block.engine]?.unusable.contains(block.model) == true
+    }
+
+    /// A new block or a changed model that revo would refuse holds Apply back. An applied block keeping its model is
+    /// only marked: the write does not send its model, and the user may be fixing something else first.
+    var blocksApply: Bool {
+        guard let draft else { return false }
+        return draft.blocks.contains { block in
+            isUnusable(block) && loaded?.chain.first(where: { $0.id == block.id })?.model != block.model
+        }
+    }
+
     /// Editing waits for the check and its confirmation: the draft then is exactly what gets written, and after
     /// the write the chain is taken as revo reports it.
     var editable: Bool { preview == nil && !checking }
@@ -362,7 +376,7 @@ final class ReviewChain {
 
     /// Apply, step one: revo validates the edits and reports what will change; nothing is written.
     func check() async {
-        guard let path, let loaded, hasEdits, !busy else { return }
+        guard let path, let loaded, hasEdits, !blocksApply, !busy else { return }
         fitEfforts(loaded)
         if Demo.isOn {
             applyInDemo()
@@ -500,7 +514,11 @@ final class ReviewChain {
         // `active` is as of the last reload; the tab may stay open past the reset.
         if let until = loaded?.limit(block.id, now: now) { warnings.append(L("limit, resets %@", Format.resetIn(until, now: now))) }
         if engines[block.engine]?.installed == false { warnings.append(L("CLI not found")) }
-        if let engine = engines[block.engine], !engine.accepts(block.model) { warnings.append(L("invalid model name")) }
+        if isUnusable(block) {
+            warnings.append(L("model has no effort levels revo passes"))
+        } else if let engine = engines[block.engine], !engine.accepts(block.model) {
+            warnings.append(L("invalid model name"))
+        }
         if let project = block.project, let engine = engines[block.engine], !engine.acceptsProject(project) {
             warnings.append(L("invalid project ID"))
         }
