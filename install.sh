@@ -32,7 +32,8 @@ URL="${AGENTS_USAGE_URL:-$BASE/Agents-Usage.zip}"   # AGENTS_USAGE_URL: another 
 
 work=$(mktemp -d)
 new=""
-trap 'rm -rf "$work"; if [ -n "$new" ]; then rm -rf "$new"; fi' EXIT
+locked=""
+trap 'rm -rf "$work"; if [ -n "$new" ]; then rm -rf "$new"; fi; if [ -n "$locked" ]; then rm -f "$lock"; fi' EXIT
 
 echo "Downloading Agents Usage ($VERSION)…"
 # A stalled download gives up (under 1 KB/s for 30 s) instead of hanging: the in-app updater waits for this script.
@@ -49,12 +50,20 @@ fi
 ditto -x -k "$work/Agents-Usage.zip" "$work"
 [ -d "$work/$APP" ] || fail "the archive has no $APP"
 
+mkdir -p "$DEST"
+# One install at a time replaces the app: a second one waits (up to a minute), otherwise its `mv` could land
+# inside the bundle the first one just put there. shlock takes over a lock whose process is gone.
+lock="$DEST/.agents-usage-install.lock"
+for _ in $(seq 120); do
+    if shlock -f "$lock" -p $$; then locked=1; break; fi
+    sleep 0.5
+done
+[ -n "$locked" ] || fail "another install into $DEST is still running"
+
 # A running copy keeps the old binary; quit it before replacing. -a: when the app's updater runs this
 # script, the app is its ancestor, and pkill skips ancestors by default.
 pkill -a -x UsageWidget 2>/dev/null && sleep 1 || true
-mkdir -p "$DEST"
-# Copy next to the old app first (same volume, a folder of this run only): a failed copy leaves the
-# installed one in place, and a second install running at the same time has its own folder.
+# Copy next to the old app first (same volume): a failed copy leaves the installed one in place.
 new=$(mktemp -d "$DEST/.agents-usage-install.XXXXXX")
 ditto "$work/$APP" "$new/$APP" || fail "could not copy the app to $DEST"
 rm -rf "${DEST:?}/$APP"
