@@ -51,23 +51,30 @@ ditto -x -k "$work/Agents-Usage.zip" "$work"
 [ -d "$work/$APP" ] || fail "the archive has no $APP"
 
 mkdir -p "$DEST"
-# One install at a time replaces the app: a second one waits, otherwise its `mv` could land inside the bundle
-# the first one just put there. shlock takes over a lock whose process is gone. The lock is a courtesy, never a
-# reason not to install: with no lock file made (no hard links on the volume, no write access) it goes on at
-# once, and after a minute it goes on anyway (the lock's PID may belong to another process by now).
+# Copy next to the old app first (same volume, a folder of this run only), while the old one still runs:
+# a folder we cannot write to or a failed copy stops here, with the installed app untouched and running.
+new=$(mktemp -d "$DEST/.agents-usage-install.XXXXXX") || fail "cannot write to $DEST"
+ditto "$work/$APP" "$new/$APP" || fail "could not copy the app to $DEST"
+
+# One install at a time replaces the app: otherwise a second one's `mv` could land inside the bundle the first
+# one just put there. shlock takes over a lock whose process is gone; a lock file that vanished between two
+# tries was just released, so it is tried again. Only where shlock never gets a lock file down (no hard links on
+# the volume, e.g. exFAT) does the install go on without one.
 lock="$DEST/.agents-usage-install.lock"
+missing=0
 for _ in $(seq 120); do
     if shlock -f "$lock" -p $$ 2>/dev/null; then locked=1; break; fi
-    [ -e "$lock" ] || break
+    if [ -e "$lock" ]; then missing=0; else missing=$((missing + 1)); fi
+    [ "$missing" -lt 3 ] || break
     sleep 0.5
 done
+if [ -z "$locked" ] && [ -e "$lock" ]; then
+    fail "another install into $DEST is still running; if there is none, delete $lock and try again"
+fi
 
 # A running copy keeps the old binary; quit it before replacing. -a: when the app's updater runs this
 # script, the app is its ancestor, and pkill skips ancestors by default.
 pkill -a -x UsageWidget 2>/dev/null && sleep 1 || true
-# Copy next to the old app first (same volume): a failed copy leaves the installed one in place.
-new=$(mktemp -d "$DEST/.agents-usage-install.XXXXXX")
-ditto "$work/$APP" "$new/$APP" || fail "could not copy the app to $DEST"
 rm -rf "${DEST:?}/$APP"
 mv "$new/$APP" "$DEST/$APP"
 # curl sets no quarantine flag; clear it anyway in case the zip arrived through a browser.

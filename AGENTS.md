@@ -108,8 +108,9 @@ spending: usage percentage and reset time for each window, amounts as a balance 
     mode. `install.sh` quits the app with `pkill -a`: the app is the script's ancestor, and plain `pkill` skips it.
     It pins the tag of `latest` first, checks a GitHub archive against that release's `SHA256SUMS`, and copies
     the new app into a folder of its own next to the old one before replacing it, so a failed download or copy
-    leaves the installed app in place. The replacement runs under a `shlock` lock in the install folder: a second
-    install waits for it, up to a minute; where no lock can be made it goes on without one.
+    leaves the installed app in place. The copy is made before the running app is quit. The replacement runs
+    under a `shlock` lock in the install folder: a second install waits for it, up to a minute, then fails with
+    the lock's path; only where shlock can make no lock file at all (no hard links) it goes on without one.
 16. **The Revolver config changes only through `revo apply` after an explicit Apply**, preceded by
     `apply --check` whose diff the user confirms; the write sends the `config_rev` that was checked. The app
     never reads or writes revo's files and sends only edits by id (removed and added blocks, order,
