@@ -154,6 +154,7 @@
 "No executable file at %@" = "No executable file at %@";
 "This is not revo, or a revo too old for the app. Update it: %@" = "This is not revo, or a revo too old for the app. Update it: %@";
 "default (gcloud)" = "default (gcloud)";
+"A reviewer has a model revo cannot use: choose another one." = "A reviewer has a model revo cannot use: choose another one.";
 "default" = "default";
 "limit, resets %@" = "limit, resets %@";
 "CLI not found" = "CLI not found";
@@ -206,7 +207,6 @@
 "Apply" = "Apply";
 "Revert" = "Revert";
 "Apply…" = "Apply…";
-"A reviewer has a model revo cannot use: choose another one." = "A reviewer has a model revo cannot use: choose another one.";
 "Built-in chain. Apply creates %@" = "Built-in chain. Apply creates %@";
 "Edits %@" = "Edits %@";
 "Choose…" = "Choose…";

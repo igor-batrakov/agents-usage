@@ -154,6 +154,7 @@
 "No executable file at %@" = "По пути %@ нет исполняемого файла";
 "This is not revo, or a revo too old for the app. Update it: %@" = "Это не revo или слишком старая для приложения версия. Обновите её: %@";
 "default (gcloud)" = "по умолчанию (gcloud)";
+"A reviewer has a model revo cannot use: choose another one." = "У одного из ревьюеров модель, которую revo не может использовать: выберите другую.";
 "default" = "по умолчанию";
 "limit, resets %@" = "лимит, сброс %@";
 "CLI not found" = "CLI не найден";
@@ -206,7 +207,6 @@
 "Apply" = "Применить";
 "Revert" = "Вернуть как было";
 "Apply…" = "Применить…";
-"A reviewer has a model revo cannot use: choose another one." = "У одного из ревьюеров модель, которую revo не может использовать: выберите другую.";
 "Built-in chain. Apply creates %@" = "Встроенная цепочка. «Применить» создаст %@";
 "Edits %@" = "Изменения пишутся в %@";
 "Choose…" = "Выбрать…";
