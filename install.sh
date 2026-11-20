@@ -51,14 +51,16 @@ ditto -x -k "$work/Agents-Usage.zip" "$work"
 [ -d "$work/$APP" ] || fail "the archive has no $APP"
 
 mkdir -p "$DEST"
-# One install at a time replaces the app: a second one waits (up to a minute), otherwise its `mv` could land
-# inside the bundle the first one just put there. shlock takes over a lock whose process is gone.
+# One install at a time replaces the app: a second one waits, otherwise its `mv` could land inside the bundle
+# the first one just put there. shlock takes over a lock whose process is gone. The lock is a courtesy, never a
+# reason not to install: with no lock file made (no hard links on the volume, no write access) it goes on at
+# once, and after a minute it goes on anyway (the lock's PID may belong to another process by now).
 lock="$DEST/.agents-usage-install.lock"
 for _ in $(seq 120); do
-    if shlock -f "$lock" -p $$; then locked=1; break; fi
+    if shlock -f "$lock" -p $$ 2>/dev/null; then locked=1; break; fi
+    [ -e "$lock" ] || break
     sleep 0.5
 done
-[ -n "$locked" ] || fail "another install into $DEST is still running"
 
 # A running copy keeps the old binary; quit it before replacing. -a: when the app's updater runs this
 # script, the app is its ancestor, and pkill skips ancestors by default.
